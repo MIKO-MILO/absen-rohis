@@ -1,0 +1,494 @@
+"use client"
+
+import { AdminShell } from "../_components/AdminShell"
+import { useRouter } from "next/navigation"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  Users,
+  UserCheck,
+  HeartPulse,
+  XCircle,
+  QrCode,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+} from "lucide-react"
+
+// ─── Dummy data ───────────────────────────────────────────────────────────────
+const WEEKLY = [
+  { hari: "Sen", hadir: 28, Haid: 4, tidak: 3 },
+  { hari: "Sel", hadir: 31, Haid: 2, tidak: 2 },
+  { hari: "Rab", hadir: 25, Haid: 6, tidak: 4 },
+  { hari: "Kam", hadir: 33, Haid: 1, tidak: 1 },
+  { hari: "Jum", hadir: 29, Haid: 3, tidak: 3 },
+]
+
+const RECENT_ABSEN = [
+  {
+    id: 1,
+    nama: "Aretha Safira P.",
+    kelas: "X RPL C",
+    waktu: "12:03",
+    status: "hadir",
+    avatar: "11",
+  },
+  {
+    id: 2,
+    nama: "Muhammad Fajar",
+    kelas: "X RPL A",
+    waktu: "12:05",
+    status: "hadir",
+    avatar: "12",
+  },
+  {
+    id: 3,
+    nama: "Siti Nurhaliza",
+    kelas: "XI IPA 2",
+    waktu: "12:22",
+    status: "Haid",
+    avatar: "13",
+  },
+  {
+    id: 4,
+    nama: "Dewi Rahayu",
+    kelas: "XII RPL B",
+    waktu: "12:08",
+    status: "hadir",
+    avatar: "15",
+  },
+  {
+    id: 5,
+    nama: "Nurul Hidayah",
+    kelas: "XI IPA 1",
+    waktu: "12:11",
+    status: "hadir",
+    avatar: "17",
+  },
+]
+
+const KELAS_DATA = [
+  { kelas: "X RPL A", total: 32, hadir: 28, pct: 88 },
+  { kelas: "X RPL C", total: 30, hadir: 27, pct: 90 },
+  { kelas: "XI IPA 1", total: 34, hadir: 25, pct: 74 },
+  { kelas: "XI IPS 2", total: 28, hadir: 20, pct: 71 },
+  { kelas: "XII RPL B", total: 30, hadir: 29, pct: 97 },
+]
+
+const STATUS_BADGE: Record<string, string> = {
+  hadir: "bg-teal-50 text-teal-700 border-teal-200",
+  Haid: "bg-blue-50 text-blue-600 border-blue-200",
+}
+
+// ─── Line Chart ───────────────────────────────────────────────────────────────
+const CHART_W = 400
+const CHART_H = 120
+const PAD_X = 10
+const PAD_Y = 10
+
+function toPoints(values: number[], max: number): string {
+  return values
+    .map((v, i) => {
+      const x = PAD_X + (i / (values.length - 1)) * (CHART_W - PAD_X * 2)
+      const y = PAD_Y + (1 - v / max) * (CHART_H - PAD_Y * 2)
+      return `${x},${y}`
+    })
+    .join(" ")
+}
+
+function toAreaPath(values: number[], max: number): string {
+  const pts = values.map((v, i) => {
+    const x = PAD_X + (i / (values.length - 1)) * (CHART_W - PAD_X * 2)
+    const y = PAD_Y + (1 - v / max) * (CHART_H - PAD_Y * 2)
+    return `${x},${y}`
+  })
+  const bottom = CHART_H - PAD_Y
+  return `M ${pts[0]} L ${pts.join(" L ")} L ${PAD_X + CHART_W - PAD_X * 2},${bottom} L ${PAD_X},${bottom} Z`
+}
+
+function LineChart() {
+  const allVals = WEEKLY.flatMap((d) => [d.hadir, d.Haid, d.tidak])
+  const max = Math.max(...allVals) + 4
+
+  const hadirPts = WEEKLY.map((d) => d.hadir)
+  const HaidPts = WEEKLY.map((d) => d.Haid)
+  const tidakPts = WEEKLY.map((d) => d.tidak)
+
+  const lines = [
+    {
+      values: hadirPts,
+      stroke: "#0d9488",
+      fill: "url(#fillHadir)",
+      id: "fillHadir",
+      c1: "#2dd4bf",
+      c2: "#0d9488",
+    },
+    {
+      values: HaidPts,
+      stroke: "#3b82f6",
+      fill: "url(#fillHaid)",
+      id: "fillHaid",
+      c1: "#d97706",
+      c2: "#3b82f6",
+    },
+    {
+      values: tidakPts,
+      stroke: "#f87171",
+      fill: "url(#fillTidak)",
+      id: "fillTidak",
+      c1: "#fca5a5",
+      c2: "#f87171",
+    },
+  ]
+
+  return (
+    <svg
+      viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+      className="w-full"
+      style={{ height: 120 }}
+      preserveAspectRatio="none"
+    >
+      <defs>
+        {lines.map(({ id, c1, c2 }) => (
+          <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={c1} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={c2} stopOpacity="0.02" />
+          </linearGradient>
+        ))}
+      </defs>
+
+      {/* Horizontal grid lines */}
+      {[0.25, 0.5, 0.75].map((r) => (
+        <line
+          key={r}
+          x1={PAD_X}
+          y1={PAD_Y + (1 - r) * (CHART_H - PAD_Y * 2)}
+          x2={CHART_W - PAD_X}
+          y2={PAD_Y + (1 - r) * (CHART_H - PAD_Y * 2)}
+          stroke="#f1f5f9"
+          strokeWidth="1"
+        />
+      ))}
+
+      {/* Area fills */}
+      {lines.map(({ values, fill, id }) => (
+        <path key={`area-${id}`} d={toAreaPath(values, max)} fill={fill} />
+      ))}
+
+      {/* Lines */}
+      {lines.map(({ values, stroke, id }) => (
+        <polyline
+          key={`line-${id}`}
+          points={toPoints(values, max)}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ))}
+
+      {/* Dots */}
+      {lines.map(({ values, stroke, id }) =>
+        values.map((v, i) => {
+          const x = PAD_X + (i / (values.length - 1)) * (CHART_W - PAD_X * 2)
+          const y = PAD_Y + (1 - v / max) * (CHART_H - PAD_Y * 2)
+          return (
+            <circle
+              key={`dot-${id}-${i}`}
+              cx={x}
+              cy={y}
+              r="3"
+              fill="white"
+              stroke={stroke}
+              strokeWidth="2"
+            />
+          )
+        })
+      )}
+    </svg>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+export default function DashboardPage() {
+  const router = useRouter()
+
+  const today = WEEKLY[WEEKLY.length - 1]
+  const yesterday = WEEKLY[WEEKLY.length - 2]
+  const totalToday = today.hadir + today.Haid + today.tidak
+  const hadirPct = Math.round((today.hadir / totalToday) * 100)
+  const trendUp = today.hadir >= yesterday.hadir
+
+  return (
+    <AdminShell>
+      <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
+        {/* ── Greeting banner ── */}
+        <div
+          className="relative flex items-center justify-between overflow-hidden rounded-2xl p-5"
+          style={{
+            background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "-30px",
+              right: "-30px",
+              width: "140px",
+              height: "140px",
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.07)",
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              bottom: "-20px",
+              left: "40%",
+              width: "90px",
+              height: "90px",
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.05)",
+            }}
+          />
+          <div className="relative z-10">
+            <p className="text-xs text-teal-100">Selamat datang kembali 👋</p>
+            <h2 className="mt-0.5 text-xl font-black text-white">
+              Ustadz Hasan
+            </h2>
+            <p className="mt-1 text-xs text-teal-200">
+              {new Date().toLocaleDateString("id-ID", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          </div>
+          <Button
+            onClick={() => router.push("/admin/generate-qr")}
+            className="relative z-10 h-9 flex-shrink-0 rounded-xl border border-white/30 bg-white/20 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
+          >
+            <QrCode className="mr-1.5 h-3.5 w-3.5" />
+            Generate QR
+          </Button>
+        </div>
+
+        {/* ── Summary cards ── */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            {
+              label: "Total Siswa",
+              value: 35,
+              sub: "+2 bulan ini",
+              icon: Users,
+              color: "text-slate-600",
+              bg: "bg-white border-slate-100",
+              iconBg: "bg-slate-50",
+              trend: null,
+            },
+            {
+              label: "Hadir Hari Ini",
+              value: today.hadir,
+              sub: `${hadirPct}% kehadiran`,
+              icon: UserCheck,
+              color: "text-teal-600",
+              bg: "bg-white border-teal-50",
+              iconBg: "bg-teal-50",
+              trend: trendUp,
+            },
+            {
+              label: "Haid",
+              value: today.Haid,
+              sub: "hari ini",
+              icon: HeartPulse,
+              color: "text-amber-600",
+              bg: "bg-white border-amber-50",
+              iconBg: "bg-amber-50",
+              trend: null,
+            },
+            {
+              label: "Tidak Hadir",
+              value: today.tidak,
+              sub: "hari ini",
+              icon: XCircle,
+              color: "text-red-500",
+              bg: "bg-white border-red-50",
+              iconBg: "bg-red-50",
+              trend: null,
+            },
+          ].map(
+            ({ label, value, sub, icon: Icon, color, bg, iconBg, trend }) => (
+              <div
+                key={label}
+                className={`flex flex-col gap-2 rounded-2xl border px-4 py-4 shadow-sm ${bg}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
+                  >
+                    <Icon className={`h-4 w-4 ${color}`} />
+                  </div>
+                  {trend !== null &&
+                    (trend ? (
+                      <TrendingUp className="h-3.5 w-3.5 text-teal-500" />
+                    ) : (
+                      <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+                    ))}
+                </div>
+                <div>
+                  <p className={`text-2xl leading-none font-black ${color}`}>
+                    {value}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">{label}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {/* ── Line chart mingguan ── */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  Kehadiran Minggu Ini
+                </h3>
+                <p className="text-xs text-slate-400">Sholat Dzuhur</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {[
+                  { label: "Hadir", color: "bg-teal-500" },
+                  { label: "Haid", color: "bg-blue-400" },
+                  { label: "Tidak Hadir", color: "bg-red-400" },
+                ].map(({ label, color }) => (
+                  <div
+                    key={label}
+                    className="flex items-center gap-1 text-[10px] text-slate-500"
+                  >
+                    <div className={`h-2 w-2 rounded-full ${color}`} />
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Chart area */}
+            <div className="w-full">
+              <LineChart />
+            </div>
+
+            {/* X-axis labels */}
+            <div className="mt-1 flex justify-between px-2">
+              {WEEKLY.map((d) => (
+                <span
+                  key={d.hari}
+                  className="flex-1 text-center text-[10px] font-medium text-slate-400"
+                >
+                  {d.hari}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Per kelas ── */}
+          <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Per Kelas</h3>
+              <p className="text-xs text-slate-400">Tingkat kehadiran</p>
+            </div>
+            <div className="flex flex-col gap-3.5">
+              {KELAS_DATA.map((k) => (
+                <div key={k.kelas}>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700">
+                      {k.kelas}
+                    </span>
+                    <span
+                      className={`text-xs font-bold ${k.pct >= 85 ? "text-teal-600" : k.pct >= 70 ? "text-amber-500" : "text-red-500"}`}
+                    >
+                      {k.pct}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${k.pct}%`,
+                        background:
+                          k.pct >= 85
+                            ? "linear-gradient(90deg,#2dd4bf,#06b6d4)"
+                            : k.pct >= 70
+                              ? "linear-gradient(90deg,#fbbf24,#f59e0b)"
+                              : "linear-gradient(90deg,#f87171,#ef4444)",
+                      }}
+                    />
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-slate-400">
+                    {k.hadir}/{k.total} hadir
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Absen terbaru ── */}
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-50 px-5 pt-4 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">
+                Absen Terbaru
+              </h3>
+              <p className="text-xs text-slate-400">Aktivitas hari ini</p>
+            </div>
+            <button
+              onClick={() => router.push("/admin/absen")}
+              className="flex items-center gap-1 text-xs font-semibold text-teal-600 hover:underline"
+            >
+              Lihat semua <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {RECENT_ABSEN.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50/60"
+              >
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarImage
+                    src={`https://i.pravatar.cc/100?img=${r.avatar}`}
+                  />
+                  <AvatarFallback className="bg-teal-100 text-xs font-bold text-teal-700">
+                    {r.nama.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-800">
+                    {r.nama}
+                  </p>
+                  <p className="text-xs text-slate-400">{r.kelas}</p>
+                </div>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <span className="text-xs text-slate-400">{r.waktu}</span>
+                  <Badge
+                    variant="outline"
+                    className={`rounded-lg border px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE[r.status]}`}
+                  >
+                    {r.status === "hadir" ? "Hadir" : "Haid"}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </AdminShell>
+  )
+}
