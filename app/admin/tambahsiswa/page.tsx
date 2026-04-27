@@ -240,10 +240,40 @@ function ManualForm({
 
   const handleSubmit = async () => {
     if (!validate()) return
+
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 1000))
-    setLoading(false)
-    onSuccess()
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nama: form.nama,
+          nis: Number(form.nis), // ⚠️ penting: harus number
+          kelas: form.kelas,
+          jenis_kelamin: form.jenisKelamin, // ⚠️ sesuaikan nama DB
+          email: `${form.nis}@school.id`, // sementara auto
+          password: "123456", // sementara (nanti bisa diubah)
+        }),
+      })
+
+      const result = await res.json()
+
+      if (!res.ok) {
+        console.error(result)
+        alert(result.error || "Gagal menyimpan")
+        return
+      }
+
+      // sukses
+      onSuccess()
+    } catch (err) {
+      console.error(err)
+      alert("Terjadi kesalahan")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -270,7 +300,7 @@ function ManualForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-black">
+          <div className="grid grid-cols-1 gap-4 text-black sm:grid-cols-2">
             {/* ✅ Field dipanggil sebagai komponen biasa, bukan didefinisikan di dalam sini */}
             <Field
               label="Nama Lengkap"

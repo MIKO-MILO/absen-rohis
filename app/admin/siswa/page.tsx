@@ -1,83 +1,65 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { AdminShell } from "../_components/AdminShell"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
   Users,
-  QrCode,
-  ClipboardList,
   Search,
-  Clock,
-  XCircle,
-  UserCheck,
   MoreHorizontal,
   Eye,
   Trash2,
   ChevronLeft,
   ChevronRight,
-  FileSpreadsheet,
-  Download,
   Filter,
   X,
-  TrendingUp,
-  CalendarDays,
-  RefreshCw,
-  CheckCircle2,
   Plus,
+  Pencil,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import * as XLSX from "xlsx"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AbsenStatus = "hadir" | "Haid" | "tidak_hadir" | "Haid"
+type AbsenStatus = "hadir" | "Haid" | "tidak_hadir"
 
-interface SiswaRecord {
+// Sesuai Table users
+interface UserRecord {
   id: number
   nama: string
-  nis: string
   kelas: string
+  jenis_kelamin: string
+  nis: number
+  email: string
+  password: string
+  created_at: string
   avatar: string
-  waktu: string
-  status: AbsenStatus
-  tanggal: string
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const STATUS_META: Record<
   AbsenStatus,
-  { label: string; dot: string; badge: string; color: string; bg: string }
+  { label: string; dot: string; badge: string }
 > = {
   hadir: {
     label: "Hadir",
     dot: "bg-teal-400",
     badge: "bg-teal-50 text-teal-700 border-teal-200",
-    color: "#0d9488",
-    bg: "rgba(13,148,136,0.08)",
   },
   Haid: {
     label: "Haid",
     dot: "bg-amber-400",
     badge: "bg-amber-50 text-amber-600 border-amber-200",
-    color: "#d97706",
-    bg: "rgba(217,119,6,0.08)",
   },
   tidak_hadir: {
     label: "Tidak Hadir",
     dot: "bg-red-400",
     badge: "bg-red-50 text-red-500 border-red-200",
-    color: "#ef4444",
-    bg: "rgba(239,68,68,0.08)",
   },
 }
 
@@ -93,191 +75,7 @@ const KELAS_LIST = [
   "XI RPL A",
 ]
 
-// ─── Dummy data ───────────────────────────────────────────────────────────────
-const SISWA_DATA: SiswaRecord[] = [
-  {
-    id: 1,
-    nama: "Aretha Safira P.",
-    nis: "22001",
-    kelas: "X RPL C",
-    avatar: "11",
-    waktu: "12:03",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 2,
-    nama: "Muhammad Fajar",
-    nis: "22002",
-    kelas: "X RPL A",
-    avatar: "12",
-    waktu: "12:05",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 3,
-    nama: "Siti Nurhaliza",
-    nis: "22003",
-    kelas: "XI IPA 2",
-    avatar: "13",
-    waktu: "12:22",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 4,
-    nama: "Budi Santoso",
-    nis: "22004",
-    kelas: "XI IPS 1",
-    avatar: "14",
-    waktu: "—",
-    status: "tidak_hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 5,
-    nama: "Dewi Rahayu",
-    nis: "22005",
-    kelas: "XII RPL B",
-    avatar: "15",
-    waktu: "12:08",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 6,
-    nama: "Ahmad Zainuddin",
-    nis: "22006",
-    kelas: "X RPL B",
-    avatar: "16",
-    waktu: "—",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 7,
-    nama: "Nurul Hidayah",
-    nis: "22007",
-    kelas: "XI IPA 1",
-    avatar: "17",
-    waktu: "12:11",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 8,
-    nama: "Rizky Pratama",
-    nis: "22008",
-    kelas: "XII IPS 2",
-    avatar: "18",
-    waktu: "12:30",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 9,
-    nama: "Fatimah Az-Zahra",
-    nis: "22009",
-    kelas: "X RPL C",
-    avatar: "19",
-    waktu: "12:04",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 10,
-    nama: "Hendra Kurniawan",
-    nis: "22010",
-    kelas: "XI RPL A",
-    avatar: "20",
-    waktu: "—",
-    status: "tidak_hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 11,
-    nama: "Reza Maulana",
-    nis: "22011",
-    kelas: "XII RPL B",
-    avatar: "22",
-    waktu: "12:15",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 12,
-    nama: "Putri Ayu Lestari",
-    nis: "22012",
-    kelas: "XI IPS 1",
-    avatar: "25",
-    waktu: "—",
-    status: "tidak_hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 13,
-    nama: "Fadhil Rahmatullah",
-    nis: "22013",
-    kelas: "X RPL C",
-    avatar: "27",
-    waktu: "12:19",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 14,
-    nama: "Zahra Fitria",
-    nis: "22014",
-    kelas: "XI IPA 1",
-    avatar: "30",
-    waktu: "12:31",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 15,
-    nama: "Bagas Setiawan",
-    nis: "22015",
-    kelas: "X RPL A",
-    avatar: "32",
-    waktu: "12:07",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 16,
-    nama: "Nabilah Azzahra",
-    nis: "22016",
-    kelas: "XI IPS 1",
-    avatar: "35",
-    waktu: "—",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 17,
-    nama: "Irfan Hakim",
-    nis: "22017",
-    kelas: "XII RPL B",
-    avatar: "38",
-    waktu: "12:04",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 18,
-    nama: "Salwa Oktavia",
-    nis: "22018",
-    kelas: "XI IPA 2",
-    avatar: "41",
-    waktu: "12:13",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-]
-
-const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir", "Haid"] as const
+const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir"] as const
 type Tab = (typeof TABS)[number]
 
 const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
@@ -287,41 +85,47 @@ const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
   "Tidak Hadir": "tidak_hadir",
 }
 
-// ─── Export to XLSX ───────────────────────────────────────────────────────────
-function exportToExcel(data: SiswaRecord[], filename = "Absensi-Dzuhur") {
-  const rows = data.map((s, i) => ({
-    No: i + 1,
-    NIS: s.nis,
-    "Nama Siswa": s.nama,
-    Kelas: s.kelas,
-    Tanggal: s.tanggal,
-    "Waktu Absen": s.waktu === "—" ? "" : `${s.waktu} WIB`,
-    Status: STATUS_META[s.status].label,
-  }))
-
-  const ws = XLSX.utils.json_to_sheet(rows)
-
-  // Column widths
-  ws["!cols"] = [
-    { wch: 5 },
-    { wch: 10 },
-    { wch: 24 },
-    { wch: 12 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 14 },
-  ]
-
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, "Absensi Dzuhur")
-  XLSX.writeFile(
-    wb,
-    `${filename}-${new Date().toISOString().split("T")[0]}.xlsx`
-  )
-}
+const PER_PAGE = 11
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DataAbsenPage() {
+  const [data, setData] = useState<UserRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("/api/users")
+        const result = await res.json()
+        console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+        console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+        console.log(result)
+
+        const formatted = result.map((u: any) => ({
+          id: u.id,
+          nama: u.nama,
+          kelas: u.kelas,
+          jenis_kelamin: u.jenis_kelamin,
+          nis: u.nis,
+          email: u.email,
+          password: u.password,
+          created_at: u.created_at,
+
+          // tambahan untuk UI
+          avatar: Math.floor(Math.random() * 70).toString(),
+        }))
+
+        setData(formatted)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [])
+
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>("Semua")
   const [search, setSearch] = useState("")
@@ -329,8 +133,6 @@ export default function DataAbsenPage() {
   const [filterTanggal, setFilterTanggal] = useState("")
   const [page, setPage] = useState(1)
   const [showFilterPanel, setShowFilterPanel] = useState(false)
-  const [data, setData] = useState<SiswaRecord[]>(SISWA_DATA)
-  const PER_PAGE = 8
 
   const todayStr = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
@@ -339,38 +141,24 @@ export default function DataAbsenPage() {
     year: "numeric",
   })
 
-  // ── Filter logic ─────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return data.filter((s) => {
-      const matchTab =
-        TAB_TO_STATUS[activeTab] === null ||
-        s.status === TAB_TO_STATUS[activeTab]
-      const matchSearch =
-        !search ||
-        s.nama.toLowerCase().includes(search.toLowerCase()) ||
-        s.nis.includes(search) ||
-        s.kelas.toLowerCase().includes(search.toLowerCase())
-      const matchKelas =
-        filterKelas === "Semua Kelas" || s.kelas === filterKelas
-      const matchTgl = !filterTanggal || s.tanggal === filterTanggal
-      return matchTab && matchSearch && matchKelas && matchTgl
-    })
-  }, [data, activeTab, search, filterKelas, filterTanggal])
+  const filtered = useMemo(
+    () =>
+      data.filter((s) => {
+        const matchSearch =
+          !search ||
+          s.nama.toLowerCase().includes(search.toLowerCase()) ||
+          String(s.nis).includes(search) ||
+          s.kelas.toLowerCase().includes(search.toLowerCase()) ||
+          s.email.toLowerCase().includes(search.toLowerCase())
+        const matchKelas =
+          filterKelas === "Semua Kelas" || s.kelas === filterKelas
+        return matchSearch && matchKelas
+      }),
+    [data, search, filterKelas]
+  )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-
-  const summary = useMemo(
-    () => ({
-      total: data.length,
-      hadir: data.filter((d) => d.status === "hadir").length,
-      Haid: data.filter((d) => d.status === "Haid").length,
-      tidak_hadir: data.filter((d) => d.status === "tidak_hadir").length,
-    }),
-    [data]
-  )
-
-  const hadirPct = Math.round((summary.hadir / summary.total) * 100)
 
   const activeFilterCount = [
     filterKelas !== "Semua Kelas",
@@ -386,24 +174,40 @@ export default function DataAbsenPage() {
     setPage(1)
   }
 
-  const handleTabChange = (tab: Tab) => {
-    setActiveTab(tab)
-    setPage(1)
+  const handleDelete = async (id: number) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus data siswa ini?")) return
+
+    console.log("Menghapus siswa dengan ID:", id)
+    try {
+      const res = await fetch(`/api/users/${id}`, {
+        method: "DELETE",
+      })
+
+      const result = await res.json()
+
+      if (!res.ok) {
+        throw new Error(result.error || "Gagal hapus data")
+      }
+
+      // update state setelah berhasil delete
+      setData((prev) => prev.filter((s) => s.id !== id))
+      alert("Data siswa berhasil dihapus")
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Terjadi kesalahan saat menghapus data")
+    }
   }
 
-  const handleDelete = (id: number) =>
-    setData((prev) => prev.filter((s) => s.id !== id))
+  const handleEdit = (id: number) => router.push(`/admin/editsiswa?id=${id}`)
 
-  const handleStatusChange = (id: number, newStatus: AbsenStatus) => {
-    setData((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s))
-    )
+  if (loading) {
+    return <div className="p-5">Loading data...</div>
   }
 
   return (
     <AdminShell>
       <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
-        {/* ── Banner ── */}
+        {/* Banner */}
         <div
           className="relative flex items-center justify-between overflow-hidden rounded-2xl p-5"
           style={{
@@ -441,75 +245,11 @@ export default function DataAbsenPage() {
             </h2>
             <p className="mt-1 text-xs text-teal-200">{todayStr}</p>
           </div>
-          <div className="relative z-10 flex items-center gap-3">
-            {/* Attendance ring */}
-            {/* <div className="hidden flex-col items-center gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-5 py-3 backdrop-blur-sm sm:flex">
-              <span className="text-2xl leading-none font-black text-white">
-                {hadirPct}%
-              </span>
-              <span className="text-[10px] text-teal-200">Tingkat Hadir</span>
-            </div> */}
-          </div>
         </div>
 
-        {/* ── Summary cards ── */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            {
-              label: "Total Siswa",
-              value: summary.total,
-              icon: Users,
-              color: "text-slate-600",
-              bg: "border-slate-100",
-              iconBg: "bg-slate-50",
-            },
-            {
-              label: "Hadir",
-              value: summary.hadir,
-              icon: UserCheck,
-              color: "text-teal-600",
-              bg: "border-teal-50",
-              iconBg: "bg-teal-50",
-            },
-            {
-              label: "Haid",
-              value: summary.Haid,
-              icon: Clock,
-              color: "text-amber-500",
-              bg: "border-amber-50",
-              iconBg: "bg-amber-50",
-            },
-            {
-              label: "Tidak Hadir",
-              value: summary.tidak_hadir,
-              icon: XCircle,
-              color: "text-red-500",
-              bg: "border-red-50",
-              iconBg: "bg-red-50",
-            },
-          ].map(({ label, value, icon: Icon, color, bg, iconBg }) => (
-            <div
-              key={label}
-              className={`rounded-2xl border bg-white ${bg} flex flex-col gap-2 px-4 py-4 shadow-sm`}
-            >
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
-              >
-                <Icon className={`h-4 w-4 ${color}`} />
-              </div>
-              <div>
-                <p className={`text-2xl leading-none font-black ${color}`}>
-                  {value}
-                </p>
-                <p className="mt-0.5 text-xs text-slate-500">{label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Table card ── */}
+        {/* Table card */}
         <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          {/* ─ Toolbar ─ */}
+          {/* Toolbar */}
           <div className="flex flex-col gap-3 border-b border-slate-50 px-5 pt-4 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -528,13 +268,11 @@ export default function DataAbsenPage() {
                   )}
                 </p>
               </div>
-
               <div className="flex flex-wrap items-center gap-2">
-                {/* Search */}
                 <div className="relative">
                   <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <Input
-                    placeholder="Cari nama, NIS, kelas..."
+                    placeholder="Cari nama, NIS, email..."
                     value={search}
                     onChange={(e) => {
                       setSearch(e.target.value)
@@ -543,8 +281,6 @@ export default function DataAbsenPage() {
                     className="h-9 w-52 rounded-xl border-slate-200 bg-slate-50 pl-8 text-xs focus-visible:ring-teal-400"
                   />
                 </div>
-
-                {/* Filter toggle */}
                 <button
                   onClick={() => setShowFilterPanel((v) => !v)}
                   className="relative flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-all"
@@ -566,35 +302,22 @@ export default function DataAbsenPage() {
                   <Filter className="h-3.5 w-3.5" />
                   Filter
                   {activeFilterCount > 0 && (
-                    <span className="text-[9px flex h-4 w-4 items-center justify-center rounded-full border bg-teal-500 text-white">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-teal-500 text-[9px] text-white">
                       {activeFilterCount}
                     </span>
                   )}
                 </button>
-
                 <button
                   onClick={() => router.push("/admin/tambahsiswa")}
-                  className="flex h-9 items-center gap-2 rounded-xl border border-slate-300 bg-white/15 px-4 text-xs font-semibold text-slate-400 backdrop-blur-sm transition-all hover:bg-white/25"
+                  className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50"
                 >
-                  Tambah Siswa baru
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Export Excel */}
-                <button
-                  onClick={() => exportToExcel(filtered)}
-                  className="flex h-9 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5" />
-                  Export Excel
+                  <Plus className="h-3.5 w-3.5" /> Tambah Siswa
                 </button>
               </div>
             </div>
 
-            {/* Filter panel */}
             {showFilterPanel && (
-              <div className="flex flex-wrap gap-3 border-t border-slate-50 pt-1 pb-0.5">
-                {/* Kelas */}
+              <div className="flex flex-wrap gap-3 border-t border-slate-50 pt-2">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
                     Kelas
@@ -605,16 +328,15 @@ export default function DataAbsenPage() {
                       setFilterKelas(e.target.value)
                       setPage(1)
                     }}
-                    className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 pr-8 pl-3 text-xs text-slate-700 outline-none focus:border-teal-400"
+                    className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none focus:border-teal-400"
                   >
                     <option>Semua Kelas</option>
                     {KELAS_LIST.map((k) => (
                       <option key={k}>{k}</option>
                     ))}
                   </select>
+                  ""
                 </div>
-
-                {/* Tanggal */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
                     Tanggal
@@ -629,8 +351,6 @@ export default function DataAbsenPage() {
                     className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none focus:border-teal-400"
                   />
                 </div>
-
-                {/* Quick date buttons */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
                     Cepat
@@ -669,60 +389,27 @@ export default function DataAbsenPage() {
             )}
           </div>
 
-          {/* ─ Tabs ─ */}
-          <div className="scrollbar-none flex gap-0 overflow-x-auto border-b border-slate-50 px-5">
-            {TABS.map((tab) => {
-              const count =
-                tab === "Semua"
-                  ? data.length
-                  : data.filter((s) => s.status === TAB_TO_STATUS[tab]).length
-              const isActive = activeTab === tab
-              return (
-                <button
-                  key={tab}
-                  onClick={() => handleTabChange(tab)}
-                  className="flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all"
-                  style={{
-                    borderColor: isActive ? "#0d9488" : "transparent",
-                    color: isActive ? "#0d9488" : "#94a3b8",
-                  }}
-                >
-                  {tab}
-                  <span
-                    className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                    style={{
-                      background: isActive ? "rgba(13,148,136,0.1)" : "#f1f5f9",
-                      color: isActive ? "#0d9488" : "#94a3b8",
-                    }}
-                  >
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* ─ Table ─ */}
+          {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[860px] text-sm">
               <thead>
                 <tr style={{ background: "#f8fafc" }}>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Siswa
-                  </th>
-                  <th className="px-3 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Kelas
-                  </th>
-                  <th className="px-3 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Tanggal
-                  </th>
-                  <th className="px-3 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Waktu
-                  </th>
-                  <th className="px-3 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Status
-                  </th>
-                  <th className="w-10 px-3 py-3" />
+                  {[
+                    "No",
+                    "Nama",
+                    "NIS",
+                    "Kelas",
+                    "Jenis Kelamin",
+                    "Email",
+                    "Action",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase first:pl-5 last:w-10"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -745,7 +432,6 @@ export default function DataAbsenPage() {
                   </tr>
                 ) : (
                   paginated.map((s, i) => {
-                    const st = STATUS_META[s.status]
                     return (
                       <tr
                         key={s.id}
@@ -754,7 +440,9 @@ export default function DataAbsenPage() {
                           background: i % 2 !== 0 ? "#fafcff" : undefined,
                         }}
                       >
-                        {/* Siswa */}
+                        {/* No */}
+                        <td className="px-4 py-3">{i + 1}</td>
+                        {/* Nama */}
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8 flex-shrink-0">
@@ -765,61 +453,50 @@ export default function DataAbsenPage() {
                                 {s.nama.slice(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <p className="text-sm leading-tight font-semibold text-slate-800">
-                                {s.nama}
-                              </p>
-                              <p className="font-mono text-xs text-slate-400">
-                                {s.nis}
-                              </p>
-                            </div>
+                            <p className="text-sm leading-tight font-semibold text-slate-800">
+                              {s.nama}
+                            </p>
                           </div>
                         </td>
+
+                        {/* NIS */}
+                        <td className="px-4 py-3">
+                          <p className="font-mono text-xs font-semibold text-slate-600">
+                            {s.nis}
+                          </p>
+                        </td>
+
                         {/* Kelas */}
-                        <td className="px-3 py-3">
+                        <td className="px-4 py-3">
                           <span className="inline-block rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
                             {s.kelas}
                           </span>
                         </td>
-                        {/* Tanggal */}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                            <CalendarDays className="h-3.5 w-3.5 text-slate-300" />
-                            {new Date(s.tanggal).toLocaleDateString("id-ID", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </div>
-                        </td>
-                        {/* Waktu */}
-                        <td className="px-3 py-3">
-                          <div
-                            className="flex items-center gap-1.5 text-xs font-semibold"
-                            style={{
-                              color: s.waktu === "—" ? "#cbd5e1" : "#334155",
-                            }}
+
+                        {/* Jenis Kelamin */}
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-block rounded-lg px-2 py-0.5 text-xs font-semibold ${
+                              s.jenis_kelamin === "Perempuan"
+                                ? "bg-pink-50 text-pink-600"
+                                : "bg-blue-50 text-blue-600"
+                            }`}
                           >
-                            <Clock className="h-3.5 w-3.5 text-slate-300" />
-                            {s.waktu === "—" ? "—" : `${s.waktu} WIB`}
-                          </div>
+                            {s.jenis_kelamin === "Perempuan"
+                              ? "♀ Perempuan"
+                              : "♂ Laki-laki"}
+                          </span>
                         </td>
-                        {/* Status */}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`h-2 w-2 flex-shrink-0 rounded-full ${st.dot}`}
-                            />
-                            <Badge
-                              variant="outline"
-                              className={`rounded-lg border px-2 py-0.5 text-[10px] font-semibold ${st.badge}`}
-                            >
-                              {st.label}
-                            </Badge>
-                          </div>
+
+                        {/* Email */}
+                        <td className="px-4 py-3">
+                          <p className="max-w-[160px] truncate text-xs text-slate-500">
+                            {s.email}
+                          </p>
                         </td>
+
                         {/* Actions */}
-                        <td className="px-3 py-3">
+                        <td className="px-4 py-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
@@ -828,42 +505,20 @@ export default function DataAbsenPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              className="w-44 rounded-2xl p-1"
+                              className="w-36 rounded-2xl p-1"
                             >
-                              <DropdownMenuLabel className="px-2 pb-1 text-[10px] text-slate-400">
-                                Ubah Status
-                              </DropdownMenuLabel>
-                              {(
-                                [
-                                  "hadir",
-                                  "Haid",
-                                  "tidak_hadir",
-                                ] as AbsenStatus[]
-                              ).map((st) => (
-                                <DropdownMenuItem
-                                  key={st}
-                                  onClick={() => handleStatusChange(s.id, st)}
-                                  className="cursor-pointer gap-2 rounded-xl text-xs"
-                                >
-                                  <div
-                                    className={`h-2 w-2 flex-shrink-0 rounded-full ${STATUS_META[st].dot}`}
-                                  />
-                                  {STATUS_META[st].label}
-                                  {s.status === st && (
-                                    <CheckCircle2 className="ml-auto h-3 w-3 text-teal-500" />
-                                  )}
-                                </DropdownMenuItem>
-                              ))}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="cursor-pointer rounded-xl text-xs">
-                                <Eye className="mr-2 h-3.5 w-3.5 text-slate-400" />{" "}
-                                Detail
+                              <DropdownMenuItem
+                                className="cursor-pointer rounded-xl text-xs"
+                                onClick={() => handleEdit(s.id)}
+                              >
+                                <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleDelete(s.id)}
                                 className="cursor-pointer rounded-xl text-xs text-red-500 focus:bg-red-50 focus:text-red-500"
                               >
-                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Hapus
+                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                Hapus
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -876,7 +531,7 @@ export default function DataAbsenPage() {
             </table>
           </div>
 
-          {/* ─ Pagination ─ */}
+          {/* Pagination */}
           <div className="flex items-center justify-between border-t border-slate-50 px-5 py-3">
             <p className="text-xs text-slate-400">
               Halaman{" "}
@@ -905,7 +560,7 @@ export default function DataAbsenPage() {
                 .map((p, i) =>
                   p === "..." ? (
                     <span
-                      key={`ellipsis-${i}`}
+                      key={`el-${i}`}
                       className="w-7 text-center text-xs text-slate-400"
                     >
                       …

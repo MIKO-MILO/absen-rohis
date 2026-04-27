@@ -276,7 +276,7 @@ const SISWA_DATA: SiswaRecord[] = [
   },
 ]
 
-const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir", "Haid"] as const
+const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir"] as const
 type Tab = (typeof TABS)[number]
 
 const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
