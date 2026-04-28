@@ -59,12 +59,12 @@ const KELAS_OPTIONS = [
 const DUMMY_NIS_EXISTING = ["22001", "22002", "22003"]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function parseCSV(text: string): any[][] {
+function parseCSV(text: string): string[][] {
   const lines = text.trim().split("\n")
   return lines.map((line) => line.split(",").map((v) => String(v || "").trim()))
 }
 
-function normalizeRow(row: any[], kelas: string) {
+function normalizeRow(row: string[], kelas: string) {
   const nama = row[1] || ""
   const lp = row[2] || ""
 
@@ -82,12 +82,12 @@ function normalizeRow(row: any[], kelas: string) {
   }
 }
 
-const cleanNIS = (nis: any) => {
+const cleanNIS = (nis: string) => {
   if (!nis) return ""
   return String(nis).replace(/[^0-9]/g, "")
 }
 
-const mapGender = (val: any) => {
+const mapGender = (val: string) => {
   if (val === undefined || val === null) return ""
   const v = String(val).trim().toUpperCase()
 
@@ -412,7 +412,7 @@ function ManualForm({
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="h-11 flex-1 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-sm font-semibold text-white shadow-md shadow-teal-100 hover:from-teal-400 hover:to-cyan-400"
+              className="h-11 flex-1 rounded-xl bg-linear-to-r from-teal-500 to-cyan-500 text-sm font-semibold text-white shadow-md shadow-teal-100 hover:from-teal-400 hover:to-cyan-400"
             >
               {loading ? "Menyimpan..." : "Simpan Siswa"}
             </Button>
@@ -440,74 +440,79 @@ function ImportForm({
   const [rows, setRows] = useState<ImportRow[]>([])
   const [loading, setLoading] = useState(false)
   const [parsed, setParsed] = useState(false)
+  const [kelasError, setKelasError] = useState(false)
 
-  const processFile = useCallback((file: File) => {
-    setFileName(file.name)
-    setParsed(false)
-    setRows([])
-    const ext = file.name.split(".").pop()?.toLowerCase()
+  const processFile = useCallback(
+    (file: File) => {
+      setFileName(file.name)
+      setParsed(false)
+      setRows([])
+      const ext = file.name.split(".").pop()?.toLowerCase()
 
-    if (ext === "csv") {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const text = e.target?.result as string
-        const rawRows = parseCSV(text)
-        if (!kelas) {
-          alert("Pilih kelas dulu!")
-          return
+      if (ext === "csv") {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const text = e.target?.result as string
+          const rawRows = parseCSV(text)
+          if (!kelas) {
+            alert("Pilih kelas dulu!")
+            return
+          }
+          const filtered = rawRows.slice(1).filter((r) => r.length >= 2 && r[0])
+
+          const newRows = filtered.map((r, i) => {
+            // Jika r[0] adalah Nama (format simple CSV), kita sesuaikan ke format yang diharapkan normalizeRow
+            // normalizeRow mengharap: [?, nama, gender, nis, ...]
+            // Tapi karena normalizeRow sudah spesifik untuk Excel, kita buat mapping manual di sini untuk CSV
+            return validateRow(
+              {
+                nama: r[0] || "",
+                nis: cleanNIS(r[1] || ""),
+                kelas: kelas,
+                jenisKelamin: r[3] || "", // Kolom ke-4 di template CSV
+              },
+              i
+            )
+          })
+
+          setRows(newRows)
+          setParsed(true)
         }
+        reader.readAsText(file)
+      } else if (ext === "xlsx" || ext === "xls") {
+        // Production: uncomment dan install xlsx
 
-        // Jika CSV, kita asumsikan data mulai dari baris 1 (index 1) karena baris 0 adalah header
-        const filtered = rawRows.slice(1).filter((r) => r.length >= 2 && r[0])
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer)
+          const wb = XLSX.read(data, { type: "array" })
+          const ws = wb.Sheets[wb.SheetNames[0]]
+          const rawRows = XLSX.utils.sheet_to_json(ws, {
+            defval: "",
+            range: 14, // 🔥 data mulai dari baris 14
 
-        const newRows = filtered.map((r, i) => {
-          // Jika r[0] adalah Nama (format simple CSV), kita sesuaikan ke format yang diharapkan normalizeRow
-          // normalizeRow mengharap: [?, nama, gender, nis, ...]
-          // Tapi karena normalizeRow sudah spesifik untuk Excel, kita buat mapping manual di sini untuk CSV
-          return validateRow(
-            {
-              nama: r[0] || "",
-              nis: cleanNIS(r[1] || ""),
-              kelas: kelas,
-              jenisKelamin: r[3] || "", // Kolom ke-4 di template CSV
-            },
-            i
+            header: 1, // 🔥 pakai array, bukan object
+          }) as string[][]
+
+          const MAX_ROWS = 36
+
+          const filtered = rawRows.filter((r) => r[1]).slice(0, MAX_ROWS)
+
+          const newRows = filtered.map((r, i) =>
+            validateRow(normalizeRow(r, kelas), i)
           )
-        })
+          setRows(newRows)
+          setParsed(true)
+        }
+        reader.readAsArrayBuffer(file)
 
-        setRows(newRows)
         setParsed(true)
+      } else {
+        alert("Format file tidak didukung. Gunakan .csv, .xlsx, atau .xls")
       }
-      reader.readAsText(file)
-    } else if (ext === "xlsx" || ext === "xls") {
-      // Production: uncomment dan install xlsx
-
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer)
-        const wb = XLSX.read(data, { type: "array" })
-        const ws = wb.Sheets[wb.SheetNames[0]]
-        const rawRows = XLSX.utils.sheet_to_json(ws, {
-          defval: "",
-          range: 13, // 🔥 data mulai dari baris 14
-          header: 1, // 🔥 pakai array, bukan object
-        }) as any[][]
-
-        const filtered = rawRows.filter((r) => r[1]) // r[1] adalah kolom NAMA
-
-        const newRows = filtered.map((r, i) =>
-          validateRow(normalizeRow(r, kelas), i)
-        )
-        setRows(newRows)
-        setParsed(true)
-      }
-      reader.readAsArrayBuffer(file)
-
-      setParsed(true)
-    } else {
-      alert("Format file tidak didukung. Gunakan .csv, .xlsx, atau .xls")
-    }
-  }, [])
+    },
+    [kelas]
+  )
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -522,10 +527,42 @@ function ImportForm({
   const handleImport = async () => {
     const validRows = rows.filter((r) => r.status === "valid")
     if (!validRows.length) return
+
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 1200))
-    setLoading(false)
-    onSuccess(validRows.length)
+
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          users: validRows.map((r) => ({
+            nama: r.nama,
+            nis: Number(r.nis),
+            kelas: r.kelas,
+            jenis_kelamin: r.jenisKelamin,
+            email: `${r.nis}@school.id`,
+            password: `${r.nis}`,
+          })),
+        }),
+      })
+
+      const result = await res.json()
+
+      if (!res.ok) {
+        console.error(result)
+        alert(result.error || "Gagal import")
+        return
+      }
+
+      onSuccess(validRows.length)
+    } catch (err) {
+      console.error(err)
+      alert("Terjadi kesalahan saat import")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const validCount = rows.filter((r) => r.status === "valid").length
@@ -533,9 +570,9 @@ function ImportForm({
   const errorCount = rows.filter((r) => r.status === "error").length
 
   const STATUS_ICON: Record<ImportStatus, React.ReactNode> = {
-    valid: <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-teal-500" />,
-    error: <XCircle className="h-4 w-4 flex-shrink-0 text-red-400" />,
-    duplikat: <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-400" />,
+    valid: <CheckCircle2 className="h-4 w-4 shrink-0 text-teal-500" />,
+    error: <XCircle className="h-4 w-4 shrink-0 text-red-400" />,
+    duplikat: <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />,
   }
 
   const STATUS_ROW: Record<ImportStatus, string> = {
@@ -606,8 +643,11 @@ function ImportForm({
             </Label>
             <select
               value={kelas}
-              onChange={(e) => setKelas(e.target.value)}
-              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm"
+              onChange={(e) => {
+                setKelas(e.target.value)
+                setKelasError(false) // 🔥 reset error
+              }}
+              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-black"
             >
               <option value="">Pilih kelas...</option>
               {KELAS_OPTIONS.map((k) => (
@@ -626,11 +666,20 @@ function ImportForm({
               }}
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
-              onClick={() => inputRef.current?.click()}
+              onClick={() => {
+                if (!kelas) {
+                  setKelasError(true)
+                  return
+                }
+                setKelasError(false)
+                inputRef.current?.click()
+              }}
               className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 transition-all ${
-                dragging
-                  ? "border-blue-400 bg-blue-50"
-                  : "border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40"
+                kelasError
+                  ? "border-red-400 bg-red-50"
+                  : dragging
+                    ? "border-blue-400 bg-blue-50"
+                    : "border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40"
               }`}
             >
               <div
@@ -654,6 +703,11 @@ function ImportForm({
                 accept=".csv,.xlsx,.xls"
                 className="hidden"
                 onChange={(e) => {
+                  if (!kelas) {
+                    setKelasError(true)
+                    return
+                  }
+                  setKelasError(false)
                   const f = e.target.files?.[0]
                   if (f) processFile(f)
                 }}
@@ -662,7 +716,7 @@ function ImportForm({
           ) : (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
-                <FileText className="h-4 w-4 flex-shrink-0 text-blue-500" />
+                <FileText className="h-4 w-4 shrink-0 text-blue-500" />
                 <p className="flex-1 truncate text-xs font-semibold text-blue-700">
                   {fileName}
                 </p>
@@ -775,7 +829,7 @@ function ImportForm({
 
               {(duplikatCount > 0 || errorCount > 0) && (
                 <div className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                   <p className="text-xs text-amber-700">
                     Hanya <strong>{validCount} data valid</strong> yang akan
                     diimport. Data duplikat dan error akan dilewati.
@@ -788,21 +842,30 @@ function ImportForm({
           {parsed && (
             <div className="flex gap-3">
               <Button
-                variant="outline"
                 onClick={onBack}
-                className="h-11 flex-1 rounded-xl border-slate-200 bg-transparent text-sm text-slate-600"
+                className="h-11 flex-1 rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
               >
                 Batal
               </Button>
               <Button
                 onClick={handleImport}
                 disabled={loading || validCount === 0}
-                className="h-11 flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-sm font-bold text-white shadow-md shadow-blue-100 hover:from-blue-400 hover:to-cyan-400 disabled:opacity-40"
+                className="h-11 flex-1 rounded-xl bg-linear-to-r from-blue-500 to-cyan-500 text-sm font-bold text-white shadow-md shadow-blue-100 hover:from-blue-400 hover:to-cyan-400 disabled:opacity-40"
               >
                 {loading ? "Mengimport..." : `Import ${validCount} Siswa`}
               </Button>
             </div>
           )}
+
+          <div className="flex items-center justify-center">
+            {kelasError && (
+              <div className="flex items-center justify-center">
+                <p className="animate-pulse text-xs text-red-500">
+                  * Pilih kelas terlebih dahulu sebelum upload file
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -841,14 +904,13 @@ function SuccessScreen({
       <div className="flex w-full max-w-xs flex-col gap-2.5">
         <Button
           onClick={() => router.push("/admin/siswa")}
-          className="h-11 w-full rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-sm font-bold text-white"
+          className="h-11 w-full rounded-xl bg-linear-to-r from-teal-500 to-cyan-500 text-sm font-bold text-white"
         >
           Lihat Data Siswa
         </Button>
         <Button
-          variant="outline"
           onClick={onBack}
-          className="h-11 w-full rounded-xl border-slate-200 bg-transparent text-sm text-slate-600"
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
         >
           Tambah Siswa Lagi
         </Button>

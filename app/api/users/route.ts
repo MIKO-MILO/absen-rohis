@@ -16,28 +16,23 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
 
-    const { nama, kelas, jenis_kelamin, nis, email, password } = body
+    let users = []
 
-    const { data, error } = await supabase
-      .from("users")
-      .insert([
-        {
-          nama,
-          kelas,
-          jenis_kelamin,
-          nis,
-          email,
-          password,
-        },
-      ])
-      .select()
+    if (Array.isArray(body.users)) {
+      users = body.users
+    } else {
+      users = [body] // dari form manual
+    }
+
+    const { data, error } = await supabase.from("users").insert(users).select()
 
     if (error) {
       return Response.json({ error: error.message }, { status: 500 })
     }
 
     return Response.json(data)
-  } catch (err) {
+  } catch (error) {
+    console.error(error)
     return Response.json({ error: "Invalid request" }, { status: 400 })
   }
 }
