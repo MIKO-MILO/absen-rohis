@@ -10,16 +10,50 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  HeartPulse,
+  HandMetal,
 } from "lucide-react"
-import { BrowserQRCodeReader } from "@zxing/library"
-
-// ─── Install: npm install @zxing/library ─────────────────────────────────────
-// Untuk production gunakan: import { BrowserQRCodeReader } from "@zxing/library"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type ScanState = "idle" | "scanning" | "success" | "error"
+type ScanState = "idle" | "scanning" | "pilih" | "success" | "error"
+type AbsenPilihan = "hadir" | "berhalangan" | null
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const PILIHAN_CONFIG = {
+  hadir: {
+    label: "Hadir",
+    desc: "Saya mengikuti sholat Dzuhur",
+    icon: CheckCircle2,
+    active: "border-teal-400 bg-teal-500/20",
+    inactive: "border-white/10 bg-white/5",
+    iconColor: "text-teal-400",
+    badgeColor: "bg-teal-500",
+    successText: "Hadir sholat Dzuhur berhasil dicatat ✅",
+    successColor: "text-emerald-300",
+    ringColor: "rgba(52,211,153,0.4)",
+    ringBg: "rgba(52,211,153,0.15)",
+    iconSuccess: CheckCircle2,
+    iconSuccessColor: "text-emerald-400",
+    btnClass: "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-900/40",
+  },
+  berhalangan: {
+    label: "Berhalangan",
+    desc: "Saya sedang haid / uzur syar'i",
+    icon: HeartPulse,
+    active: "border-pink-400 bg-pink-500/20",
+    inactive: "border-white/10 bg-white/5",
+    iconColor: "text-pink-400",
+    badgeColor: "bg-pink-500",
+    successText: "Keterangan berhalangan berhasil dicatat 🌸",
+    successColor: "text-pink-300",
+    ringColor: "rgba(244,114,182,0.4)",
+    ringBg: "rgba(244,114,182,0.15)",
+    iconSuccess: HeartPulse,
+    iconSuccessColor: "text-pink-400",
+    btnClass: "bg-pink-500 hover:bg-pink-400 shadow-pink-900/40",
+  },
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 export default function ScanQRPage() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -28,23 +62,21 @@ export default function ScanQRPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const [scanState, setScanState] = useState<ScanState>("idle")
-  const [errorMsg, setErrorMsg] = useState<string>("")
-  const [successMsg, setSuccessMsg] = useState<string>("")
+  const [errorMsg, setErrorMsg] = useState("")
   const [facingMode, setFacingMode] = useState<"environment" | "user">(
     "environment"
   )
   const [torch, setTorch] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
+  const [pilihan, setPilihan] = useState<AbsenPilihan>(null)
+  const [confirmed, setConfirmed] = useState<AbsenPilihan>(null)
 
-  // ── Start camera ────────────────────────────────────────────────────────────
+  // ── Camera ──────────────────────────────────────────────────────────────────
   const startCamera = useCallback(async (mode: "environment" | "user") => {
-    // Stop existing stream
-    if (streamRef.current) {
+    if (streamRef.current)
       streamRef.current.getTracks().forEach((t) => t.stop())
-    }
     setCameraReady(false)
     setScanState("scanning")
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -54,9 +86,7 @@ export default function ScanQRPage() {
         },
         audio: false,
       })
-
       streamRef.current = stream
-
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         videoRef.current.onloadedmetadata = () => {
@@ -64,41 +94,31 @@ export default function ScanQRPage() {
           setCameraReady(true)
         }
       }
-    } catch (err) {
-      console.error(err)
+    } catch {
       setScanState("error")
       setErrorMsg(
-        "Tidak dapat mengakses kamera. Pastikan Haid kamera sudah diberikan."
+        "Tidak dapat mengakses kamera. Pastikan izin kamera sudah diberikan."
       )
     }
   }, [])
 
-  // ── Stop camera ─────────────────────────────────────────────────────────────
   const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-    }
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current)
-    }
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     setCameraReady(false)
   }, [])
 
-  // ── Toggle torch ────────────────────────────────────────────────────────────
   const toggleTorch = useCallback(async () => {
     if (!streamRef.current) return
     const track = streamRef.current.getVideoTracks()[0]
     try {
-      // @ts-ignore – torch is not in all TypeScript MediaTrackConstraints definitions
+      // @ts-ignore
       await track.applyConstraints({ advanced: [{ torch: !torch }] })
       setTorch((p) => !p)
-    } catch {
-      // torch not supported on this device
-    }
+    } catch {}
   }, [torch])
 
-  // ── Switch camera ───────────────────────────────────────────────────────────
   const switchCamera = useCallback(() => {
     const next = facingMode === "environment" ? "user" : "environment"
     setFacingMode(next)
@@ -106,53 +126,41 @@ export default function ScanQRPage() {
     setTorch(false)
   }, [facingMode, startCamera])
 
-  // ── Simulate QR detection (replace with @zxing/library in production) ──────
-  const simulateScan = useCallback(() => {
-    if (scanState !== "scanning") return
-    // Simulate detection after 3s
-    setTimeout(() => {
-      setScanState("success")
-      setSuccessMsg("Absensi Dzuhur berhasil dicatat! ✅")
-      stopCamera()
-    }, 3000)
-  }, [scanState, stopCamera])
-
   useEffect(() => {
     startCamera(facingMode)
     return () => stopCamera()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    if (cameraReady && scanState === "scanning") {
-      // In production: kick off @zxing BrowserQRCodeReader here
-      // simulateScan(); // Uncomment to simulate auto-detect
-    }
-  }, [cameraReady, scanState, simulateScan])
-
-  // ── Manual simulate button (dev only) ──────────────────────────────────────
-  const handleManualSuccess = () => {
-    setScanState("success")
-    setSuccessMsg("Absensi Dzuhur berhasil dicatat! ✅")
+  // ── Setelah scan berhasil → tampilkan modal pilihan ─────────────────────────
+  const handleScanSuccess = () => {
     stopCamera()
+    setPilihan(null)
+    setScanState("pilih")
   }
 
-  // ── Back ────────────────────────────────────────────────────────────────────
+  // ── Konfirmasi pilihan ───────────────────────────────────────────────────────
+  const handleKonfirmasi = () => {
+    if (!pilihan) return
+    setConfirmed(pilihan)
+    setScanState("success")
+  }
+
   const handleBack = () => {
     stopCamera()
     router.back()
   }
-
-  // ── Retry ───────────────────────────────────────────────────────────────────
   const handleRetry = () => {
     setErrorMsg("")
-    setScanState("idle")
     startCamera(facingMode)
   }
 
+  const cfg = confirmed ? PILIHAN_CONFIG[confirmed] : null
+  const SuccessIcon = cfg?.iconSuccess ?? CheckCircle2
+
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black">
-      {/* ── Camera feed ── */}
+      {/* Camera feed */}
       <video
         ref={videoRef}
         className="absolute inset-0 h-full w-full object-cover"
@@ -161,48 +169,49 @@ export default function ScanQRPage() {
       />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* ── Dark overlay ── */}
-      <div className="absolute inset-0 bg-black/50" />
+      {/* Overlay — lebih gelap saat modal pilihan */}
+      <div
+        className={`absolute inset-0 transition-all duration-300 ${scanState === "pilih" ? "bg-black/75 backdrop-blur-sm" : "bg-black/50"}`}
+      />
 
-      {/* ── Top bar ── */}
-      <div className="absolute top-0 right-0 left-0 z-20 flex items-center justify-between px-4 pt-12 pb-4">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition-transform active:scale-95"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Kembali
-        </button>
-        <div className="flex gap-2">
-          {/* Torch button */}
-          {facingMode === "environment" && (
-            <button
-              onClick={toggleTorch}
-              className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all active:scale-95 ${
-                torch
-                  ? "border-yellow-300 bg-yellow-400 text-black"
-                  : "border-white/10 bg-black/40 text-white backdrop-blur-sm"
-              }`}
-            >
-              <Torch className="h-4 w-4" />
-            </button>
-          )}
-          {/* Switch camera */}
+      {/* Top bar — sembunyikan saat pilih/success */}
+      {(scanState === "scanning" || scanState === "error") && (
+        <div className="absolute top-0 right-0 left-0 z-20 flex items-center justify-between px-4 pt-12 pb-4">
           <button
-            onClick={switchCamera}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white backdrop-blur-sm transition-transform active:scale-95"
+            onClick={handleBack}
+            className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition-transform active:scale-95"
           >
-            <SwitchCamera className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" />
+            Kembali
           </button>
+          <div className="flex gap-2">
+            {facingMode === "environment" && (
+              <button
+                onClick={toggleTorch}
+                className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all active:scale-95 ${
+                  torch
+                    ? "border-yellow-300 bg-yellow-400 text-black"
+                    : "border-white/10 bg-black/40 text-white backdrop-blur-sm"
+                }`}
+              >
+                <Torch className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={switchCamera}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white backdrop-blur-sm transition-transform active:scale-95"
+            >
+              <SwitchCamera className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Center content ── */}
-      <div className="relative z-10 flex w-full max-w-sm flex-col items-center gap-6 px-8">
-        {/* ── SCANNING state ── */}
+      {/* Center content */}
+      <div className="relative z-10 flex w-full max-w-sm flex-col items-center gap-6 px-6">
+        {/* ── SCANNING ── */}
         {scanState === "scanning" && (
           <>
-            {/* Title */}
             <div className="text-center">
               <h1 className="text-xl font-bold text-white">Scan QR Code</h1>
               <p className="mt-1 text-sm text-white/60">
@@ -210,9 +219,8 @@ export default function ScanQRPage() {
               </p>
             </div>
 
-            {/* QR Viewfinder */}
+            {/* Viewfinder */}
             <div className="relative h-64 w-64">
-              {/* Corner borders */}
               {[
                 "top-0 left-0",
                 "top-0 right-0 rotate-90",
@@ -229,8 +237,6 @@ export default function ScanQRPage() {
                   }}
                 />
               ))}
-
-              {/* Scan line animation */}
               {cameraReady && (
                 <div
                   className="absolute right-1 left-1 h-0.5 rounded-full bg-teal-400/80"
@@ -240,8 +246,6 @@ export default function ScanQRPage() {
                   }}
                 />
               )}
-
-              {/* Loading spinner if camera not ready */}
               {!cameraReady && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Loader2 className="h-10 w-10 animate-spin text-teal-400" />
@@ -249,14 +253,13 @@ export default function ScanQRPage() {
               )}
             </div>
 
-            {/* Hint */}
             <p className="text-center text-xs text-white/40">
               QR Code akan terdeteksi otomatis
             </p>
 
-            {/* Dev: manual simulate button */}
+            {/* Dev: simulate */}
             <Button
-              onClick={handleManualSuccess}
+              onClick={handleScanSuccess}
               disabled={!cameraReady}
               className="h-12 rounded-2xl bg-teal-600/80 px-8 text-sm font-semibold text-white backdrop-blur-sm hover:bg-teal-500"
             >
@@ -265,21 +268,113 @@ export default function ScanQRPage() {
           </>
         )}
 
-        {/* ── SUCCESS state ── */}
-        {scanState === "success" && (
+        {/* ── PILIH STATUS ── */}
+        {scanState === "pilih" && (
+          <div className="flex w-full flex-col gap-5">
+            {/* Header */}
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-teal-400/50 bg-teal-500/20">
+                <CheckCircle2 className="h-7 w-7 text-teal-400" />
+              </div>
+              <h2 className="text-xl font-black text-white">
+                QR Berhasil Discan!
+              </h2>
+              <p className="mt-1 text-sm text-white/60">
+                Pilih status kehadiranmu
+              </p>
+            </div>
+
+            {/* Pilihan */}
+            <div className="flex flex-col gap-3">
+              {(["hadir", "berhalangan"] as const).map((key) => {
+                const c = PILIHAN_CONFIG[key]
+                const Icon = c.icon
+                const isSelected = pilihan === key
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setPilihan(key)}
+                    className={`flex w-full items-center gap-4 rounded-2xl border-2 p-4 text-left transition-all active:scale-[0.98] ${
+                      isSelected ? c.active : c.inactive
+                    }`}
+                  >
+                    <div
+                      className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${
+                        isSelected ? "bg-white/15" : "bg-white/5"
+                      }`}
+                    >
+                      <Icon className={`h-6 w-6 ${c.iconColor}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-white">{c.label}</p>
+                      <p className="mt-0.5 text-xs text-white/50">{c.desc}</p>
+                    </div>
+                    {/* Radio indicator */}
+                    <div
+                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                        isSelected
+                          ? `border-current ${c.iconColor}`
+                          : "border-white/20"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div
+                          className={`h-2.5 w-2.5 rounded-full ${c.badgeColor}`}
+                        />
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Waktu */}
+            <p className="text-center text-xs text-white/30">
+              {new Date().toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              WIB
+            </p>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleBack}
+                className="h-12 flex-1 rounded-2xl border border-white/15 bg-white/5 text-sm font-semibold text-white/70 transition-all active:scale-[0.98]"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleKonfirmasi}
+                disabled={!pilihan}
+                className={`h-12 flex-2 flex-grow-[2] rounded-2xl text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30 ${
+                  pilihan ? PILIHAN_CONFIG[pilihan].btnClass : "bg-white/20"
+                }`}
+              >
+                Konfirmasi
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── SUCCESS ── */}
+        {scanState === "success" && cfg && (
           <div className="flex flex-col items-center gap-5 text-center">
             <div
               className="flex h-24 w-24 items-center justify-center rounded-full"
               style={{
-                background: "rgba(52,211,153,0.15)",
-                border: "2px solid rgba(52,211,153,0.4)",
+                background: cfg.ringBg,
+                border: `2px solid ${cfg.ringColor}`,
               }}
             >
-              <CheckCircle2 className="h-14 w-14 text-emerald-400" />
+              <SuccessIcon className={`h-14 w-14 ${cfg.iconSuccessColor}`} />
             </div>
             <div>
               <h2 className="text-2xl font-black text-white">Berhasil!</h2>
-              <p className="mt-1 text-sm text-emerald-300">{successMsg}</p>
+              <p className={`mt-1 text-sm ${cfg.successColor}`}>
+                {cfg.successText}
+              </p>
               <p className="mt-2 text-xs text-white/40">
                 {new Date().toLocaleTimeString("id-ID", {
                   hour: "2-digit",
@@ -289,18 +384,15 @@ export default function ScanQRPage() {
               </p>
             </div>
             <Button
-              onClick={() => {
-                stopCamera()
-                router.push("/")
-              }}
-              className="h-12 rounded-2xl bg-emerald-500 px-10 font-bold text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-400"
+              onClick={() => router.push("/user/home")}
+              className={`h-12 rounded-2xl px-10 font-bold text-white shadow-lg ${cfg.btnClass}`}
             >
               Kembali ke Beranda
             </Button>
           </div>
         )}
 
-        {/* ── ERROR state ── */}
+        {/* ── ERROR ── */}
         {scanState === "error" && (
           <div className="flex flex-col items-center gap-5 text-center">
             <div
@@ -339,7 +431,7 @@ export default function ScanQRPage() {
         )}
       </div>
 
-      {/* ── Scanline CSS animation ── */}
+      {/* Scanline animation */}
       <style jsx global>{`
         @keyframes scanline {
           0% {

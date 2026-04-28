@@ -15,6 +15,20 @@ import {
   TrendingDown,
   ArrowRight,
 } from "lucide-react"
+import { useEffect, useState } from "react"
+
+interface SiswaRecord {
+  id: number
+  nama: string
+  nis: string
+  hari: string
+  kelas: string
+  waktu: string
+  status: Status
+  tanggal: string
+}
+
+type Status = "hadir" | "haid" | "tidak_hadir"
 
 // ─── Dummy data ───────────────────────────────────────────────────────────────
 const WEEKLY = [
@@ -23,49 +37,6 @@ const WEEKLY = [
   { hari: "Rab", hadir: 25, Haid: 6, tidak: 4 },
   { hari: "Kam", hadir: 33, Haid: 1, tidak: 1 },
   { hari: "Jum", hadir: 29, Haid: 3, tidak: 3 },
-]
-
-const RECENT_ABSEN = [
-  {
-    id: 1,
-    nama: "Aretha Safira P.",
-    kelas: "X RPL C",
-    waktu: "12:03",
-    status: "hadir",
-    avatar: "11",
-  },
-  {
-    id: 2,
-    nama: "Muhammad Fajar",
-    kelas: "X RPL A",
-    waktu: "12:05",
-    status: "hadir",
-    avatar: "12",
-  },
-  {
-    id: 3,
-    nama: "Siti Nurhaliza",
-    kelas: "XI IPA 2",
-    waktu: "12:22",
-    status: "Haid",
-    avatar: "13",
-  },
-  {
-    id: 4,
-    nama: "Dewi Rahayu",
-    kelas: "XII RPL B",
-    waktu: "12:08",
-    status: "hadir",
-    avatar: "15",
-  },
-  {
-    id: 5,
-    nama: "Nurul Hidayah",
-    kelas: "XI IPA 1",
-    waktu: "12:11",
-    status: "hadir",
-    avatar: "17",
-  },
 ]
 
 const KELAS_DATA = [
@@ -213,6 +184,57 @@ function LineChart() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const [data, setData] = useState<SiswaRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAbsensi = async () => {
+      try {
+        const res = await fetch(`/api/absensi`)
+        const result = await res.json()
+        console.log(result)
+
+        const formatted = result.map((r: any) => {
+          let rawStatus = (r.status || "").trim().toLowerCase()
+          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+
+          const tanggal = r.tanggal ?? "—"
+
+          return {
+            id: r.id,
+            nama: r.users?.nama || "Tidak diketahui",
+            nis: r.users?.nis || "—",
+            kelas: r.users?.kelas || "—",
+            tanggal,
+            hari: getHari(tanggal), // ✅ TAMBAH INI
+            waktu: r.waktu ?? "—",
+            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+              ? rawStatus
+              : "tidak_hadir") as Status,
+          }
+        })
+        setData(formatted)
+      } catch (err) {
+        console.error("Error fetching absensi:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAbsensi()
+  }, [])
+
+  const getHari = (tanggal: string) => {
+    if (!tanggal || tanggal === "—") return "—"
+
+    const [y, m, d] = tanggal.split("-").map(Number)
+    const date = new Date(y, m - 1, d)
+
+    return date.toLocaleDateString("id-ID", {
+      weekday: "long",
+    })
+  }
+
   const router = useRouter()
 
   const today = WEEKLY[WEEKLY.length - 1]
@@ -456,27 +478,21 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="divide-y divide-slate-50">
-            {RECENT_ABSEN.map((r) => (
+            {data.map((r) => (
               <div
                 key={r.id}
                 className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50/60"
               >
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarImage
-                    src={`https://i.pravatar.cc/100?img=${r.avatar}`}
-                  />
-                  <AvatarFallback className="bg-teal-100 text-xs font-bold text-teal-700">
-                    {r.nama.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-800">
                     {r.nama}
                   </p>
-                  <p className="text-xs text-slate-400">{r.kelas}</p>
+                  <p className="text-xs text-slate-400">
+                    {r.kelas} {r.hari}, {r.tanggal} -{" "} {r.waktu !== "—" ? `${r.waktu} WIB` : "Tidak ada catatan"}
+                  </p>
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
-                  <span className="text-xs text-slate-400">{r.waktu}</span>
+                  <span className="text-xs text-slate-400"></span>
                   <Badge
                     variant="outline"
                     className={`rounded-lg border px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE[r.status]}`}

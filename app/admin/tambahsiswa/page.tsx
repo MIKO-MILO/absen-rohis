@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { AdminShell } from "../_components/AdminShell"
+import * as XLSX from "xlsx"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -58,29 +59,42 @@ const KELAS_OPTIONS = [
 const DUMMY_NIS_EXISTING = ["22001", "22002", "22003"]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function parseCSV(text: string): Record<string, string>[] {
+function parseCSV(text: string): any[][] {
   const lines = text.trim().split("\n")
-  if (lines.length < 2) return []
-  const headers = lines[0]
-    .split(",")
-    .map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"))
-  return lines.slice(1).map((line) => {
-    const vals = line.split(",").map((v) => v.trim())
-    const row: Record<string, string> = {}
-    headers.forEach((h, i) => {
-      row[h] = vals[i] ?? ""
-    })
-    return row
-  })
+  return lines.map((line) => line.split(",").map((v) => String(v || "").trim()))
 }
 
-function normalizeRow(raw: Record<string, string>) {
+function normalizeRow(row: any[], kelas: string) {
+  const nama = row[1] || ""
+  const lp = row[2] || ""
+
+  // 🔥 gabung NIS dari beberapa kolom
+  const nis = [row[3], row[5], row[7]]
+    .filter(Boolean)
+    .join("")
+    .replace(/[^0-9]/g, "")
+
   return {
-    nama: raw["nama"] ?? raw["nama_lengkap"] ?? raw["name"] ?? "",
-    nis: raw["nis"] ?? raw["nomor_induk"] ?? "",
-    kelas: raw["kelas"] ?? raw["class"] ?? "",
-    jenisKelamin: raw["jenis_kelamin"] ?? raw["gender"] ?? raw["jk"] ?? "",
+    nama,
+    nis,
+    kelas,
+    jenisKelamin: mapGender(lp),
   }
+}
+
+const cleanNIS = (nis: any) => {
+  if (!nis) return ""
+  return String(nis).replace(/[^0-9]/g, "")
+}
+
+const mapGender = (val: any) => {
+  if (val === undefined || val === null) return ""
+  const v = String(val).trim().toUpperCase()
+
+  if (v === "L" || v === "LAKI-LAKI") return "Laki-laki"
+  if (v === "P" || v === "PEREMPUAN") return "Perempuan"
+
+  return ""
 }
 
 function validateRow(
@@ -419,6 +433,7 @@ function ImportForm({
   onBack: () => void
   onSuccess: (count: number) => void
 }) {
+  const [kelas, setKelas] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [fileName, setFileName] = useState("")
@@ -437,77 +452,57 @@ function ImportForm({
       reader.onload = (e) => {
         const text = e.target?.result as string
         const rawRows = parseCSV(text)
-        setRows(rawRows.map((r, i) => validateRow(normalizeRow(r), i)))
+        if (!kelas) {
+          alert("Pilih kelas dulu!")
+          return
+        }
+
+        // Jika CSV, kita asumsikan data mulai dari baris 1 (index 1) karena baris 0 adalah header
+        const filtered = rawRows.slice(1).filter((r) => r.length >= 2 && r[0])
+
+        const newRows = filtered.map((r, i) => {
+          // Jika r[0] adalah Nama (format simple CSV), kita sesuaikan ke format yang diharapkan normalizeRow
+          // normalizeRow mengharap: [?, nama, gender, nis, ...]
+          // Tapi karena normalizeRow sudah spesifik untuk Excel, kita buat mapping manual di sini untuk CSV
+          return validateRow(
+            {
+              nama: r[0] || "",
+              nis: cleanNIS(r[1] || ""),
+              kelas: kelas,
+              jenisKelamin: r[3] || "", // Kolom ke-4 di template CSV
+            },
+            i
+          )
+        })
+
+        setRows(newRows)
         setParsed(true)
       }
       reader.readAsText(file)
     } else if (ext === "xlsx" || ext === "xls") {
       // Production: uncomment dan install xlsx
-      // import * as XLSX from "xlsx"
-      // const reader = new FileReader()
-      // reader.onload = (e) => {
-      //   const data = new Uint8Array(e.target?.result as ArrayBuffer)
-      //   const wb = XLSX.read(data, { type: "array" })
-      //   const ws = wb.Sheets[wb.SheetNames[0]]
-      //   const rawRows = XLSX.utils.sheet_to_json(ws, { defval: "" }) as Record<string, string>[]
-      //   setRows(rawRows.map((r, i) => validateRow(normalizeRow(r), i)))
-      //   setParsed(true)
-      // }
-      // reader.readAsArrayBuffer(file)
 
-      // Demo simulasi
-      setRows([
-        {
-          no: 1,
-          nama: "Budi Santoso",
-          nis: "22100",
-          kelas: "X RPL B",
-          jenisKelamin: "Laki-laki",
-          status: "valid",
-        },
-        {
-          no: 2,
-          nama: "Rina Puspita",
-          nis: "22101",
-          kelas: "XI IPA 1",
-          jenisKelamin: "Perempuan",
-          status: "valid",
-        },
-        {
-          no: 3,
-          nama: "Doni Prasetyo",
-          nis: "22001",
-          kelas: "X RPL A",
-          jenisKelamin: "Laki-laki",
-          status: "duplikat",
-          pesan: "NIS 22001 sudah terdaftar",
-        },
-        {
-          no: 4,
-          nama: "",
-          nis: "22103",
-          kelas: "XII IPS 2",
-          jenisKelamin: "Perempuan",
-          status: "error",
-          pesan: "Nama kosong",
-        },
-        {
-          no: 5,
-          nama: "Laila Fitriani",
-          nis: "22104",
-          kelas: "XI RPL A",
-          jenisKelamin: "Perempuan",
-          status: "valid",
-        },
-        {
-          no: 6,
-          nama: "Ahmad Ridwan",
-          nis: "22105",
-          kelas: "XII RPL B",
-          jenisKelamin: "Laki-laki",
-          status: "valid",
-        },
-      ])
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer)
+        const wb = XLSX.read(data, { type: "array" })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rawRows = XLSX.utils.sheet_to_json(ws, {
+          defval: "",
+          range: 13, // 🔥 data mulai dari baris 14
+          header: 1, // 🔥 pakai array, bukan object
+        }) as any[][]
+
+        const filtered = rawRows.filter((r) => r[1]) // r[1] adalah kolom NAMA
+
+        const newRows = filtered.map((r, i) =>
+          validateRow(normalizeRow(r, kelas), i)
+        )
+        setRows(newRows)
+        setParsed(true)
+      }
+      reader.readAsArrayBuffer(file)
+
       setParsed(true)
     } else {
       alert("Format file tidak didukung. Gunakan .csv, .xlsx, atau .xls")
@@ -603,6 +598,24 @@ function ImportForm({
                 Nama, NIS, Kelas, Jenis_Kelamin
               </span>
             </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs font-semibold text-slate-600 uppercase">
+              Kelas
+            </Label>
+            <select
+              value={kelas}
+              onChange={(e) => setKelas(e.target.value)}
+              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm"
+            >
+              <option value="">Pilih kelas...</option>
+              {KELAS_OPTIONS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
           </div>
 
           {!parsed ? (

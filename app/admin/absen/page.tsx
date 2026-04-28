@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { AdminShell } from "../_components/AdminShell"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -39,14 +39,13 @@ import { useRouter } from "next/navigation"
 import * as XLSX from "xlsx"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AbsenStatus = "hadir" | "Haid" | "tidak_hadir" | "Haid"
+type AbsenStatus = "hadir" | "haid" | "tidak_hadir"
 
 interface SiswaRecord {
   id: number
   nama: string
   nis: string
   kelas: string
-  avatar: string
   waktu: string
   status: AbsenStatus
   tanggal: string
@@ -64,7 +63,7 @@ const STATUS_META: Record<
     color: "#0d9488",
     bg: "rgba(13,148,136,0.08)",
   },
-  Haid: {
+  haid: {
     label: "Haid",
     dot: "bg-amber-400",
     badge: "bg-amber-50 text-amber-600 border-amber-200",
@@ -92,197 +91,13 @@ const KELAS_LIST = [
   "XI RPL A",
 ]
 
-// ─── Dummy data ───────────────────────────────────────────────────────────────
-const SISWA_DATA: SiswaRecord[] = [
-  {
-    id: 1,
-    nama: "Aretha Safira P.",
-    nis: "22001",
-    kelas: "X RPL C",
-    avatar: "11",
-    waktu: "12:03",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 2,
-    nama: "Muhammad Fajar",
-    nis: "22002",
-    kelas: "X RPL A",
-    avatar: "12",
-    waktu: "12:05",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 3,
-    nama: "Siti Nurhaliza",
-    nis: "22003",
-    kelas: "XI IPA 2",
-    avatar: "13",
-    waktu: "12:22",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 4,
-    nama: "Budi Santoso",
-    nis: "22004",
-    kelas: "XI IPS 1",
-    avatar: "14",
-    waktu: "—",
-    status: "tidak_hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 5,
-    nama: "Dewi Rahayu",
-    nis: "22005",
-    kelas: "XII RPL B",
-    avatar: "15",
-    waktu: "12:08",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 6,
-    nama: "Ahmad Zainuddin",
-    nis: "22006",
-    kelas: "X RPL B",
-    avatar: "16",
-    waktu: "—",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 7,
-    nama: "Nurul Hidayah",
-    nis: "22007",
-    kelas: "XI IPA 1",
-    avatar: "17",
-    waktu: "12:11",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 8,
-    nama: "Rizky Pratama",
-    nis: "22008",
-    kelas: "XII IPS 2",
-    avatar: "18",
-    waktu: "12:30",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 9,
-    nama: "Fatimah Az-Zahra",
-    nis: "22009",
-    kelas: "X RPL C",
-    avatar: "19",
-    waktu: "12:04",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 10,
-    nama: "Hendra Kurniawan",
-    nis: "22010",
-    kelas: "XI RPL A",
-    avatar: "20",
-    waktu: "—",
-    status: "tidak_hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 11,
-    nama: "Reza Maulana",
-    nis: "22011",
-    kelas: "XII RPL B",
-    avatar: "22",
-    waktu: "12:15",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 12,
-    nama: "Putri Ayu Lestari",
-    nis: "22012",
-    kelas: "XI IPS 1",
-    avatar: "25",
-    waktu: "—",
-    status: "tidak_hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 13,
-    nama: "Fadhil Rahmatullah",
-    nis: "22013",
-    kelas: "X RPL C",
-    avatar: "27",
-    waktu: "12:19",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 14,
-    nama: "Zahra Fitria",
-    nis: "22014",
-    kelas: "XI IPA 1",
-    avatar: "30",
-    waktu: "12:31",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 15,
-    nama: "Bagas Setiawan",
-    nis: "22015",
-    kelas: "X RPL A",
-    avatar: "32",
-    waktu: "12:07",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 16,
-    nama: "Nabilah Azzahra",
-    nis: "22016",
-    kelas: "XI IPS 1",
-    avatar: "35",
-    waktu: "—",
-    status: "Haid",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 17,
-    nama: "Irfan Hakim",
-    nis: "22017",
-    kelas: "XII RPL B",
-    avatar: "38",
-    waktu: "12:04",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-  {
-    id: 18,
-    nama: "Salwa Oktavia",
-    nis: "22018",
-    kelas: "XI IPA 2",
-    avatar: "41",
-    waktu: "12:13",
-    status: "hadir",
-    tanggal: "2026-04-23",
-  },
-]
-
 const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir"] as const
 type Tab = (typeof TABS)[number]
 
 const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
   Semua: null,
   Hadir: "hadir",
-  Haid: "Haid",
+  Haid: "haid",
   "Tidak Hadir": "tidak_hadir",
 }
 
@@ -321,6 +136,45 @@ function exportToExcel(data: SiswaRecord[], filename = "Absensi-Dzuhur") {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DataAbsenPage() {
+  const [data, setData] = useState<SiswaRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAbsensi = async () => {
+      try {
+        const res = await fetch("/api/absensi")
+        const result = await res.json()
+        console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+        console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+        console.log(result)
+
+        const formatted = result.map((s: any) => {
+          let rawStatus = (s.status || "").trim().toLowerCase()
+          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+
+          return {
+            id: s.id,
+            nama: s.users?.nama || "Tidak diketahui",
+            nis: s.users?.nis || "—",
+            kelas: s.users?.kelas || "—",
+            tanggal: s.tanggal ?? "—",
+            waktu: s.waktu ?? "—",
+            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+              ? rawStatus
+              : "tidak_hadir") as AbsenStatus,
+          }
+        })
+        setData(formatted)
+      } catch (err) {
+        console.error("Error fetching absensi:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAbsensi()
+  }, [])
+
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>("Semua")
   const [search, setSearch] = useState("")
@@ -328,7 +182,6 @@ export default function DataAbsenPage() {
   const [filterTanggal, setFilterTanggal] = useState("")
   const [page, setPage] = useState(1)
   const [showFilterPanel, setShowFilterPanel] = useState(false)
-  const [data, setData] = useState<SiswaRecord[]>(SISWA_DATA)
   const PER_PAGE = 8
 
   const todayStr = new Date().toLocaleDateString("id-ID", {
@@ -363,7 +216,7 @@ export default function DataAbsenPage() {
     () => ({
       total: data.length,
       hadir: data.filter((d) => d.status === "hadir").length,
-      Haid: data.filter((d) => d.status === "Haid").length,
+      haid: data.filter((d) => d.status === "haid").length,
       tidak_hadir: data.filter((d) => d.status === "tidak_hadir").length,
     }),
     [data]
@@ -393,10 +246,30 @@ export default function DataAbsenPage() {
   const handleDelete = (id: number) =>
     setData((prev) => prev.filter((s) => s.id !== id))
 
-  const handleStatusChange = (id: number, newStatus: AbsenStatus) => {
+  const handleStatusChange = async (id: number, newStatus: AbsenStatus) => {
+    // Optimistic update
+    const oldData = [...data]
     setData((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s))
     )
+
+    try {
+      const res = await fetch(`/api/absensi/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (!res.ok) {
+        const result = await res.json()
+        throw new Error(result.error || "Gagal memperbarui status")
+      }
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Terjadi kesalahan")
+      // Revert state jika gagal
+      setData(oldData)
+    }
   }
 
   return (
@@ -478,7 +351,7 @@ export default function DataAbsenPage() {
             },
             {
               label: "Haid",
-              value: summary.Haid,
+              value: summary.haid,
               icon: Clock,
               color: "text-amber-500",
               bg: "border-amber-50",
@@ -754,14 +627,6 @@ export default function DataAbsenPage() {
                         {/* Siswa */}
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8 flex-shrink-0">
-                              <AvatarImage
-                                src={`https://i.pravatar.cc/100?img=${s.avatar}`}
-                              />
-                              <AvatarFallback className="bg-teal-100 text-xs font-bold text-teal-700">
-                                {s.nama.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
                             <div>
                               <p className="text-sm leading-tight font-semibold text-slate-800">
                                 {s.nama}
@@ -833,8 +698,7 @@ export default function DataAbsenPage() {
                               {(
                                 [
                                   "hadir",
-                                  "Haid",
-                                  "Haid",
+                                  "haid",
                                   "tidak_hadir",
                                 ] as AbsenStatus[]
                               ).map((st) => (

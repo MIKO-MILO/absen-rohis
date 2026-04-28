@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,7 +28,7 @@ import {
 import { LogOut } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Status = "sudah" | "belum" | "haid" | "Haid"
+type Status = "hadir" | "tidak_hadir" | "haid" 
 
 interface RiwayatItem {
   id: number
@@ -41,94 +41,77 @@ interface RiwayatItem {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<Status, string> = {
-  sudah: "Hadir",
-  belum: "Tidak Hadir",
+  hadir: "Hadir",
+  tidak_hadir: "Tidak Hadir",
   haid: "Haid",
-  Haid: "Haid",
 }
 
 const STATUS_STYLE: Record<Status, string> = {
-  sudah: "bg-teal-50 text-teal-700 border-teal-200",
-  belum: "bg-red-50 text-red-500 border-red-200",
+  hadir: "bg-teal-50 text-teal-700 border-teal-200",
+  tidak_hadir: "bg-red-50 text-red-500 border-red-200",
   haid: "bg-amber-50 text-amber-600 border-amber-200",
-  Haid: "bg-blue-50 text-blue-600 border-blue-200",
 }
 
 const STATUS_DOT: Record<Status, string> = {
-  sudah: "bg-teal-400",
-  belum: "bg-red-400",
+  hadir: "bg-teal-400",
+  tidak_hadir: "bg-red-400",
   haid: "bg-amber-400",
-  Haid: "bg-blue-400",
-}
-
-// ─── Dummy riwayat ────────────────────────────────────────────────────────────
-const RIWAYAT: RiwayatItem[] = [
-  {
-    id: 1,
-    hari: "Selasa",
-    tanggal: "22 Apr 2025",
-    waktu: "12:08",
-    status: "sudah",
-    nama: "Aretha Safira Putri",
-  },
-  {
-    id: 2,
-    hari: "Senin",
-    tanggal: "21 Apr 2025",
-    waktu: "12:22",
-    status: "sudah",
-    nama: "Aretha Safira Putri",
-  },
-  {
-    id: 3,
-    hari: "Jumat",
-    tanggal: "18 Apr 2025",
-    waktu: "—",
-    status: "haid",
-    nama: "Aretha Safira Putri",
-  },
-  {
-    id: 4,
-    hari: "Kamis",
-    tanggal: "17 Apr 2025",
-    waktu: "12:05",
-    status: "sudah",
-    nama: "Aretha Safira Putri",
-  },
-  {
-    id: 5,
-    hari: "Rabu",
-    tanggal: "16 Apr 2025",
-    waktu: "—",
-    status: "haid",
-    nama: "Aretha Safira Putri",
-  },
-  {
-    id: 6,
-    hari: "Selasa",
-    tanggal: "15 Apr 2025",
-    waktu: "12:10",
-    status: "haid",
-    nama: "Aretha Safira Putri",
-  },
-]
-
-function getSummary(data: RiwayatItem[]) {
-  return {
-    hadir: data.filter((d) => d.status === "sudah").length,
-    haid: data.filter((d) => d.status === "haid").length,
-    belum: data.filter((d) => d.status === "belum").length,
-  }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AbsenSholatPage() {
+  const [data, setData] = useState<RiwayatItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAbsensi = async () => {
+      try {
+        const res = await fetch(`/api/absensi`)
+        const result = await res.json()
+        console.log(result)
+
+        const formatted = result.map((e: any) => {
+          let rawStatus = (e.status || "").trim().toLowerCase()
+          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+
+          const tanggal = e.tanggal ?? "—"
+
+          return {
+            id: e.id,
+            nama: e.users?.nama || "Tidak diketahui",
+            nis: e.users?.nis || "—",
+            kelas: e.users?.kelas || "—",
+            tanggal,
+            hari: getHari(tanggal), // ✅ TAMBAH INI
+            waktu: e.waktu ?? "—",
+            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+              ? rawStatus
+              : "tidak_hadir") as Status,
+          }
+        })
+        setData(formatted)
+      } catch (err) {
+        console.error("Error fetching absensi:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAbsensi()
+  }, [])
+
+  const getHari = (tanggal: string) => {
+    if (!tanggal || tanggal === "—") return "—"
+
+    const [y, m, d] = tanggal.split("-").map(Number)
+    const date = new Date(y, m - 1, d)
+
+    return date.toLocaleDateString("id-ID", {
+      weekday: "long",
+    })
+  }
+
   const router = useRouter()
-
-  // Ganti ke false untuk simulasi belum absen
-  const [sudahAbsen] = useState<boolean>(false)
-
-  const summary = getSummary(RIWAYAT)
 
   function handleLogout(event: React.MouseEvent<HTMLDivElement>): void {
     // throw new Error("Function not implemented.");
@@ -226,18 +209,6 @@ export default function AbsenSholatPage() {
                 </div>
               </DropdownMenuLabel>
 
-              <DropdownMenuSeparator className="my-1 bg-slate-100" />
-
-              {/* <DropdownMenuItem
-        onClick={() => router.push("/profil")}
-        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer text-slate-600 hover:bg-slate-50 focus:bg-slate-50"
-      >
-        <User className="w-4 h-4 text-slate-400" />
-        <span className="text-sm font-medium">Profil Saya</span>
-      </DropdownMenuItem> */}
-
-              <DropdownMenuSeparator className="my-1 bg-slate-100" />
-
               <DropdownMenuItem
                 onClick={handleLogout}
                 className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-red-500 hover:bg-red-50 focus:bg-red-50 focus:text-red-500"
@@ -270,23 +241,6 @@ export default function AbsenSholatPage() {
               <p className="text-xs text-teal-100">12:00 - 13:00 WIB</p>
             </div>
           </div>
-          <div className="flex flex-col items-center gap-1">
-            {sudahAbsen ? (
-              <>
-                <CheckCircle2 className="h-10 w-10 text-emerald-300 drop-shadow" />
-                <span className="text-[10px] font-semibold text-emerald-200">
-                  Sudah Absen
-                </span>
-              </>
-            ) : (
-              <>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-white/40 bg-white/20">
-                  <Clock className="h-5 w-5 text-white/60" />
-                </div>
-                <span className="text-[10px] text-teal-200">Belum Absen</span>
-              </>
-            )}
-          </div>
         </div>
       </div>
 
@@ -314,29 +268,29 @@ export default function AbsenSholatPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            {RIWAYAT.map((r) => (
+            {data.map((e) => (
               <Card
-                key={r.id}
+                key={e.id}
                 className="rounded-2xl border border-slate-100 bg-white shadow-sm"
               >
                 <CardContent className="flex items-center gap-3 px-4 py-3">
                   <div
-                    className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${STATUS_DOT[r.status]}`}
+                    className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${STATUS_DOT[e.status]}`}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm leading-tight font-semibold text-slate-800">
-                      {r.nama}
+                      {e.nama}
                     </p>
                     <p className="text-xs leading-tight text-slate-500">
-                      {r.hari}, {r.tanggal} -{" "}
-                      {r.waktu !== "—" ? `${r.waktu} WIB` : "Tidak ada catatan"}
+                      {e.hari}, {e.tanggal} -{" "}
+                      {e.waktu !== "—" ? `${e.waktu} WIB` : "Tidak ada catatan"}
                     </p>
                   </div>
                   <Badge
                     variant="outline"
-                    className={`flex-shrink-0 rounded-lg border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[r.status]}`}
+                    className={`flex-shrink-0 rounded-lg border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[e.status]}`}
                   >
-                    {STATUS_LABEL[r.status]}
+                    {STATUS_LABEL[e.status]}
                   </Badge>
                 </CardContent>
               </Card>
