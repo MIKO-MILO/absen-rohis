@@ -11,10 +11,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import {
   Users,
   Search,
   MoreHorizontal,
-  Eye,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -26,9 +32,6 @@ import {
 import { useRouter } from "next/navigation"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AbsenStatus = "hadir" | "Haid" | "tidak_hadir"
-
-// Sesuai Table users
 interface UserRecord {
   id: number
   nama: string
@@ -39,28 +42,6 @@ interface UserRecord {
   password: string
   created_at: string
   avatar: string
-}
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const STATUS_META: Record<
-  AbsenStatus,
-  { label: string; dot: string; badge: string }
-> = {
-  hadir: {
-    label: "Hadir",
-    dot: "bg-teal-400",
-    badge: "bg-teal-50 text-teal-700 border-teal-200",
-  },
-  Haid: {
-    label: "Haid",
-    dot: "bg-amber-400",
-    badge: "bg-amber-50 text-amber-600 border-amber-200",
-  },
-  tidak_hadir: {
-    label: "Tidak Hadir",
-    dot: "bg-red-400",
-    badge: "bg-red-50 text-red-500 border-red-200",
-  },
 }
 
 const KELAS_LIST = [
@@ -75,72 +56,50 @@ const KELAS_LIST = [
   "XI RPL A",
 ]
 
-const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir"] as const
-type Tab = (typeof TABS)[number]
-
-const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
-  Semua: null,
-  Hadir: "hadir",
-  Haid: "Haid",
-  "Tidak Hadir": "tidak_hadir",
-}
-
 const PER_PAGE = 11
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function DataAbsenPage() {
+export default function DataSiswaPage() {
+  const router = useRouter()
+
   const [data, setData] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const res = await fetch("/api/users")
-        const result = await res.json()
-        console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-        console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-        console.log(result)
-
-        const formatted = result.map((u: any) => ({
-          id: u.id,
-          nama: u.nama,
-          kelas: u.kelas,
-          jenis_kelamin: u.jenis_kelamin,
-          nis: u.nis,
-          email: u.email,
-          password: u.password,
-          created_at: u.created_at,
-
-          // tambahan untuk UI
-          avatar: Math.floor(Math.random() * 70).toString(),
-        }))
-
-        setData(formatted)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchUsers()
-  }, [])
-
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState<Tab>("Semua")
   const [search, setSearch] = useState("")
   const [filterKelas, setFilterKelas] = useState("Semua Kelas")
   const [filterTanggal, setFilterTanggal] = useState("")
   const [page, setPage] = useState(1)
   const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
-  const todayStr = new Date().toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })
+  // ── Fetch ───────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch("/api/users")
+        const result = await res.json()
+        setData(
+          result.map((u: any) => ({
+            id: u.id,
+            nama: u.nama,
+            kelas: u.kelas,
+            jenis_kelamin: u.jenis_kelamin,
+            nis: u.nis,
+            email: u.email,
+            password: u.password,
+            created_at: u.created_at,
+            avatar: String(Math.floor(Math.random() * 70)),
+          }))
+        )
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [])
 
+  // ── Filter ──────────────────────────────────────────────────────────────────
   const filtered = useMemo(
     () =>
       data.filter((s) => {
@@ -159,50 +118,96 @@ export default function DataAbsenPage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const paginatedIds = paginated.map((s) => s.id)
+
+  const allPageSelected =
+    paginatedIds.length > 0 && paginatedIds.every((id) => selected.has(id))
+  const somePageSelected = paginatedIds.some((id) => selected.has(id))
 
   const activeFilterCount = [
     filterKelas !== "Semua Kelas",
     filterTanggal !== "",
     search !== "",
   ].filter(Boolean).length
-
   const resetFilters = () => {
     setSearch("")
     setFilterKelas("Semua Kelas")
     setFilterTanggal("")
-    setActiveTab("Semua")
     setPage(1)
   }
 
+  // ── Checkbox ────────────────────────────────────────────────────────────────
+  const toggleAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      allPageSelected
+        ? paginatedIds.forEach((id) => next.delete(id))
+        : paginatedIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const toggleOne = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  const clearSelected = () => setSelected(new Set())
+
+  // ── Delete single ───────────────────────────────────────────────────────────
   const handleDelete = async (id: number) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus data siswa ini?")) return
-
-    console.log("Menghapus siswa dengan ID:", id)
     try {
-      const res = await fetch(`/api/users/${id}`, {
-        method: "DELETE",
-      })
-
+      const res = await fetch(`/api/users/${id}`, { method: "DELETE" })
       const result = await res.json()
-
-      if (!res.ok) {
-        throw new Error(result.error || "Gagal hapus data")
-      }
-
-      // update state setelah berhasil delete
+      if (!res.ok) throw new Error(result.error || "Gagal hapus data")
       setData((prev) => prev.filter((s) => s.id !== id))
-      alert("Data siswa berhasil dihapus")
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     } catch (err: any) {
-      console.error(err)
       alert(err.message || "Terjadi kesalahan saat menghapus data")
     }
   }
 
-  const handleEdit = (id: number) => router.push(`/admin/editsiswa?id=${id}`)
-
-  if (loading) {
-    return <div className="p-5">Loading data...</div>
+  // ── Delete bulk ─────────────────────────────────────────────────────────────
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) =>
+          fetch(`/api/users/${id}`, { method: "DELETE" })
+        )
+      )
+      setData((prev) => prev.filter((s) => !selected.has(s.id)))
+      clearSelected()
+    } catch (err: any) {
+      alert(err.message || "Terjadi kesalahan saat menghapus data")
+    } finally {
+      setShowDeleteModal(false)
+    }
   }
+
+  const todayStr = new Date().toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+
+  if (loading)
+    return (
+      <AdminShell>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+            <p className="text-sm text-slate-400">Memuat data siswa...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
 
   return (
     <AdminShell>
@@ -239,11 +244,19 @@ export default function DataAbsenPage() {
             }}
           />
           <div className="relative z-10">
-            <p className="text-xs text-teal-100">Rekap Kehadiran</p>
+            <p className="text-xs text-teal-100">Data Siswa</p>
             <h2 className="mt-0.5 text-xl font-black text-white">
-              Sholat Dzuhur — Hari Ini
+              Manajemen Siswa Rohis
             </h2>
             <p className="mt-1 text-xs text-teal-200">{todayStr}</p>
+          </div>
+          <div className="relative z-10 flex flex-col items-center rounded-2xl border border-white/15 bg-white/10 px-5 py-3 backdrop-blur-sm">
+            <span className="text-2xl leading-none font-black text-white">
+              {data.length}
+            </span>
+            <span className="mt-0.5 text-[10px] text-white/80">
+              Total Siswa
+            </span>
           </div>
         </div>
 
@@ -254,7 +267,7 @@ export default function DataAbsenPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-800">
-                  Rekap Absensi Dzuhur
+                  Daftar Siswa
                 </h2>
                 <p className="mt-0.5 text-xs text-slate-400">
                   {filtered.length} dari {data.length} siswa
@@ -322,7 +335,7 @@ export default function DataAbsenPage() {
                   <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
                     Kelas
                   </label>
-                  <select
+                  <select 
                     value={filterKelas}
                     onChange={(e) => {
                       setFilterKelas(e.target.value)
@@ -335,11 +348,10 @@ export default function DataAbsenPage() {
                       <option key={k}>{k}</option>
                     ))}
                   </select>
-                  ""
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-                    Tanggal
+                    Tanggal Daftar
                   </label>
                   <input
                     type="date"
@@ -351,49 +363,29 @@ export default function DataAbsenPage() {
                     className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none focus:border-teal-400"
                   />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-                    Cepat
-                  </label>
-                  <div className="flex gap-1.5">
-                    {[
-                      {
-                        label: "Hari ini",
-                        val: new Date().toISOString().split("T")[0],
-                      },
-                      { label: "Semua", val: "" },
-                    ].map(({ label, val }) => (
-                      <button
-                        key={label}
-                        onClick={() => {
-                          setFilterTanggal(val)
-                          setPage(1)
-                        }}
-                        className="h-8 rounded-lg border px-3 text-xs font-semibold transition-all"
-                        style={{
-                          background:
-                            filterTanggal === val
-                              ? "rgba(13,148,136,0.08)"
-                              : "#fff",
-                          borderColor:
-                            filterTanggal === val ? "#0d9488" : "#e2e8f0",
-                          color: filterTanggal === val ? "#0d9488" : "#64748b",
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
           </div>
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr style={{ background: "#f8fafc" }}>
+                  {/* Checkbox all */}
+                  <th className="w-10 py-3 pr-2 pl-5">
+                    <input
+                      type="checkbox"
+                      checked={allPageSelected}
+                      ref={(el) => {
+                        if (el)
+                          el.indeterminate =
+                            somePageSelected && !allPageSelected
+                      }}
+                      onChange={toggleAll}
+                      className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-teal-500"
+                    />
+                  </th>
                   {[
                     "No",
                     "Nama",
@@ -405,7 +397,7 @@ export default function DataAbsenPage() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase first:pl-5 last:w-10"
+                      className="px-4 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase last:w-10"
                     >
                       {h}
                     </th>
@@ -415,7 +407,7 @@ export default function DataAbsenPage() {
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-16 text-center">
+                    <td colSpan={8} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <Users className="h-8 w-8 text-slate-200" />
                         <p className="text-sm text-slate-400">
@@ -432,24 +424,41 @@ export default function DataAbsenPage() {
                   </tr>
                 ) : (
                   paginated.map((s, i) => {
+                    const isChecked = selected.has(s.id)
                     return (
                       <tr
                         key={s.id}
                         className="border-t border-slate-50 transition-colors hover:bg-slate-50/70"
                         style={{
-                          background: i % 2 !== 0 ? "#fafcff" : undefined,
+                          background: isChecked
+                            ? "rgba(13,148,136,0.05)"
+                            : i % 2 !== 0
+                              ? "#fafcff"
+                              : undefined,
                         }}
                       >
+                        {/* Checkbox */}
+                        <td className="py-3 pr-2 pl-5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleOne(s.id)}
+                            className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-teal-500"
+                          />
+                        </td>
+
                         {/* No */}
-                        <td className="px-4 py-3">{i + 1}</td>
+                        <td className="px-4 py-3 text-xs font-medium text-slate-400">
+                          {(page - 1) * PER_PAGE + i + 1}
+                        </td>
+
                         {/* Nama */}
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8 shrink-0">
-                              
+                            <Avatar className="h-8 w-8 flex-shrink-0">
                               <AvatarFallback className="bg-teal-100 text-xs font-bold text-teal-700">
                                 {s.nama.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
+                              </AvatarFallback> 
                             </Avatar>
                             <p className="text-sm leading-tight font-semibold text-slate-800">
                               {s.nama}
@@ -506,17 +515,19 @@ export default function DataAbsenPage() {
                               className="w-36 rounded-2xl p-1"
                             >
                               <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(`/admin/editsiswa?id=${s.id}`)
+                                }
                                 className="cursor-pointer rounded-xl text-xs"
-                                onClick={() => handleEdit(s.id)}
                               >
-                                <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
+                                <Pencil className="mr-2 h-3.5 w-3.5 text-slate-400" />{" "}
+                                Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleDelete(s.id)}
                                 className="cursor-pointer rounded-xl text-xs text-red-500 focus:bg-red-50 focus:text-red-500"
                               >
-                                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                Hapus
+                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Hapus
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -536,6 +547,11 @@ export default function DataAbsenPage() {
               <span className="font-semibold text-slate-600">{page}</span> dari{" "}
               <span className="font-semibold text-slate-600">{totalPages}</span>
               &nbsp;·&nbsp; {filtered.length} data
+              {selected.size > 0 && (
+                <span className="ml-2 font-semibold text-teal-600">
+                  · {selected.size} dipilih
+                </span>
+              )}
             </p>
             <div className="flex items-center gap-1">
               <button
@@ -587,7 +603,95 @@ export default function DataAbsenPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Bulk action bar ── */}
+        {selected.size > 0 && (
+          <div className="flex items-center justify-between rounded-2xl border border-red-100 bg-red-50 px-5 py-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-100">
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-red-700">
+                  {selected.size} siswa dipilih
+                </p>
+                <p className="text-xs text-red-400">
+                  Pilih aksi untuk data terpilih
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={clearSelected}
+                className="flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                <X className="h-3.5 w-3.5" /> Batal
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="flex h-8 items-center gap-1.5 rounded-xl bg-red-500 px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-400"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Hapus {selected.size} Data
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* ── Bulk Delete Modal ── */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="mx-auto max-w-xs overflow-hidden rounded-3xl border border-slate-100 bg-white p-0 shadow-xl">
+          <div className="h-1.5 w-full" />
+          <div className="flex flex-col gap-4 px-6 pt-5 pb-6">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
+                <Trash2 className="h-7 w-7 text-red-500" />
+              </div>
+              <DialogHeader>
+                <DialogTitle className="text-base font-bold text-slate-800">
+                  Hapus {selected.size} Siswa?
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Data yang dihapus tidak dapat dikembalikan.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+
+            {/* Preview list */}
+            <div className="flex max-h-40 flex-col gap-1.5 overflow-y-auto rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+              {Array.from(selected).map((id) => {
+                const s = data.find((d) => d.id === id)
+                return s ? (
+                  <div key={id} className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                    <p className="truncate text-xs font-medium text-red-700">
+                      {s.nama}
+                    </p>
+                    <span className="ml-auto flex-shrink-0 font-mono text-[10px] text-red-400">
+                      {s.nis}
+                    </span>
+                  </div>
+                ) : null
+              })}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                className="h-11 flex-1 rounded-xl bg-red-500 text-sm font-semibold text-white transition-colors hover:bg-red-400"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   )
 }
