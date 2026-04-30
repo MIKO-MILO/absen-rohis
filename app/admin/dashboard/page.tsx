@@ -184,15 +184,27 @@ function LineChart() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const sessionStr = localStorage.getItem("user_session")
+    if (!sessionStr) {
+      router.push("/")
+      return
+    }
+
+    const session = JSON.parse(sessionStr)
+    if (session.role !== "admin") {
+      router.push("/")
+      return
+    }
+
     const fetchAbsensi = async () => {
       try {
-        const res = await fetch(`/api/absensi`)
+        const res = await fetch("/api/absensi")
         const result = await res.json()
-        console.log(result)
 
         const formatted = result.map((r: any) => {
           let rawStatus = (r.status || "").trim().toLowerCase()
@@ -206,7 +218,7 @@ export default function DashboardPage() {
             nis: r.users?.nis || "—",
             kelas: r.users?.kelas || "—",
             tanggal,
-            hari: getHari(tanggal), // ✅ TAMBAH INI
+            hari: getHari(tanggal),
             waktu: r.waktu ?? "—",
             status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
               ? rawStatus
@@ -215,14 +227,14 @@ export default function DashboardPage() {
         })
         setData(formatted)
       } catch (err) {
-        console.error("Error fetching absensi:", err)
+        console.error(err)
       } finally {
         setLoading(false)
       }
     }
 
     fetchAbsensi()
-  }, [])
+  }, [router])
 
   const getHari = (tanggal: string) => {
     if (!tanggal || tanggal === "—") return "—"
@@ -234,8 +246,6 @@ export default function DashboardPage() {
       weekday: "long",
     })
   }
-
-  const router = useRouter()
 
   const today = WEEKLY[WEEKLY.length - 1]
   const yesterday = WEEKLY[WEEKLY.length - 2]

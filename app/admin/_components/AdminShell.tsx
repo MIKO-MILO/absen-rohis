@@ -27,6 +27,7 @@ const NAV_ITEMS = [
   { label: "Dashboard",   icon: LayoutDashboard, href: "/admin/dashboard" },
   { label: "Data Absen",  icon: ClipboardList,   href: "/admin/absen" },
   { label: "Siswa",       icon: Users,           href: "/admin/siswa" },
+  { label: "Panitia",       icon: Users,           href: "/admin/panitia" },
   { label: "Generate QR", icon: QrCode,          href: "/admin/generate-qr" },
 ];
 

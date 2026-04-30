@@ -68,15 +68,30 @@ function getSummary(data: RiwayatItem[]) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AbsenSholatPage() {
+  const router = useRouter()
   const [data, setData] = useState<RiwayatItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<{
+    id: any
+    nama: string
+    kelas: string
+  } | null>(null)
+  const [sudahAbsen, setSudahAbsen] = useState(false)
 
   useEffect(() => {
+    const sessionStr = localStorage.getItem("user_session")
+    if (!sessionStr) {
+      router.push("/")
+      return
+    }
+
+    const session = JSON.parse(sessionStr)
+    setUser(session)
+
     const fetchAbsensi = async () => {
       try {
-        const res = await fetch(`/api/absensi`)
+        const res = await fetch(`/api/absensi?user_id=${session.id}`)
         const result = await res.json()
-        console.log(result)
 
         const formatted = result.map((r: any) => {
           let rawStatus = (r.status || "").trim().toLowerCase()
@@ -90,14 +105,22 @@ export default function AbsenSholatPage() {
             nis: r.users?.nis || "—",
             kelas: r.users?.kelas || "—",
             tanggal,
-            hari: getHari(tanggal), // ✅ TAMBAH INI
+            hari: getHari(tanggal),
             waktu: r.waktu ?? "—",
             status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
               ? rawStatus
               : "tidak_hadir") as Status,
           }
         })
+
         setData(formatted)
+
+        // Cek apakah sudah absen hari ini
+        const today = new Date().toISOString().split("T")[0]
+        const hasAbsenToday = formatted.some(
+          (r: any) => r.tanggal === today && r.status === "hadir"
+        )
+        setSudahAbsen(hasAbsenToday)
       } catch (err) {
         console.error("Error fetching absensi:", err)
       } finally {
@@ -106,7 +129,7 @@ export default function AbsenSholatPage() {
     }
 
     fetchAbsensi()
-  }, [])
+  }, [router])
 
   const getHari = (tanggal: string) => {
     if (!tanggal || tanggal === "—") return "—"
@@ -119,15 +142,10 @@ export default function AbsenSholatPage() {
     })
   }
 
-  const router = useRouter()
-
-  // Ganti ke false untuk simulasi belum absen
-  const [sudahAbsen] = useState<boolean>(false)
-
   const summary = getSummary(data)
 
   function handleLogout(event: React.MouseEvent<HTMLDivElement>): void {
-    // throw new Error("Function not implemented.");
+    localStorage.removeItem("user_session")
     router.push("/")
   }
 
@@ -181,14 +199,14 @@ export default function AbsenSholatPage() {
         <div className="relative z-10 flex items-center gap-3">
           <Avatar className="h-12 w-12 ring-2 ring-white/40 ring-offset-1 ring-offset-teal-700">
             <AvatarFallback className="bg-teal-800 font-bold text-white">
-              AH
+              {user?.nama?.substring(0, 2).toUpperCase() || "..."}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base leading-tight font-semibold text-white">
-              Aretha Safira P.
+              {user?.nama || "Memuat..."}
             </h1>
-            <p className="text-xs text-white">X RPL C</p>
+            <p className="text-xs text-white">{user?.kelas || "..."}</p>
             <ClockWIB />
           </div>
 
@@ -208,15 +226,15 @@ export default function AbsenSholatPage() {
                 <div className="flex items-center gap-2.5">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-teal-700 text-xs font-bold text-white">
-                      AH
+                      {user?.nama?.substring(0, 2).toUpperCase() || "..."}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-bold text-slate-800">
-                      Aretha Safira P.
+                      {user?.nama || "Memuat..."}
                     </p>
                     <p className="truncate text-[10px] text-slate-400">
-                      X RPL C
+                      {user?.kelas || "..."}
                     </p>
                   </div>
                 </div>

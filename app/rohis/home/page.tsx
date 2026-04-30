@@ -28,7 +28,7 @@ import {
 import { LogOut } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Status = "hadir" | "tidak_hadir" | "haid" 
+type Status = "hadir" | "tidak_hadir" | "haid"
 
 interface RiwayatItem {
   id: number
@@ -60,15 +60,34 @@ const STATUS_DOT: Record<Status, string> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AbsenSholatPage() {
+  const router = useRouter()
   const [data, setData] = useState<RiwayatItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [panitia, setPanitia] = useState<{
+    id: any
+    nama: string
+    role: string
+  } | null>(null)
 
   useEffect(() => {
+    const sessionStr = localStorage.getItem("user_session")
+    if (!sessionStr) {
+      router.push("/")
+      return
+    }
+
+    const session = JSON.parse(sessionStr)
+    // Pastikan yang login adalah panitia
+    if (session.role !== "panitia") {
+      router.push("/")
+      return
+    }
+    setPanitia(session)
+
     const fetchAbsensi = async () => {
       try {
         const res = await fetch(`/api/absensi`)
         const result = await res.json()
-        console.log(result)
 
         const formatted = result.map((e: any) => {
           let rawStatus = (e.status || "").trim().toLowerCase()
@@ -82,7 +101,7 @@ export default function AbsenSholatPage() {
             nis: e.users?.nis || "—",
             kelas: e.users?.kelas || "—",
             tanggal,
-            hari: getHari(tanggal), // ✅ TAMBAH INI
+            hari: getHari(tanggal),
             waktu: e.waktu ?? "—",
             status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
               ? rawStatus
@@ -98,7 +117,7 @@ export default function AbsenSholatPage() {
     }
 
     fetchAbsensi()
-  }, [])
+  }, [router])
 
   const getHari = (tanggal: string) => {
     if (!tanggal || tanggal === "—") return "—"
@@ -111,10 +130,8 @@ export default function AbsenSholatPage() {
     })
   }
 
-  const router = useRouter()
-
   function handleLogout(event: React.MouseEvent<HTMLDivElement>): void {
-    // throw new Error("Function not implemented.");
+    localStorage.removeItem("user_session")
     router.push("/")
   }
 
@@ -168,14 +185,14 @@ export default function AbsenSholatPage() {
         <div className="relative z-10 flex items-center gap-3">
           <Avatar className="h-12 w-12 ring-2 ring-white/40 ring-offset-1 ring-offset-teal-700">
             <AvatarFallback className="bg-teal-800 font-bold text-white">
-              AH
+              {panitia?.nama?.substring(0, 2).toUpperCase() || "..."}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base leading-tight font-semibold text-white">
-              Aretha Safira P.
+              {panitia?.nama || "Memuat..."}
             </h1>
-            <p className="text-xs text-white">X RPL C</p>
+            <p className="text-xs text-white">Panitia Rohis</p>
             <ClockWIB />
           </div>
 
@@ -195,15 +212,15 @@ export default function AbsenSholatPage() {
                 <div className="flex items-center gap-2.5">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-teal-700 text-xs font-bold text-white">
-                      AH
+                      {panitia?.nama?.substring(0, 2).toUpperCase() || "..."}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-bold text-slate-800">
-                      Aretha Safira P.
+                      {panitia?.nama || "Memuat..."}
                     </p>
                     <p className="truncate text-[10px] text-slate-400">
-                      X RPL C
+                      Panitia Rohis
                     </p>
                   </div>
                 </div>
