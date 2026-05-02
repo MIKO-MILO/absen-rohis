@@ -104,7 +104,11 @@ function validateRow(
   if (!row.nis) return { ...base, status: "error", pesan: "NIS kosong" }
   if (!row.kelas) return { ...base, status: "error", pesan: "Kelas kosong" }
   if (DUMMY_NIS_EXISTING.includes(row.nis))
-    return { ...base, status: "duplikat", pesan: `NIS ${row.nis} sudah terdaftar` }
+    return {
+      ...base,
+      status: "duplikat",
+      pesan: `NIS ${row.nis} sudah terdaftar`,
+    }
   return { ...base, status: "valid" }
 }
 
@@ -143,7 +147,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs font-semibold tracking-wider text-slate-600 uppercase">
+      <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         {label}
       </Label>
       <Input
@@ -151,12 +155,12 @@ function Field({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-11 rounded-xl border bg-slate-50 px-4 text-sm focus-visible:ring-teal-400 ${
-          error ? "border-red-300" : "border-slate-200"
+        className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm focus-visible:ring-primary ${
+          error ? "border-destructive/50" : "border-border"
         }`}
       />
       {error && (
-        <p className="flex items-center gap-1 text-xs text-red-500">
+        <p className="flex items-center gap-1 text-xs text-destructive">
           <AlertCircle className="h-3 w-3" /> {error}
         </p>
       )}
@@ -173,36 +177,40 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <button
           onClick={() => onSelect("manual")}
-          className="group flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-6 text-left shadow-sm transition-all hover:border-teal-200 hover:shadow-md"
+          className="group flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 transition-colors group-hover:bg-teal-100">
-            <UserPlus className="h-6 w-6 text-teal-600" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 transition-colors group-hover:bg-primary/20">
+            <UserPlus className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-800">Input Manual</p>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Tambah satu siswa dengan mengisi form nama, NIS, kelas, dan jenis kelamin.
+            <p className="text-sm font-bold text-foreground">Input Manual</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Tambah satu panitia dengan mengisi form nama, NIS, kelas, dan
+              jenis kelamin.
             </p>
           </div>
-          <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-teal-600">
+          <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-primary">
             Pilih <ChevronRight className="h-3.5 w-3.5" />
           </div>
         </button>
 
         <button
           onClick={() => onSelect("import")}
-          className="group flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-6 text-left shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
+          className="group flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 text-left shadow-sm transition-all hover:border-blue-500/50 hover:shadow-md"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 transition-colors group-hover:bg-blue-100">
-            <FileSpreadsheet className="h-6 w-6 text-blue-600" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
+            <FileSpreadsheet className="h-6 w-6 text-blue-500" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-800">Import Excel / CSV</p>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Upload file spreadsheet untuk menambah banyak siswa sekaligus secara efisien.
+            <p className="text-sm font-bold text-foreground">
+              Import Excel / CSV
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Upload file spreadsheet untuk menambah banyak panitia sekaligus
+              secara efisien.
             </p>
           </div>
-          <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-blue-600">
+          <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-blue-500">
             Pilih <ChevronRight className="h-3.5 w-3.5" />
           </div>
         </button>
@@ -214,8 +222,19 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
 // ═══════════════════════════════════════════════════════════════════
 // ── MANUAL FORM
 // ═══════════════════════════════════════════════════════════════════
-function ManualForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
-  const [form, setForm] = useState<ManualFormType>({ nama: "", nis: "", kelas: "", jenisKelamin: "" })
+function ManualForm({
+  onBack,
+  onSuccess,
+}: {
+  onBack: () => void
+  onSuccess: () => void
+}) {
+  const [form, setForm] = useState<ManualFormType>({
+    nama: "",
+    nis: "",
+    kelas: "",
+    jenisKelamin: "",
+  })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<ManualFormType>>({})
 
@@ -223,7 +242,8 @@ function ManualForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =
     const e: Partial<ManualFormType> = {}
     if (!form.nama.trim()) e.nama = "Nama wajib diisi"
     if (!form.nis.trim()) e.nis = "NIS wajib diisi"
-    else if (DUMMY_NIS_EXISTING.includes(form.nis)) e.nis = "NIS sudah terdaftar"
+    else if (DUMMY_NIS_EXISTING.includes(form.nis))
+      e.nis = "NIS sudah terdaftar"
     if (!form.kelas) e.kelas = "Kelas wajib dipilih"
     if (!form.jenisKelamin) e.jenisKelamin = "Jenis kelamin wajib dipilih"
     setErrors(e)
@@ -247,7 +267,10 @@ function ManualForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =
         }),
       })
       const result = await res.json()
-      if (!res.ok) { alert(result.error || "Gagal menyimpan"); return }
+      if (!res.ok) {
+        alert(result.error || "Gagal menyimpan")
+        return
+      }
       onSuccess()
     } catch (err) {
       console.error(err)
@@ -259,58 +282,117 @@ function ManualForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =
 
   return (
     <div className="flex flex-col gap-5">
-      <button onClick={onBack} className="flex w-fit items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700">
+      <button
+        onClick={onBack}
+        className="flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4" /> Kembali
       </button>
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <div className="h-1" />
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="h-1 bg-primary" />
         <div className="flex flex-col gap-5 p-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50">
-              <UserPlus className="h-5 w-5 text-teal-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <UserPlus className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-800">Input Manual</h2>
-              <p className="text-xs text-slate-400">Isi lengkap data siswa baru</p>
+              <h2 className="text-sm font-bold text-foreground">
+                Input Manual
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Isi lengkap data panitia baru
+              </p>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 text-black sm:grid-cols-2">
-            <Field label="Nama Lengkap" placeholder="cth. Aretha Safira P." value={form.nama} error={errors.nama}
-              onChange={(v) => { setForm((p) => ({ ...p, nama: v })); setErrors((p) => ({ ...p, nama: undefined })) }} />
-            <Field label="NIS" placeholder="cth. 22013" value={form.nis} error={errors.nis}
-              onChange={(v) => { setForm((p) => ({ ...p, nis: v })); setErrors((p) => ({ ...p, nis: undefined })) }} />
+          <div className="grid grid-cols-1 gap-4 text-foreground sm:grid-cols-2">
+            <Field
+              label="Nama Lengkap"
+              placeholder="cth. Aretha Safira P."
+              value={form.nama}
+              error={errors.nama}
+              onChange={(v) => {
+                setForm((p) => ({ ...p, nama: v }))
+                setErrors((p) => ({ ...p, nama: undefined }))
+              }}
+            />
+            <Field
+              label="NIS"
+              placeholder="cth. 22013"
+              value={form.nis}
+              error={errors.nis}
+              onChange={(v) => {
+                setForm((p) => ({ ...p, nis: v }))
+                setErrors((p) => ({ ...p, nis: undefined }))
+              }}
+            />
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold tracking-wider text-slate-600 uppercase">Kelas</Label>
-              <select value={form.kelas}
-                onChange={(e) => { setForm((p) => ({ ...p, kelas: e.target.value })); setErrors((p) => ({ ...p, kelas: undefined })) }}
-                className={`h-11 rounded-xl border bg-slate-50 px-4 text-sm text-slate-700 focus:ring-2 focus:ring-teal-400 focus:outline-none ${errors.kelas ? "border-red-300" : "border-slate-200"}`}>
-                <option value="" disabled>Pilih kelas...</option>
-                {KELAS_OPTIONS.map((k) => <option key={k} value={k}>{k}</option>)}
+              <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                Kelas
+              </Label>
+              <select
+                value={form.kelas}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, kelas: e.target.value }))
+                  setErrors((p) => ({ ...p, kelas: undefined }))
+                }}
+                className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none ${errors.kelas ? "border-destructive/50" : "border-border"}`}
+              >
+                <option value="" disabled>
+                  Pilih kelas...
+                </option>
+                {KELAS_OPTIONS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
               </select>
-              {errors.kelas && <p className="flex items-center gap-1 text-xs text-red-500"><AlertCircle className="h-3 w-3" /> {errors.kelas}</p>}
+              {errors.kelas && (
+                <p className="flex items-center gap-1 text-xs text-destructive">
+                  <AlertCircle className="h-3 w-3" /> {errors.kelas}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold tracking-wider text-slate-600 uppercase">Jenis Kelamin</Label>
+              <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                Jenis Kelamin
+              </Label>
               <div className="flex gap-3">
                 {["Laki-laki", "Perempuan"].map((jk) => (
-                  <button type="button" key={jk}
-                    onClick={() => { setForm((p) => ({ ...p, jenisKelamin: jk })); setErrors((p) => ({ ...p, jenisKelamin: undefined })) }}
-                    className={`h-11 flex-1 rounded-xl border text-sm font-medium transition-all ${form.jenisKelamin === jk ? "border-teal-400 bg-teal-50 font-semibold text-teal-700" : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300"}`}>
+                  <button
+                    type="button"
+                    key={jk}
+                    onClick={() => {
+                      setForm((p) => ({ ...p, jenisKelamin: jk }))
+                      setErrors((p) => ({ ...p, jenisKelamin: undefined }))
+                    }}
+                    className={`h-11 flex-1 rounded-xl border text-sm font-medium transition-all ${form.jenisKelamin === jk ? "border-primary bg-primary/10 font-semibold text-primary" : "border-border bg-muted/50 text-muted-foreground hover:border-muted-foreground/50"}`}
+                  >
                     {jk}
                   </button>
                 ))}
               </div>
-              {errors.jenisKelamin && <p className="flex items-center gap-1 text-xs text-red-500"><AlertCircle className="h-3 w-3" /> {errors.jenisKelamin}</p>}
+              {errors.jenisKelamin && (
+                <p className="flex items-center gap-1 text-xs text-destructive">
+                  <AlertCircle className="h-3 w-3" /> {errors.jenisKelamin}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" onClick={onBack}
-              className="h-11 flex-1 rounded-xl border border-slate-300 bg-transparent text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <Button
+              type="button"
+              onClick={onBack}
+              className="h-11 flex-1 rounded-xl border border-border bg-transparent text-sm font-semibold text-muted-foreground hover:bg-muted"
+            >
               Batal
             </Button>
-            <Button type="button" onClick={handleSubmit} disabled={loading}
-              className="h-11 flex-1 rounded-xl bg-linear-to-r from-teal-500 to-cyan-500 text-sm font-semibold text-white shadow-md shadow-teal-100 hover:from-teal-400 hover:to-cyan-400">
-              {loading ? "Menyimpan..." : "Simpan Siswa"}
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="h-11 flex-1 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-md shadow-primary/10 hover:opacity-90"
+            >
+              {loading ? "Menyimpan..." : "Simpan Panitia"}
             </Button>
           </div>
         </div>
@@ -322,7 +404,13 @@ function ManualForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =
 // ═══════════════════════════════════════════════════════════════════
 // ── IMPORT FORM  (UPDATED: checkbox + gender column + filter)
 // ═══════════════════════════════════════════════════════════════════
-function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (count: number) => void }) {
+function ImportForm({
+  onBack,
+  onSuccess,
+}: {
+  onBack: () => void
+  onSuccess: (count: number) => void
+}) {
   const [kelas, setKelas] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -342,7 +430,8 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
   // Rows yang lolos filter
   const filteredRows = rows.filter((r) => {
     const matchKelas = filterKelas === "semua" || r.kelas === filterKelas
-    const matchGender = filterGender === "semua" || r.jenisKelamin === filterGender
+    const matchGender =
+      filterGender === "semua" || r.jenisKelamin === filterGender
     return matchKelas && matchGender
   })
 
@@ -354,7 +443,8 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
     filteredValidRows.length > 0 &&
     filteredValidRows.every((r) => selectedNIS.has(r.nis))
   const someFilteredValidSelected =
-    filteredValidRows.some((r) => selectedNIS.has(r.nis)) && !allFilteredValidSelected
+    filteredValidRows.some((r) => selectedNIS.has(r.nis)) &&
+    !allFilteredValidSelected
 
   // Toggle select all (hanya valid, sesuai filter aktif)
   const toggleSelectAll = () => {
@@ -382,14 +472,20 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
 
   // Setelah parse, auto-select semua valid
   const autoSelectValid = (newRows: ImportRow[]) => {
-    const validNIS = new Set(newRows.filter((r) => r.status === "valid").map((r) => r.nis))
+    const validNIS = new Set(
+      newRows.filter((r) => r.status === "valid").map((r) => r.nis)
+    )
     setSelectedNIS(validNIS)
   }
 
   // Unique kelas dari rows hasil parse
-  const uniqueKelasInRows = Array.from(new Set(rows.map((r) => r.kelas).filter(Boolean)))
+  const uniqueKelasInRows = Array.from(
+    new Set(rows.map((r) => r.kelas).filter(Boolean))
+  )
   // Unique gender dari rows hasil parse
-  const uniqueGenderInRows = Array.from(new Set(rows.map((r) => r.jenisKelamin).filter(Boolean)))
+  const uniqueGenderInRows = Array.from(
+    new Set(rows.map((r) => r.jenisKelamin).filter(Boolean))
+  )
 
   const processFile = useCallback(
     (file: File) => {
@@ -406,10 +502,21 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
         reader.onload = (e) => {
           const text = e.target?.result as string
           const rawRows = parseCSV(text)
-          if (!kelas) { alert("Pilih kelas dulu!"); return }
+          if (!kelas) {
+            alert("Pilih kelas dulu!")
+            return
+          }
           const filtered = rawRows.slice(1).filter((r) => r.length >= 2 && r[0])
           const newRows = filtered.map((r, i) =>
-            validateRow({ nama: r[0] || "", nis: cleanNIS(r[1] || ""), kelas, jenisKelamin: r[3] || "" }, i)
+            validateRow(
+              {
+                nama: r[0] || "",
+                nis: cleanNIS(r[1] || ""),
+                kelas,
+                jenisKelamin: r[3] || "",
+              },
+              i
+            )
           )
           setRows(newRows)
           autoSelectValid(newRows)
@@ -422,10 +529,16 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
           const data = new Uint8Array(e.target?.result as ArrayBuffer)
           const wb = XLSX.read(data, { type: "array" })
           const ws = wb.Sheets[wb.SheetNames[0]]
-          const rawRows = XLSX.utils.sheet_to_json(ws, { defval: "", range: 14, header: 1 }) as string[][]
+          const rawRows = XLSX.utils.sheet_to_json(ws, {
+            defval: "",
+            range: 14,
+            header: 1,
+          }) as string[][]
           const MAX_ROWS = 36
           const filtered = rawRows.filter((r) => r[1]).slice(0, MAX_ROWS)
-          const newRows = filtered.map((r, i) => validateRow(normalizeRow(r, kelas), i))
+          const newRows = filtered.map((r, i) =>
+            validateRow(normalizeRow(r, kelas), i)
+          )
           setRows(newRows)
           autoSelectValid(newRows)
           setParsed(true)
@@ -450,7 +563,9 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
 
   const handleImport = async () => {
     // Import hanya rows yang ada di selectedNIS (valid)
-    const rowsToImport = rows.filter((r) => r.status === "valid" && selectedNIS.has(r.nis))
+    const rowsToImport = rows.filter(
+      (r) => r.status === "valid" && selectedNIS.has(r.nis)
+    )
     if (!rowsToImport.length) return
     setLoading(true)
     try {
@@ -469,7 +584,10 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
         }),
       })
       const result = await res.json()
-      if (!res.ok) { alert(result.error || "Gagal import"); return }
+      if (!res.ok) {
+        alert(result.error || "Gagal import")
+        return
+      }
       onSuccess(rowsToImport.length)
     } catch (err) {
       console.error(err)
@@ -482,114 +600,183 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
   const validCount = rows.filter((r) => r.status === "valid").length
   const duplikatCount = rows.filter((r) => r.status === "duplikat").length
   const errorCount = rows.filter((r) => r.status === "error").length
-  const selectedCount = rows.filter((r) => r.status === "valid" && selectedNIS.has(r.nis)).length
+  const selectedCount = rows.filter(
+    (r) => r.status === "valid" && selectedNIS.has(r.nis)
+  ).length
 
   const STATUS_ICON: Record<ImportStatus, React.ReactNode> = {
-    valid: <CheckCircle2 className="h-4 w-4 shrink-0 text-teal-500" />,
-    error: <XCircle className="h-4 w-4 shrink-0 text-red-400" />,
-    duplikat: <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />,
+    valid: <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />,
+    error: <XCircle className="h-4 w-4 shrink-0 text-destructive" />,
+    duplikat: <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />,
   }
 
   const STATUS_ROW: Record<ImportStatus, string> = {
     valid: "",
-    error: "bg-red-50/60",
-    duplikat: "bg-amber-50/60",
+    error: "bg-destructive/10",
+    duplikat: "bg-amber-500/10",
   }
 
   // Badge warna jenis kelamin
   const GENDER_BADGE: Record<string, string> = {
-    "Laki-laki": "bg-blue-50 text-blue-600 border-blue-100",
-    "Perempuan": "bg-pink-50 text-pink-600 border-pink-100",
+    "Laki-laki": "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    Perempuan: "bg-pink-500/10 text-pink-500 border-pink-500/20",
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <button onClick={onBack} className="flex w-fit items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700">
+      <button
+        onClick={onBack}
+        className="flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4" /> Kembali
       </button>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <div className="h-1" />
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="h-1 bg-blue-500" />
         <div className="flex flex-col gap-5 p-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
                 <FileSpreadsheet className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-800">Import Excel / CSV</h2>
-                <p className="text-xs text-slate-400">Upload file untuk import data massal</p>
+                <h2 className="text-sm font-bold text-foreground">
+                  Import Excel / CSV
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Upload file untuk import data massal
+                </p>
               </div>
             </div>
-            <button onClick={downloadTemplate}
-              className="flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100">
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-1.5 rounded-xl bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-500/20"
+            >
               <Download className="h-3.5 w-3.5" /> Template
             </button>
           </div>
 
           {/* Format info */}
-          <div className="flex flex-col gap-1.5 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-semibold text-slate-600">Format yang diterima</p>
+          <div className="flex flex-col gap-1.5 rounded-2xl border border-border bg-muted/30 px-4 py-3">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Format yang diterima
+            </p>
             <div className="flex flex-wrap gap-2">
               {[".xlsx", ".xls", ".csv"].map((f) => (
-                <span key={f} className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-600">{f}</span>
+                <span
+                  key={f}
+                  className="rounded-lg border border-border bg-card px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
+                >
+                  {f}
+                </span>
               ))}
             </div>
-            <p className="mt-0.5 text-[10px] text-slate-400">
-              Kolom wajib: <span className="font-semibold text-slate-500">Nama, NIS, Kelas, Jenis_Kelamin</span>
+            <p className="mt-0.5 text-[10px] text-muted-foreground/60">
+              Kolom wajib:{" "}
+              <span className="font-semibold text-muted-foreground/80">
+                Nama, NIS, Kelas, Jenis_Kelamin
+              </span>
             </p>
           </div>
 
           {/* Pilih Kelas */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs font-semibold text-slate-600 uppercase">Kelas</Label>
-            <select value={kelas}
-              onChange={(e) => { setKelas(e.target.value); setKelasError(false) }}
-              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-black">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase">
+              Kelas
+            </Label>
+            <select
+              value={kelas}
+              onChange={(e) => {
+                setKelas(e.target.value)
+                setKelasError(false)
+              }}
+              className="h-11 rounded-xl border border-border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+            >
               <option value="">Pilih kelas...</option>
-              {KELAS_OPTIONS.map((k) => <option key={k} value={k}>{k}</option>)}
+              {KELAS_OPTIONS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
             </select>
           </div>
 
           {/* Drop zone */}
           {!parsed ? (
             <div
-              onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragging(true)
+              }}
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
               onClick={() => {
-                if (!kelas) { setKelasError(true); return }
+                if (!kelas) {
+                  setKelasError(true)
+                  return
+                }
                 setKelasError(false)
                 inputRef.current?.click()
               }}
               className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 transition-all ${
-                kelasError ? "border-red-400 bg-red-50" : dragging ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40"
+                kelasError
+                  ? "border-destructive/50 bg-destructive/5"
+                  : dragging
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5"
               }`}
             >
-              <div className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-colors ${dragging ? "bg-blue-100" : "border border-slate-200 bg-white"}`}>
-                <Upload className={`h-7 w-7 ${dragging ? "text-blue-500" : "text-slate-400"}`} />
+              <div
+                className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-colors ${dragging ? "bg-primary/20" : "border border-border bg-card"}`}
+              >
+                <Upload
+                  className={`h-7 w-7 ${dragging ? "text-primary" : "text-muted-foreground"}`}
+                />
               </div>
               <div className="text-center">
-                <p className="text-sm font-semibold text-slate-700">{dragging ? "Lepas file di sini" : "Drag & drop file di sini"}</p>
-                <p className="mt-0.5 text-xs text-slate-400">atau klik untuk memilih file</p>
+                <p className="text-sm font-semibold text-foreground/80">
+                  {dragging ? "Lepas file di sini" : "Drag & drop file di sini"}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  atau klik untuk memilih file
+                </p>
               </div>
-              <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden"
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
                 onChange={(e) => {
-                  if (!kelas) { setKelasError(true); return }
+                  if (!kelas) {
+                    setKelasError(true)
+                    return
+                  }
                   setKelasError(false)
                   const f = e.target.files?.[0]
                   if (f) processFile(f)
-                }} />
+                }}
+              />
             </div>
           ) : (
             <div className="flex flex-col gap-4">
               {/* File name bar */}
-              <div className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
                 <FileText className="h-4 w-4 shrink-0 text-blue-500" />
-                <p className="flex-1 truncate text-xs font-semibold text-blue-700">{fileName}</p>
-                <button onClick={() => { setRows([]); setParsed(false); setFileName(""); setSelectedNIS(new Set()); setFilterKelas("semua"); setFilterGender("semua") }}
-                  className="text-blue-400 hover:text-blue-600">
+                <p className="flex-1 truncate text-xs font-semibold text-blue-500">
+                  {fileName}
+                </p>
+                <button
+                  onClick={() => {
+                    setRows([])
+                    setParsed(false)
+                    setFileName("")
+                    setSelectedNIS(new Set())
+                    setFilterKelas("semua")
+                    setFilterGender("semua")
+                  }}
+                  className="text-blue-500/60 hover:text-blue-500"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -597,20 +784,44 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { label: "Valid", count: validCount, color: "text-teal-600", bg: "bg-teal-50 border-teal-100" },
-                  { label: "Duplikat", count: duplikatCount, color: "text-amber-600", bg: "bg-amber-50 border-amber-100" },
-                  { label: "Error", count: errorCount, color: "text-red-500", bg: "bg-red-50 border-red-100" },
+                  {
+                    label: "Valid",
+                    count: validCount,
+                    color: "text-primary",
+                    bg: "bg-primary/10 border-primary/20",
+                  },
+                  {
+                    label: "Duplikat",
+                    count: duplikatCount,
+                    color: "text-amber-500",
+                    bg: "bg-amber-500/10 border-amber-500/20",
+                  },
+                  {
+                    label: "Error",
+                    count: errorCount,
+                    color: "text-destructive",
+                    bg: "bg-destructive/10 border-destructive/20",
+                  },
                 ].map(({ label, count, color, bg }) => (
-                  <div key={label} className={`flex flex-col items-center rounded-xl border py-3 ${bg}`}>
-                    <span className={`text-xl leading-none font-black ${color}`}>{count}</span>
-                    <span className="mt-0.5 text-[10px] text-slate-500">{label}</span>
+                  <div
+                    key={label}
+                    className={`flex flex-col items-center rounded-xl border py-3 ${bg}`}
+                  >
+                    <span
+                      className={`text-xl leading-none font-black ${color}`}
+                    >
+                      {count}
+                    </span>
+                    <span className="mt-0.5 text-[10px] text-muted-foreground">
+                      {label}
+                    </span>
                   </div>
                 ))}
               </div>
 
               {/* ── FILTER BAR ── */}
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-muted/30 px-4 py-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                   <Filter className="h-3.5 w-3.5" /> Filter:
                 </div>
 
@@ -618,64 +829,93 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
                 <select
                   value={filterKelas}
                   onChange={(e) => setFilterKelas(e.target.value)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                  className="h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
                 >
                   <option value="semua">Semua Kelas</option>
-                  {uniqueKelasInRows.map((k) => <option key={k} value={k}>{k}</option>)}
+                  {uniqueKelasInRows.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
                 </select>
 
                 {/* Filter Jenis Kelamin */}
                 <select
                   value={filterGender}
                   onChange={(e) => setFilterGender(e.target.value)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                  className="h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
                 >
                   <option value="semua">Semua Kelamin</option>
-                  {uniqueGenderInRows.map((g) => <option key={g} value={g}>{g}</option>)}
+                  {uniqueGenderInRows.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
                 </select>
 
                 {/* Reset filter */}
                 {(filterKelas !== "semua" || filterGender !== "semua") && (
                   <button
-                    onClick={() => { setFilterKelas("semua"); setFilterGender("semua") }}
-                    className="flex items-center gap-1 rounded-lg bg-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-300"
+                    onClick={() => {
+                      setFilterKelas("semua")
+                      setFilterGender("semua")
+                    }}
+                    className="flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted-foreground/10"
                   >
                     <X className="h-3 w-3" /> Reset
                   </button>
                 )}
 
-                <span className="ml-auto text-[10px] text-slate-400">
+                <span className="ml-auto text-[10px] text-muted-foreground">
                   Tampil {filteredRows.length} dari {rows.length} data
                 </span>
               </div>
 
               {/* ── TABLE ── */}
-              <div className="overflow-hidden rounded-2xl border border-slate-100">
+              <div className="overflow-hidden rounded-2xl border border-border">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[560px] text-sm">
                     <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50">
+                      <tr className="border-b border-border bg-muted/30">
                         {/* Checkbox select-all */}
                         <th className="w-10 px-3 py-2.5">
                           <input
                             type="checkbox"
                             checked={allFilteredValidSelected}
-                            ref={(el) => { if (el) el.indeterminate = someFilteredValidSelected }}
+                            ref={(el) => {
+                              if (el)
+                                el.indeterminate = someFilteredValidSelected
+                            }}
                             onChange={toggleSelectAll}
                             disabled={filteredValidRows.length === 0}
-                            className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-teal-500"
+                            className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
                             title="Pilih semua yang valid di filter ini"
                           />
                         </th>
-                        {["No", "Nama", "NIS", "Kelas", "Jenis Kelamin", "Status"].map((h) => (
-                          <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-slate-400 uppercase">{h}</th>
+                        {[
+                          "No",
+                          "Nama",
+                          "NIS",
+                          "Kelas",
+                          "Jenis Kelamin",
+                          "Status",
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase"
+                          >
+                            {h}
+                          </th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-border/50">
                       {filteredRows.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-xs text-slate-400">
+                          <td
+                            colSpan={7}
+                            className="px-4 py-8 text-center text-xs text-muted-foreground"
+                          >
                             Tidak ada data sesuai filter
                           </td>
                         </tr>
@@ -687,47 +927,70 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
                             <tr
                               key={r.no}
                               onClick={() => toggleRow(r.nis, r.status)}
-                              className={`border-b border-slate-50 last:border-0 transition-colors ${
+                              className={`transition-colors last:border-0 ${
                                 isDisabled
                                   ? STATUS_ROW[r.status]
                                   : isSelected
-                                  ? "bg-teal-50/60 hover:bg-teal-50"
-                                  : "hover:bg-slate-50 cursor-pointer"
+                                    ? "bg-primary/10 hover:bg-primary/20"
+                                    : "cursor-pointer hover:bg-muted/40"
                               }`}
                             >
                               {/* Checkbox */}
-                              <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                              <td
+                                className="px-3 py-2.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   disabled={isDisabled}
                                   onChange={() => toggleRow(r.nis, r.status)}
-                                  className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="h-4 w-4 cursor-pointer rounded border-border accent-primary disabled:cursor-not-allowed disabled:opacity-40"
                                 />
                               </td>
-                              <td className="px-4 py-2.5 text-xs text-slate-400">{r.no}</td>
-                              <td className="px-4 py-2.5 text-xs font-medium text-slate-700">
-                                {r.nama || <span className="text-slate-300 italic">kosong</span>}
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                {r.no}
                               </td>
-                              <td className="px-4 py-2.5 text-xs text-slate-600">{r.nis || "—"}</td>
-                              <td className="px-4 py-2.5 text-xs text-slate-600">{r.kelas || "—"}</td>
+                              <td className="px-4 py-2.5 text-xs font-medium text-foreground">
+                                {r.nama || (
+                                  <span className="text-muted-foreground/40 italic">
+                                    kosong
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                {r.nis || "—"}
+                              </td>
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                {r.kelas || "—"}
+                              </td>
                               {/* ── Kolom Jenis Kelamin (BARU) ── */}
                               <td className="px-4 py-2.5">
                                 {r.jenisKelamin ? (
-                                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${GENDER_BADGE[r.jenisKelamin] ?? "bg-slate-50 text-slate-500 border-slate-200"}`}>
-                                    {r.jenisKelamin === "Laki-laki" ? "♂ L" : "♀ P"}
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${GENDER_BADGE[r.jenisKelamin] ?? "border-border bg-muted text-muted-foreground"}`}
+                                  >
+                                    {r.jenisKelamin === "Laki-laki"
+                                      ? "♂ L"
+                                      : "♀ P"}
                                   </span>
                                 ) : (
-                                  <span className="text-xs text-slate-300">—</span>
+                                  <span className="text-xs text-muted-foreground/40">
+                                    —
+                                  </span>
                                 )}
                               </td>
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center gap-1.5">
                                   {STATUS_ICON[r.status]}
                                   {r.pesan ? (
-                                    <span className="text-[10px] text-slate-500">{r.pesan}</span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {r.pesan}
+                                    </span>
                                   ) : (
-                                    <span className="text-[10px] font-semibold text-teal-600">Siap import</span>
+                                    <span className="text-[10px] font-semibold text-primary">
+                                      Siap import
+                                    </span>
                                   )}
                                 </div>
                               </td>
@@ -741,21 +1004,28 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
               </div>
 
               {/* Selected info */}
-              <div className="flex items-center gap-2 rounded-xl border border-teal-100 bg-teal-50 px-4 py-2.5">
-                <Users className="h-4 w-4 shrink-0 text-teal-500" />
-                <p className="text-xs text-teal-700">
-                  <strong>{selectedCount}</strong> siswa dipilih untuk diimport
+              <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-4 py-2.5">
+                <Users className="h-4 w-4 shrink-0 text-primary" />
+                <p className="text-xs text-primary">
+                  <strong>{selectedCount}</strong> panitia dipilih untuk
+                  diimport
                   {selectedCount < validCount && (
-                    <span className="ml-1 text-slate-400">(dari {validCount} data valid)</span>
+                    <span className="ml-1 text-muted-foreground">
+                      (dari {validCount} data valid)
+                    </span>
                   )}
                 </p>
                 {selectedCount < validCount && (
                   <button
                     onClick={() => {
-                      const allValidNIS = new Set(rows.filter((r) => r.status === "valid").map((r) => r.nis))
+                      const allValidNIS = new Set(
+                        rows
+                          .filter((r) => r.status === "valid")
+                          .map((r) => r.nis)
+                      )
                       setSelectedNIS(allValidNIS)
                     }}
-                    className="ml-auto text-[10px] font-semibold text-teal-600 hover:underline"
+                    className="ml-auto text-[10px] font-semibold text-primary hover:underline"
                   >
                     Pilih semua valid
                   </button>
@@ -763,10 +1033,11 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
               </div>
 
               {(duplikatCount > 0 || errorCount > 0) && (
-                <div className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                <div className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                   <p className="text-xs text-amber-700">
-                    Data duplikat dan error tidak bisa dipilih dan akan dilewati otomatis.
+                    Data duplikat dan error tidak bisa dipilih and akan dilewati
+                    otomatis.
                   </p>
                 </div>
               )}
@@ -775,20 +1046,25 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
 
           {parsed && (
             <div className="flex gap-3">
-              <Button onClick={onBack}
-                className="h-11 flex-1 rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">
+              <Button
+                onClick={onBack}
+                className="h-11 flex-1 rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
                 Batal
               </Button>
-              <Button onClick={handleImport} disabled={loading || selectedCount === 0}
-                className="h-11 flex-1 rounded-xl bg-linear-to-r from-blue-500 to-cyan-500 text-sm font-bold text-white shadow-md shadow-blue-100 hover:from-blue-400 hover:to-cyan-400 disabled:opacity-40">
-                {loading ? "Mengimport..." : `Import ${selectedCount} Siswa`}
+              <Button
+                onClick={handleImport}
+                disabled={loading || selectedCount === 0}
+                className="h-11 flex-1 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-md shadow-primary/10 hover:opacity-90 disabled:opacity-40"
+              >
+                {loading ? "Mengimport..." : `Import ${selectedCount} Panitia`}
               </Button>
             </div>
           )}
 
           <div className="flex items-center justify-center">
             {kelasError && (
-              <p className="animate-pulse text-xs text-red-500">
+              <p className="animate-pulse text-xs text-destructive">
                 * Pilih kelas terlebih dahulu sebelum upload file
               </p>
             )}
@@ -802,28 +1078,38 @@ function ImportForm({ onBack, onSuccess }: { onBack: () => void; onSuccess: (cou
 // ═══════════════════════════════════════════════════════════════════
 // ── SUCCESS
 // ═══════════════════════════════════════════════════════════════════
-function SuccessScreen({ count, onBack }: { count: number; onBack: () => void }) {
+function SuccessScreen({
+  count,
+  onBack,
+}: {
+  count: number
+  onBack: () => void
+}) {
   const router = useRouter()
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-16 text-center">
-      <div className="flex h-24 w-24 items-center justify-center rounded-full"
-        style={{ background: "rgba(52,211,153,0.12)", border: "2px solid rgba(52,211,153,0.3)" }}>
-        <CheckCircle2 className="h-14 w-14 text-emerald-400" />
+      <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-emerald-500/30 bg-emerald-500/10">
+        <CheckCircle2 className="h-14 w-14 text-emerald-500" />
       </div>
       <div>
-        <h2 className="text-xl font-black text-slate-800">Berhasil!</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          {count > 1 ? `${count} siswa` : "1 siswa"} berhasil ditambahkan ke sistem
+        <h2 className="text-xl font-black text-foreground">Berhasil!</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {count > 1 ? `${count} panitia` : "1 panitia"} berhasil ditambahkan ke
+          sistem
         </p>
       </div>
       <div className="flex w-full max-w-xs flex-col gap-2.5">
-        <Button onClick={() => router.push("/admin/siswa")}
-          className="h-11 w-full rounded-xl bg-linear-to-r from-teal-500 to-cyan-500 text-sm font-bold text-white">
-          Lihat Data Siswa
+        <Button
+          onClick={() => router.push("/admin/panitia")}
+          className="h-11 w-full rounded-xl bg-primary text-sm font-bold text-primary-foreground"
+        >
+          Lihat Data Panitia
         </Button>
-        <Button onClick={onBack}
-          className="h-11 w-full rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">
-          Tambah Siswa Lagi
+        <Button
+          onClick={onBack}
+          className="h-11 w-full rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          Tambah Panitia Lagi
         </Button>
       </div>
     </div>
@@ -833,9 +1119,12 @@ function SuccessScreen({ count, onBack }: { count: number; onBack: () => void })
 // ═══════════════════════════════════════════════════════════════════
 // ── PAGE
 // ═══════════════════════════════════════════════════════════════════
-export default function TambahSiswaPage() {
+export default function TambahPanitiaPage() {
   const [mode, setMode] = useState<Mode>("pilih")
-  const [success, setSuccess] = useState<{ show: boolean; count: number }>({ show: false, count: 0 })
+  const [success, setSuccess] = useState<{ show: boolean; count: number }>({
+    show: false,
+    count: 0,
+  })
 
   const handleReset = () => {
     setMode("pilih")
@@ -846,8 +1135,12 @@ export default function TambahSiswaPage() {
     <AdminShell>
       <div className="mx-auto max-w-3xl px-4 py-5 md:px-6">
         <div className="mb-5">
-          <h1 className="text-base font-bold text-slate-800">Tambah Siswa</h1>
-          <p className="mt-0.5 text-xs text-slate-400">Input manual atau import dari file spreadsheet</p>
+          <h1 className="text-base font-bold text-foreground">
+            Tambah Panitia
+          </h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Input manual atau import dari file spreadsheet
+          </p>
         </div>
 
         {success.show ? (
@@ -855,9 +1148,15 @@ export default function TambahSiswaPage() {
         ) : mode === "pilih" ? (
           <ModeSelect onSelect={setMode} />
         ) : mode === "manual" ? (
-          <ManualForm onBack={() => setMode("pilih")} onSuccess={() => setSuccess({ show: true, count: 1 })} />
+          <ManualForm
+            onBack={() => setMode("pilih")}
+            onSuccess={() => setSuccess({ show: true, count: 1 })}
+          />
         ) : (
-          <ImportForm onBack={() => setMode("pilih")} onSuccess={(count) => setSuccess({ show: true, count })} />
+          <ImportForm
+            onBack={() => setMode("pilih")}
+            onSuccess={(count) => setSuccess({ show: true, count })}
+          />
         )}
       </div>
     </AdminShell>

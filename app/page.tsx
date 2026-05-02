@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState } from "react"
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react"
+import { ModeToggle } from "@/components/mode-toggle"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -45,6 +47,7 @@ export default function LoginPage() {
           role: result.role,
           nama: result.user.nama,
           kelas: result.user.kelas,
+          divisi: result.user.divisi,
         })
       )
 
@@ -57,90 +60,49 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-between overflow-hidden bg-[#f5f7f6]">
+    <div className="flex min-h-screen flex-col items-center justify-between overflow-hidden bg-background">
       {/* ── Top illustration area ── */}
-      <div
-        className="relative flex w-full max-w-md flex-col items-center justify-end"
-        style={{
-          background: "linear-gradient(160deg, #0d9488 0%, #0e7490 100%)",
-          borderRadius: "0 0 3rem 3rem",
-          minHeight: "38vh",
-          paddingBottom: "2.5rem",
-          overflow: "hidden",
-        }}
-      >
+      <div className="relative flex min-h-[38vh] w-full max-w-md flex-col items-center justify-end overflow-hidden rounded-b-[3rem] bg-linear-to-br from-primary to-primary/80 pb-10">
         {/* Decorative blobs */}
         <div
           aria-hidden
-          style={{
-            position: "absolute",
-            top: "-50px",
-            right: "-50px",
-            width: "200px",
-            height: "200px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.07)",
-          }}
+          className="absolute -top-12.5 -right-12.5 h-50 w-50 rounded-full bg-white/7"
         />
         <div
           aria-hidden
-          style={{
-            position: "absolute",
-            top: "20px",
-            left: "-60px",
-            width: "160px",
-            height: "160px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.05)",
-          }}
+          className="absolute top-5 -left-15 h-40 w-40 rounded-full bg-white/5"
         />
         <div
           aria-hidden
-          style={{
-            position: "absolute",
-            bottom: "-30px",
-            left: "30%",
-            width: "120px",
-            height: "120px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.06)",
-          }}
+          className="absolute -bottom-7.5 left-[30%] h-30 w-30 rounded-full bg-white/6"
         />
+
+        {/* Mode Toggle at Login */}
+        <div className="absolute top-12 right-6 z-20">
+          <ModeToggle />
+        </div>
 
         {/* Islamic geometric ornament (CSS-drawn) */}
         <div
           aria-hidden
-          className="absolute top-6 left-1/2 -translate-x-1/2"
-          style={{ opacity: 0.12 }}
+          className="absolute top-6 left-1/2 -translate-x-1/2 opacity-12"
         >
           {[0, 45, 90, 135].map((deg) => (
             <div
               key={deg}
+              className="absolute top-1/2 left-1/2 h-20 w-20 rounded-[4px] border-2 border-white"
               style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                width: "80px",
-                height: "80px",
-                border: "2px solid white",
                 transform: `translate(-50%, -50%) rotate(${deg}deg)`,
-                borderRadius: "4px",
               }}
             />
           ))}
-          <div style={{ width: "80px", height: "80px" }} />
+          <div className="h-20 w-20" />
         </div>
 
         {/* Brand */}
         <div className="relative z-10 flex flex-col items-center gap-2 px-6 text-center">
           {/* Masjid icon (SVG inline) */}
-          <div
-            className="mb-1 flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg"
-            style={{
-              background: "rgba(255,255,255,0.15)",
-              backdropFilter: "blur(8px)",
-            }}
-          >
+          <div className="mb-1 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur-md">
             <svg
               viewBox="0 0 48 48"
               fill="none"
@@ -190,22 +152,22 @@ export default function LoginPage() {
                 width="6"
                 height="12"
                 rx="3"
-                fill="rgba(13,148,136,0.6)"
+                className="fill-primary-foreground/30"
               />
             </svg>
           </div>
           <h1 className="text-2xl leading-none font-black tracking-tight text-white">
             Absen Rohis
           </h1>
-          <p className="text-sm text-teal-100">Sistem Absensi Sholat Dzuhur</p>
+          <p className="text-sm text-white/70">Sistem Absensi Sholat Dzuhur</p>
         </div>
       </div>
 
       {/* ── Form card ── */}
       <div className="flex w-full max-w-md flex-1 flex-col gap-6 px-5 py-8">
         <div>
-          <h2 className="text-xl font-black text-slate-800">Masuk Akun</h2>
-          <p className="mt-0.5 text-sm text-slate-400">
+          <h2 className="text-xl font-black text-foreground">Masuk Akun</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
             Gunakan Username/Email/NIS dan password kamu
           </p>
         </div>
@@ -215,7 +177,7 @@ export default function LoginPage() {
           <div className="flex flex-col gap-1.5">
             <Label
               htmlFor="identifier"
-              className="text-xs font-semibold tracking-wider text-slate-600 uppercase"
+              className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
             >
               Username / Email / NIS
             </Label>
@@ -230,7 +192,7 @@ export default function LoginPage() {
               onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) =>
                 e.key === "Enter" && handleLogin()
               }
-              className="h-12 rounded-2xl border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-300 focus-visible:border-teal-400 focus-visible:ring-teal-400"
+              className="h-12 rounded-2xl border-border bg-card px-4 text-sm text-foreground shadow-sm placeholder:text-muted-foreground/40 focus-visible:ring-primary"
             />
           </div>
 
@@ -238,7 +200,7 @@ export default function LoginPage() {
           <div className="flex flex-col gap-1.5">
             <Label
               htmlFor="password"
-              className="text-xs font-semibold tracking-wider text-slate-600 uppercase"
+              className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
             >
               Password
             </Label>
@@ -254,12 +216,12 @@ export default function LoginPage() {
                 onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) =>
                   e.key === "Enter" && handleLogin()
                 }
-                className="h-12 rounded-2xl border-slate-200 bg-white px-4 pr-12 text-sm text-slate-800 shadow-sm placeholder:text-slate-300 focus-visible:border-teal-400 focus-visible:ring-teal-400"
+                className="h-12 rounded-2xl border-border bg-card px-4 pr-12 text-sm text-foreground shadow-sm placeholder:text-muted-foreground/40 focus-visible:ring-primary"
               />
               <button
                 type="button"
                 onClick={() => setShowPass((p) => !p)}
-                className="absolute top-1/2 right-3.5 -translate-y-1/2 p-1 text-slate-400 transition-colors hover:text-slate-600"
+                className="absolute top-1/2 right-3.5 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
                 tabIndex={-1}
               >
                 {showPass ? (
@@ -273,9 +235,9 @@ export default function LoginPage() {
 
           {/* Error message */}
           {error && (
-            <div className="flex items-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-              <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
-              <p className="text-xs font-medium text-red-500">{error}</p>
+            <div className="flex items-center gap-2 rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3">
+              <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
+              <p className="text-xs font-medium text-destructive">{error}</p>
             </div>
           )}
 
@@ -283,7 +245,7 @@ export default function LoginPage() {
           <Button
             onClick={handleLogin}
             disabled={loading}
-            className="mt-1 flex h-12 h-13 w-full items-center gap-2 rounded-2xl bg-gradient-to-r from-teal-500 to-cyan-500 text-base font-bold text-white shadow-lg shadow-teal-200/60 transition-all hover:from-teal-400 hover:to-cyan-400 active:scale-[0.98]"
+            className="mt-1 flex h-13 w-full items-center gap-2 rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-[0.98]"
           >
             {loading ? (
               <>
@@ -300,9 +262,9 @@ export default function LoginPage() {
         </div>
 
         {/* Hint for demo */}
-        <div className="rounded-2xl border border-teal-100 bg-teal-50 px-4 py-3">
-          <p className="mb-1 text-xs font-semibold text-teal-600">Info Login</p>
-          <p className="text-xs leading-relaxed text-teal-500">
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <p className="mb-1 text-xs font-semibold text-primary">Info Login</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
             <span className="font-bold">Admin:</span> email admin &nbsp;·&nbsp;
             <span className="font-bold">Panitia:</span> email/NIS &nbsp;·&nbsp;
             <span className="font-bold">Siswa:</span> email siswa
@@ -312,7 +274,7 @@ export default function LoginPage() {
 
       {/* ── Footer ── */}
       <div className="w-full max-w-md px-5 pb-8 text-center">
-        <p className="text-xs text-slate-300">
+        <p className="text-xs text-muted-foreground/60">
           © 2025 Rohis · Sistem Absensi Sholat
         </p>
       </div>

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -28,8 +29,8 @@ export default function UserPage() {
   if (!user) return <p>Loading...</p>
 
   return (
-    <div>
-      <h1>Data User</h1>
+    <div className="p-10 bg-background text-foreground min-h-screen">
+      <h1 className="text-2xl font-bold">Data User</h1>
       <p>Nama: {user.nama}</p>
       <p>Kelas: {user.kelas}</p>
       <p>NIS: {user.nis}</p>

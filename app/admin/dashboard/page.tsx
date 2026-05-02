@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/immutability */
 "use client"
 
 import { AdminShell } from "../_components/AdminShell"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Users,
   UserCheck,
@@ -47,10 +48,6 @@ const KELAS_DATA = [
   { kelas: "XII RPL B", total: 30, hadir: 29, pct: 97 },
 ]
 
-const STATUS_BADGE: Record<string, string> = {
-  hadir: "bg-teal-50 text-teal-700 border-teal-200",
-  Haid: "bg-blue-50 text-blue-600 border-blue-200",
-}
 
 // ─── Line Chart ───────────────────────────────────────────────────────────────
 const CHART_W = 400
@@ -137,7 +134,7 @@ function LineChart() {
           y1={PAD_Y + (1 - r) * (CHART_H - PAD_Y * 2)}
           x2={CHART_W - PAD_X}
           y2={PAD_Y + (1 - r) * (CHART_H - PAD_Y * 2)}
-          stroke="#f1f5f9"
+          className="stroke-border"
           strokeWidth="1"
         />
       ))}
@@ -186,7 +183,7 @@ function LineChart() {
 export default function DashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
 
   useEffect(() => {
     const sessionStr = localStorage.getItem("user_session")
@@ -303,7 +300,7 @@ export default function DashboardPage() {
           </div>
           <Button
             onClick={() => router.push("/admin/generate-qr")}
-            className="relative z-10 h-9 flex-shrink-0 rounded-xl border border-white/30 bg-white/20 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
+            className="relative z-10 h-9 shrink-0 rounded-xl border border-white/30 bg-white/20 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
           >
             <QrCode className="mr-1.5 h-3.5 w-3.5" />
             Generate QR
@@ -318,9 +315,9 @@ export default function DashboardPage() {
               value: 35,
               sub: "+2 bulan ini",
               icon: Users,
-              color: "text-slate-600",
-              bg: "bg-white border-slate-100",
-              iconBg: "bg-slate-50",
+              color: "text-muted-foreground",
+              bg: "bg-card border-border",
+              iconBg: "bg-muted",
               trend: null,
             },
             {
@@ -328,9 +325,9 @@ export default function DashboardPage() {
               value: today.hadir,
               sub: `${hadirPct}% kehadiran`,
               icon: UserCheck,
-              color: "text-teal-600",
-              bg: "bg-white border-teal-50",
-              iconBg: "bg-teal-50",
+              color: "text-primary",
+              bg: "bg-card border-primary/20",
+              iconBg: "bg-primary/10",
               trend: trendUp,
             },
             {
@@ -338,9 +335,9 @@ export default function DashboardPage() {
               value: today.Haid,
               sub: "hari ini",
               icon: HeartPulse,
-              color: "text-amber-600",
-              bg: "bg-white border-amber-50",
-              iconBg: "bg-amber-50",
+              color: "text-blue-500",
+              bg: "bg-card border-blue-500/20",
+              iconBg: "bg-blue-500/10",
               trend: null,
             },
             {
@@ -348,9 +345,9 @@ export default function DashboardPage() {
               value: today.tidak,
               sub: "hari ini",
               icon: XCircle,
-              color: "text-red-500",
-              bg: "bg-white border-red-50",
-              iconBg: "bg-red-50",
+              color: "text-destructive",
+              bg: "bg-card border-destructive/20",
+              iconBg: "bg-destructive/10",
               trend: null,
             },
           ].map(
@@ -376,8 +373,12 @@ export default function DashboardPage() {
                   <p className={`text-2xl leading-none font-black ${color}`}>
                     {value}
                   </p>
-                  <p className="mt-0.5 text-xs text-slate-500">{label}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {label}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground/80">
+                    {sub}
+                  </p>
                 </div>
               </div>
             )
@@ -386,23 +387,23 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           {/* ── Line chart mingguan ── */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-800">
+                <h3 className="text-sm font-bold text-foreground">
                   Kehadiran Minggu Ini
                 </h3>
-                <p className="text-xs text-slate-400">Sholat Dzuhur</p>
+                <p className="text-xs text-muted-foreground">Sholat Dzuhur</p>
               </div>
               <div className="flex items-center gap-3">
                 {[
-                  { label: "Hadir", color: "bg-teal-500" },
+                  { label: "Hadir", color: "bg-primary" },
                   { label: "Haid", color: "bg-blue-400" },
-                  { label: "Tidak Hadir", color: "bg-red-400" },
+                  { label: "Tidak Hadir", color: "bg-destructive" },
                 ].map(({ label, color }) => (
                   <div
                     key={label}
-                    className="flex items-center gap-1 text-[10px] text-slate-500"
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground"
                   >
                     <div className={`h-2 w-2 rounded-full ${color}`} />
                     {label}
@@ -421,7 +422,7 @@ export default function DashboardPage() {
               {WEEKLY.map((d) => (
                 <span
                   key={d.hari}
-                  className="flex-1 text-center text-[10px] font-medium text-slate-400"
+                  className="flex-1 text-center text-[10px] font-medium text-muted-foreground"
                 >
                   {d.hari}
                 </span>
@@ -430,39 +431,39 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Per kelas ── */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div>
-              <h3 className="text-sm font-bold text-slate-800">Per Kelas</h3>
-              <p className="text-xs text-slate-400">Tingkat kehadiran</p>
+              <h3 className="text-sm font-bold text-foreground">Per Kelas</h3>
+              <p className="text-xs text-muted-foreground">Tingkat kehadiran</p>
             </div>
             <div className="flex flex-col gap-3.5">
               {KELAS_DATA.map((k) => (
                 <div key={k.kelas}>
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-700">
+                    <span className="text-xs font-semibold text-foreground/90">
                       {k.kelas}
                     </span>
                     <span
-                      className={`text-xs font-bold ${k.pct >= 85 ? "text-teal-600" : k.pct >= 70 ? "text-amber-500" : "text-red-500"}`}
+                      className={`text-xs font-bold ${k.pct >= 85 ? "text-primary" : k.pct >= 70 ? "text-amber-500" : "text-destructive"}`}
                     >
                       {k.pct}%
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${k.pct}%`,
                         background:
                           k.pct >= 85
-                            ? "linear-gradient(90deg,#2dd4bf,#06b6d4)"
+                            ? "linear-gradient(90deg,var(--color-primary),var(--color-primary))"
                             : k.pct >= 70
                               ? "linear-gradient(90deg,#fbbf24,#f59e0b)"
                               : "linear-gradient(90deg,#f87171,#ef4444)",
                       }}
                     />
                   </div>
-                  <p className="mt-0.5 text-[10px] text-slate-400">
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
                     {k.hadir}/{k.total} hadir
                   </p>
                 </div>
@@ -472,40 +473,49 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Absen terbaru ── */}
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-50 px-5 pt-4 pb-3">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="flex items-center justify-between border-b border-border/50 px-5 pt-4 pb-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-800">
+              <h3 className="text-sm font-bold text-foreground">
                 Absen Terbaru
               </h3>
-              <p className="text-xs text-slate-400">Aktivitas hari ini</p>
+              <p className="text-xs text-muted-foreground">
+                Aktivitas hari ini
+              </p>
             </div>
             <button
               onClick={() => router.push("/admin/absen")}
-              className="flex items-center gap-1 text-xs font-semibold text-teal-600 hover:underline"
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
             >
               Lihat semua <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-border/50">
             {data.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50/60"
+                className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/60"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-800">
+                  <p className="truncate text-sm font-semibold text-foreground">
                     {r.nama}
                   </p>
-                  <p className="text-xs text-slate-400">
-                    {r.kelas} {r.hari}, {r.tanggal} -{" "} {r.waktu !== "—" ? `${r.waktu} WIB` : "Tidak ada catatan"}
+                  <p className="text-xs text-muted-foreground">
+                    {r.kelas} {r.hari}, {r.tanggal} -{" "}
+                    {r.waktu !== "—" ? `${r.waktu} WIB` : "Tidak ada catatan"}
                   </p>
                 </div>
-                <div className="flex flex-shrink-0 items-center gap-2">
-                  <span className="text-xs text-slate-400"></span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="text-xs text-muted-foreground/60"></span>
                   <Badge
                     variant="outline"
-                    className={`rounded-lg border px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE[r.status]}`}
+                    className={`rounded-lg border px-2 py-0.5 text-[10px] font-semibold ${
+                      r.status === "hadir"
+                        ? "border-primary/20 bg-primary/10 text-primary"
+                        : r.status === "haid"
+                          ? "border-blue-500/20 bg-blue-500/10 text-blue-500"
+                          : "border-destructive/20 bg-destructive/10 text-destructive"
+                    }`}
                   >
                     {r.status === "hadir" ? "Hadir" : "Haid"}
                   </Badge>

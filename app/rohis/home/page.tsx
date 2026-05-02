@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/immutability */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -5,27 +9,20 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import ClockWIB from "@/components/mycomponent/clock"
-import {
-  CheckCircle2,
-  QrCode,
-  Clock,
-  ChevronRight,
-  AlignLeft,
-  User,
-} from "lucide-react"
+import { Clock, AlignLeft } from "lucide-react"
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LogOut } from "lucide-react"
+import { ModeToggle } from "@/components/mode-toggle"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -47,26 +44,26 @@ const STATUS_LABEL: Record<Status, string> = {
 }
 
 const STATUS_STYLE: Record<Status, string> = {
-  hadir: "bg-teal-50 text-teal-700 border-teal-200",
-  tidak_hadir: "bg-red-50 text-red-500 border-red-200",
-  haid: "bg-amber-50 text-amber-600 border-amber-200",
+  hadir: "bg-primary/10 text-primary border-primary/20",
+  tidak_hadir: "bg-destructive/10 text-destructive border-destructive/20",
+  haid: "bg-blue-500/10 text-blue-500 border-blue-500/20",
 }
 
 const STATUS_DOT: Record<Status, string> = {
-  hadir: "bg-teal-400",
-  tidak_hadir: "bg-red-400",
-  haid: "bg-amber-400",
+  hadir: "bg-primary",
+  tidak_hadir: "bg-destructive",
+  haid: "bg-blue-500",
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AbsenSholatPage() {
   const router = useRouter()
   const [data, setData] = useState<RiwayatItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [panitia, setPanitia] = useState<{
     id: any
     nama: string
-    role: string
+    divisi: string
   } | null>(null)
 
   useEffect(() => {
@@ -130,61 +127,34 @@ export default function AbsenSholatPage() {
     })
   }
 
-  function handleLogout(event: React.MouseEvent<HTMLDivElement>): void {
+  function handleLogout(_event: React.MouseEvent<HTMLDivElement>): void {
     localStorage.removeItem("user_session")
     router.push("/")
   }
 
   return (
-    <div
-      className="flex min-h-screen flex-col items-center"
-      style={{
-        background:
-          "linear-gradient(160deg, #f0fdf9 0%, #f8fafc 60%, #eff6ff 100%)",
-      }}
-    >
+    <div className="flex min-h-screen flex-col items-center bg-background">
       {/* ── Header Banner ── */}
       <div
-        className="relative w-full max-w-md overflow-hidden"
+        className="relative w-full max-w-md overflow-hidden rounded-b-[2rem] px-5 pt-10 pb-8 shadow-lg shadow-teal-900/10"
         style={{
           background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
-          borderRadius: "0 0 2rem 2rem",
-          paddingBottom: "2rem",
-          paddingTop: "2.5rem",
-          paddingLeft: "1.25rem",
-          paddingRight: "1.25rem",
         }}
       >
         {/* Decorative circles */}
         <div
           aria-hidden
-          style={{
-            position: "absolute",
-            top: "-40px",
-            right: "-40px",
-            width: "160px",
-            height: "160px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.08)",
-          }}
+          className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10"
         />
         <div
           aria-hidden
-          style={{
-            position: "absolute",
-            bottom: "-20px",
-            left: "-30px",
-            width: "100px",
-            height: "100px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.06)",
-          }}
+          className="absolute -bottom-5 -left-7.5 h-25 w-25 rounded-full bg-white/5"
         />
 
         {/* User Info */}
         <div className="relative z-10 flex items-center gap-3">
-          <Avatar className="h-12 w-12 ring-2 ring-white/40 ring-offset-1 ring-offset-teal-700">
-            <AvatarFallback className="bg-teal-800 font-bold text-white">
+          <Avatar className="h-12 w-12 ring-2 ring-white/40 ring-offset-1 ring-offset-teal-600">
+            <AvatarFallback className="bg-teal-700 font-bold text-white">
               {panitia?.nama?.substring(0, 2).toUpperCase() || "..."}
             </AvatarFallback>
           </Avatar>
@@ -192,70 +162,66 @@ export default function AbsenSholatPage() {
             <h1 className="truncate text-base leading-tight font-semibold text-white">
               {panitia?.nama || "Memuat..."}
             </h1>
-            <p className="text-xs text-white">Panitia Rohis</p>
+            <p className="text-xs text-teal-50">{panitia?.divisi || "Memuat..."}</p>
             <ClockWIB />
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="rounded-xl bg-white/15 p-2 transition-colors outline-none hover:bg-white/25">
-                <AlignLeft className="h-5 w-5 text-white" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              sideOffset={8}
-              className="w-52 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xl"
-            >
-              {/* Header info user */}
-              <DropdownMenuLabel className="px-3 py-2">
-                <div className="flex items-center gap-2.5">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-teal-700 text-xs font-bold text-white">
-                      {panitia?.nama?.substring(0, 2).toUpperCase() || "..."}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-slate-800">
-                      {panitia?.nama || "Memuat..."}
-                    </p>
-                    <p className="truncate text-[10px] text-slate-400">
-                      Panitia Rohis
-                    </p>
-                  </div>
-                </div>
-              </DropdownMenuLabel>
-
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-red-500 hover:bg-red-50 focus:bg-red-50 focus:text-red-500"
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="rounded-xl bg-white/15 p-2 transition-colors outline-none hover:bg-white/25">
+                  <AlignLeft className="h-5 w-5 text-white" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className="w-52 rounded-2xl border border-border bg-card p-1.5 shadow-xl"
               >
-                <LogOut className="h-4 w-4" />
-                <span className="text-sm font-medium">Keluar</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {/* Header info user */}
+                <DropdownMenuLabel className="px-3 py-2">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
+                        {panitia?.nama?.substring(0, 2).toUpperCase() || "..."}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-foreground">
+                        {panitia?.nama || "Memuat..."}
+                      </p>
+                      <p className="truncate text-[10px] text-muted-foreground">
+                        {panitia?.divisi || "Memuat..."}
+                      </p>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="text-sm font-medium">Keluar</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Dzuhur Status Card */}
-        <div
-          className="relative z-10 mt-5 flex items-center justify-between rounded-2xl p-4"
-          style={{
-            background: "rgba(255,255,255,0.18)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.25)",
-          }}
-        >
+        <div className="relative z-10 mt-5 flex items-center justify-between rounded-2xl border border-white/25 bg-white/20 p-4 backdrop-blur-md">
           <div>
-            <p className="mb-0.5 text-[10px] font-semibold tracking-widest text-teal-100 uppercase">
+            <p className="mb-0.5 text-[10px] font-semibold tracking-widest text-teal-50 uppercase">
               Absensi Sholat
             </p>
             <p className="text-2xl leading-none font-black text-white">
               Dzuhur
             </p>
             <div className="mt-1.5 flex items-center gap-1">
-              <Clock className="h-3 w-3 text-teal-200" />
-              <p className="text-xs text-teal-100">12:00 - 13:00 WIB</p>
+              <Clock className="h-3 w-3 text-teal-100" />
+              <p className="text-xs text-teal-50">12:00 - 13:00 WIB</p>
             </div>
           </div>
         </div>
@@ -267,19 +233,19 @@ export default function AbsenSholatPage() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => router.push("/rohis/pageqr")}
-            className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-teal-500 to-cyan-500 text-base font-bold text-white shadow-lg shadow-teal-200/60 transition-all duration-200 hover:from-teal-400 hover:to-cyan-400 active:scale-[0.98]"
+            className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
           >
             {" "}
             {"Generate QR Code"}
           </Button>
         </div>
 
-        <Separator className="bg-slate-200" />
+        <Separator className="bg-border" />
 
         {/* ── Riwayat ── */}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-700">
+            <h2 className="text-sm font-bold text-foreground">
               Riwayat Absensi Dzuhur
             </h2>
           </div>
@@ -288,24 +254,24 @@ export default function AbsenSholatPage() {
             {data.map((e) => (
               <Card
                 key={e.id}
-                className="rounded-2xl border border-slate-100 bg-white shadow-sm"
+                className="rounded-2xl border border-border bg-card shadow-sm"
               >
                 <CardContent className="flex items-center gap-3 px-4 py-3">
                   <div
-                    className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${STATUS_DOT[e.status]}`}
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[e.status]}`}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-tight font-semibold text-slate-800">
+                    <p className="text-sm leading-tight font-semibold text-foreground">
                       {e.nama}
                     </p>
-                    <p className="text-xs leading-tight text-slate-500">
+                    <p className="text-xs leading-tight text-muted-foreground">
                       {e.hari}, {e.tanggal} -{" "}
                       {e.waktu !== "—" ? `${e.waktu} WIB` : "Tidak ada catatan"}
                     </p>
                   </div>
                   <Badge
                     variant="outline"
-                    className={`flex-shrink-0 rounded-lg border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[e.status]}`}
+                    className={`shrink-0 rounded-lg border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[e.status]}`}
                   >
                     {STATUS_LABEL[e.status]}
                   </Badge>

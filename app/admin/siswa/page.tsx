@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
 import { AdminShell } from "../_components/AdminShell"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
@@ -202,8 +204,10 @@ export default function DataSiswaPage() {
       <AdminShell>
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
-            <p className="text-sm text-slate-400">Memuat data siswa...</p>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">
+              Memuat data siswa...
+            </p>
           </div>
         </div>
       </AdminShell>
@@ -261,20 +265,20 @@ export default function DataSiswaPage() {
         </div>
 
         {/* Table card */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           {/* Toolbar */}
-          <div className="flex flex-col gap-3 border-b border-slate-50 px-5 pt-4 pb-3">
+          <div className="flex flex-col gap-3 border-b border-border/50 px-5 pt-4 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-800">
+                <h2 className="text-sm font-bold text-foreground">
                   Daftar Siswa
                 </h2>
-                <p className="mt-0.5 text-xs text-slate-400">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {filtered.length} dari {data.length} siswa
                   {activeFilterCount > 0 && (
                     <button
                       onClick={resetFilters}
-                      className="ml-2 inline-flex items-center gap-0.5 font-semibold text-teal-600 hover:underline"
+                      className="ml-2 inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
                     >
                       <X className="h-3 w-3" /> Reset filter
                     </button>
@@ -283,7 +287,7 @@ export default function DataSiswaPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative">
-                  <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Cari nama, NIS, email..."
                     value={search}
@@ -291,7 +295,7 @@ export default function DataSiswaPage() {
                       setSearch(e.target.value)
                       setPage(1)
                     }}
-                    className="h-9 w-52 rounded-xl border-slate-200 bg-slate-50 pl-8 text-xs focus-visible:ring-teal-400"
+                    className="h-9 w-52 rounded-xl border-border bg-muted/50 pl-8 text-xs focus-visible:ring-primary"
                   />
                 </div>
                 <button
@@ -300,29 +304,29 @@ export default function DataSiswaPage() {
                   style={{
                     background:
                       showFilterPanel || activeFilterCount > 0
-                        ? "rgba(13,148,136,0.07)"
-                        : "#fff",
+                        ? "var(--color-primary-transparent)"
+                        : "transparent",
                     borderColor:
                       showFilterPanel || activeFilterCount > 0
-                        ? "#0d9488"
-                        : "#e2e8f0",
+                        ? "var(--color-primary)"
+                        : "var(--color-border)",
                     color:
                       showFilterPanel || activeFilterCount > 0
-                        ? "#0d9488"
-                        : "#64748b",
+                        ? "var(--color-primary)"
+                        : "var(--color-muted-foreground)",
                   }}
                 >
                   <Filter className="h-3.5 w-3.5" />
                   Filter
                   {activeFilterCount > 0 && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-teal-500 text-[9px] text-white">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground">
                       {activeFilterCount}
                     </span>
                   )}
                 </button>
                 <button
                   onClick={() => router.push("/admin/tambahsiswa")}
-                  className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50"
+                  className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-foreground/80 transition-all hover:bg-muted"
                 >
                   <Plus className="h-3.5 w-3.5" /> Tambah Siswa
                 </button>
@@ -330,18 +334,18 @@ export default function DataSiswaPage() {
             </div>
 
             {showFilterPanel && (
-              <div className="flex flex-wrap gap-3 border-t border-slate-50 pt-2">
+              <div className="flex flex-wrap gap-3 border-t border-border/50 pt-2">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                     Kelas
                   </label>
-                  <select 
+                  <select
                     value={filterKelas}
                     onChange={(e) => {
                       setFilterKelas(e.target.value)
                       setPage(1)
                     }}
-                    className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none focus:border-teal-400"
+                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
                   >
                     <option>Semua Kelas</option>
                     {KELAS_LIST.map((k) => (
@@ -350,7 +354,7 @@ export default function DataSiswaPage() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                     Tanggal Daftar
                   </label>
                   <input
@@ -360,7 +364,7 @@ export default function DataSiswaPage() {
                       setFilterTanggal(e.target.value)
                       setPage(1)
                     }}
-                    className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none focus:border-teal-400"
+                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -371,7 +375,7 @@ export default function DataSiswaPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
-                <tr style={{ background: "#f8fafc" }}>
+                <tr className="bg-muted/30">
                   {/* Checkbox all */}
                   <th className="w-10 py-3 pr-2 pl-5">
                     <input
@@ -383,7 +387,7 @@ export default function DataSiswaPage() {
                             somePageSelected && !allPageSelected
                       }}
                       onChange={toggleAll}
-                      className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-teal-500"
+                      className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
                     />
                   </th>
                   {[
@@ -397,25 +401,25 @@ export default function DataSiswaPage() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase last:w-10"
+                      className="px-4 py-3 text-left text-[11px] font-bold tracking-wider text-muted-foreground uppercase last:w-10"
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/50">
                 {paginated.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-2">
-                        <Users className="h-8 w-8 text-slate-200" />
-                        <p className="text-sm text-slate-400">
+                        <Users className="h-8 w-8 text-muted/50" />
+                        <p className="text-sm text-muted-foreground">
                           Tidak ada data ditemukan
                         </p>
                         <button
                           onClick={resetFilters}
-                          className="text-xs font-semibold text-teal-600 hover:underline"
+                          className="text-xs font-semibold text-primary hover:underline"
                         >
                           Reset filter
                         </button>
@@ -428,14 +432,9 @@ export default function DataSiswaPage() {
                     return (
                       <tr
                         key={s.id}
-                        className="border-t border-slate-50 transition-colors hover:bg-slate-50/70"
-                        style={{
-                          background: isChecked
-                            ? "rgba(13,148,136,0.05)"
-                            : i % 2 !== 0
-                              ? "#fafcff"
-                              : undefined,
-                        }}
+                        className={`transition-colors hover:bg-muted/40 ${
+                          isChecked ? "bg-primary/5" : ""
+                        }`}
                       >
                         {/* Checkbox */}
                         <td className="py-3 pr-2 pl-5">
@@ -443,24 +442,24 @@ export default function DataSiswaPage() {
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => toggleOne(s.id)}
-                            className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-teal-500"
+                            className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
                           />
                         </td>
 
                         {/* No */}
-                        <td className="px-4 py-3 text-xs font-medium text-slate-400">
+                        <td className="px-4 py-3 text-xs font-medium text-muted-foreground">
                           {(page - 1) * PER_PAGE + i + 1}
                         </td>
 
                         {/* Nama */}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8 flex-shrink-0">
-                              <AvatarFallback className="bg-teal-100 text-xs font-bold text-teal-700">
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                                 {s.nama.slice(0, 2).toUpperCase()}
-                              </AvatarFallback> 
+                              </AvatarFallback>
                             </Avatar>
-                            <p className="text-sm leading-tight font-semibold text-slate-800">
+                            <p className="text-sm leading-tight font-semibold text-foreground">
                               {s.nama}
                             </p>
                           </div>
@@ -468,14 +467,14 @@ export default function DataSiswaPage() {
 
                         {/* NIS */}
                         <td className="px-4 py-3">
-                          <p className="font-mono text-xs font-semibold text-slate-600">
+                          <p className="font-mono text-xs font-semibold text-muted-foreground">
                             {s.nis}
                           </p>
                         </td>
 
                         {/* Kelas */}
                         <td className="px-4 py-3">
-                          <span className="inline-block rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                          <span className="inline-block rounded-lg bg-muted px-2 py-0.5 text-xs font-semibold text-foreground/80">
                             {s.kelas}
                           </span>
                         </td>
@@ -485,8 +484,8 @@ export default function DataSiswaPage() {
                           <span
                             className={`inline-block rounded-lg px-2 py-0.5 text-xs font-semibold ${
                               s.jenis_kelamin === "Perempuan"
-                                ? "bg-pink-50 text-pink-600"
-                                : "bg-blue-50 text-blue-600"
+                                ? "bg-pink-500/10 text-pink-500"
+                                : "bg-blue-500/10 text-blue-500"
                             }`}
                           >
                             {s.jenis_kelamin === "Perempuan"
@@ -497,37 +496,38 @@ export default function DataSiswaPage() {
 
                         {/* Email */}
                         <td className="px-4 py-3">
-                          <p className="max-w-[160px] truncate text-xs text-slate-500">
+                          <p className="text-xs text-muted-foreground">
                             {s.email}
                           </p>
                         </td>
 
-                        {/* Actions */}
+                        {/* Action */}
                         <td className="px-4 py-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <button className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
+                              <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              className="w-36 rounded-2xl p-1"
+                              className="w-40 rounded-xl"
                             >
                               <DropdownMenuItem
                                 onClick={() =>
                                   router.push(`/admin/editsiswa?id=${s.id}`)
                                 }
-                                className="cursor-pointer rounded-xl text-xs"
+                                className="cursor-pointer gap-2 rounded-lg text-xs"
                               >
-                                <Pencil className="mr-2 h-3.5 w-3.5 text-slate-400" />{" "}
-                                Edit
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                Edit Siswa
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleDelete(s.id)}
-                                className="cursor-pointer rounded-xl text-xs text-red-500 focus:bg-red-50 focus:text-red-500"
+                                className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                               >
-                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Hapus
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Hapus Siswa
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -541,154 +541,76 @@ export default function DataSiswaPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between border-t border-slate-50 px-5 py-3">
-            <p className="text-xs text-slate-400">
-              Halaman{" "}
-              <span className="font-semibold text-slate-600">{page}</span> dari{" "}
-              <span className="font-semibold text-slate-600">{totalPages}</span>
-              &nbsp;·&nbsp; {filtered.length} data
+          <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                Halaman {page} dari {totalPages}
+              </p>
               {selected.size > 0 && (
-                <span className="ml-2 font-semibold text-teal-600">
-                  · {selected.size} dipilih
-                </span>
+                <div className="flex items-center gap-2 border-l border-border/50 pl-3">
+                  <p className="text-[10px] font-bold text-primary uppercase">
+                    {selected.size} dipilih
+                  </p>
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-1 rounded-lg bg-destructive/10 px-2 py-1 text-[10px] font-bold text-destructive hover:bg-destructive/20"
+                  >
+                    <Trash2 className="h-3 w-3" /> Hapus
+                  </button>
+                  <button
+                    onClick={clearSelected}
+                    className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
+                  >
+                    Batal
+                  </button>
+                </div>
               )}
-            </p>
-            <div className="flex items-center gap-1">
+            </div>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+                onClick={() => setPage((p) => p - 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-4 w-4" />
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(
-                  (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1
-                )
-                .reduce<(number | "...")[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1)
-                    acc.push("...")
-                  acc.push(p)
-                  return acc
-                }, [])
-                .map((p, i) =>
-                  p === "..." ? (
-                    <span
-                      key={`el-${i}`}
-                      className="w-7 text-center text-xs text-slate-400"
-                    >
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p as number)}
-                      className="h-7 w-7 rounded-lg text-xs font-semibold transition-all"
-                      style={{
-                        background: page === p ? "#0d9488" : "transparent",
-                        color: page === p ? "white" : "#64748b",
-                      }}
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+                onClick={() => setPage((p) => p + 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
-
-        {/* ── Bulk action bar ── */}
-        {selected.size > 0 && (
-          <div className="flex items-center justify-between rounded-2xl border border-red-100 bg-red-50 px-5 py-3 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-100">
-                <Trash2 className="h-4 w-4 text-red-500" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-red-700">
-                  {selected.size} siswa dipilih
-                </p>
-                <p className="text-xs text-red-400">
-                  Pilih aksi untuk data terpilih
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={clearSelected}
-                className="flex h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                <X className="h-3.5 w-3.5" /> Batal
-              </button>
-              <button
-                onClick={() => setShowDeleteModal(true)}
-                className="flex h-8 items-center gap-1.5 rounded-xl bg-red-500 px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-400"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Hapus {selected.size} Data
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ── Bulk Delete Modal ── */}
+      {/* Bulk delete modal */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="mx-auto max-w-xs overflow-hidden rounded-3xl border border-slate-100 bg-white p-0 shadow-xl">
-          <div className="h-1.5 w-full" />
-          <div className="flex flex-col gap-4 px-6 pt-5 pb-6">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
-                <Trash2 className="h-7 w-7 text-red-500" />
-              </div>
-              <DialogHeader>
-                <DialogTitle className="text-base font-bold text-slate-800">
-                  Hapus {selected.size} Siswa?
-                </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
-                  Data yang dihapus tidak dapat dikembalikan.
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-
-            {/* Preview list */}
-            <div className="flex max-h-40 flex-col gap-1.5 overflow-y-auto rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-              {Array.from(selected).map((id) => {
-                const s = data.find((d) => d.id === id)
-                return s ? (
-                  <div key={id} className="flex items-center gap-2">
-                    <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
-                    <p className="truncate text-xs font-medium text-red-700">
-                      {s.nama}
-                    </p>
-                    <span className="ml-auto flex-shrink-0 font-mono text-[10px] text-red-400">
-                      {s.nis}
-                    </span>
-                  </div>
-                ) : null
-              })}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                className="h-11 flex-1 rounded-xl bg-red-500 text-sm font-semibold text-white transition-colors hover:bg-red-400"
-              >
-                Ya, Hapus
-              </button>
-            </div>
+        <DialogContent className="rounded-2xl sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              Hapus Data Terpilih?
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Anda akan menghapus {selected.size} data siswa secara permanen.
+              Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex justify-end gap-3">
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-bold text-foreground hover:bg-muted"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="text-destructive-foreground rounded-xl bg-destructive px-4 py-2 text-xs font-bold hover:opacity-90"
+            >
+              Ya, Hapus Semua
+            </button>
           </div>
         </DialogContent>
       </Dialog>

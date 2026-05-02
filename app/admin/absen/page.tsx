@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -16,24 +17,18 @@ import {
 import {
   Users,
   QrCode,
-  ClipboardList,
   Search,
   Clock,
   XCircle,
   UserCheck,
   MoreHorizontal,
-  Eye,
   Trash2,
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
-  Download,
-  Filter,
   X,
-  TrendingUp,
   CalendarDays,
-  RefreshCw,
-  CheckCircle2,
+  Filter,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import * as XLSX from "xlsx"
@@ -58,24 +53,24 @@ const STATUS_META: Record<
 > = {
   hadir: {
     label: "Hadir",
-    dot: "bg-teal-400",
-    badge: "bg-teal-50 text-teal-700 border-teal-200",
-    color: "#0d9488",
-    bg: "rgba(13,148,136,0.08)",
+    dot: "bg-primary",
+    badge: "bg-primary/10 text-primary border-primary/20",
+    color: "var(--color-primary)",
+    bg: "var(--color-primary)",
   },
   haid: {
     label: "Haid",
-    dot: "bg-amber-400",
-    badge: "bg-amber-50 text-amber-600 border-amber-200",
-    color: "#d97706",
-    bg: "rgba(217,119,6,0.08)",
+    dot: "bg-blue-400",
+    badge: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    color: "#3b82f6",
+    bg: "#3b82f6",
   },
   tidak_hadir: {
     label: "Tidak Hadir",
-    dot: "bg-red-400",
-    badge: "bg-red-50 text-red-500 border-red-200",
-    color: "#ef4444",
-    bg: "rgba(239,68,68,0.08)",
+    dot: "bg-destructive",
+    badge: "bg-destructive/10 text-destructive border-destructive/20",
+    color: "var(--color-destructive)",
+    bg: "var(--color-destructive)",
   },
 }
 
@@ -137,7 +132,7 @@ function exportToExcel(data: SiswaRecord[], filename = "Absensi-Dzuhur") {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DataAbsenPage() {
   const [data, setData] = useState<SiswaRecord[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchAbsensi = async () => {
@@ -337,38 +332,38 @@ export default function DataAbsenPage() {
               label: "Total Siswa",
               value: summary.total,
               icon: Users,
-              color: "text-slate-600",
-              bg: "border-slate-100",
-              iconBg: "bg-slate-50",
+              color: "text-muted-foreground",
+              bg: "border-border",
+              iconBg: "bg-muted",
             },
             {
               label: "Hadir",
               value: summary.hadir,
               icon: UserCheck,
-              color: "text-teal-600",
-              bg: "border-teal-50",
-              iconBg: "bg-teal-50",
+              color: "text-primary",
+              bg: "border-primary/20",
+              iconBg: "bg-primary/10",
             },
             {
               label: "Haid",
               value: summary.haid,
               icon: Clock,
-              color: "text-amber-500",
-              bg: "border-amber-50",
-              iconBg: "bg-amber-50",
+              color: "text-blue-500",
+              bg: "border-blue-500/20",
+              iconBg: "bg-blue-500/10",
             },
             {
               label: "Tidak Hadir",
               value: summary.tidak_hadir,
               icon: XCircle,
-              color: "text-red-500",
-              bg: "border-red-50",
-              iconBg: "bg-red-50",
+              color: "text-destructive",
+              bg: "border-destructive/20",
+              iconBg: "bg-destructive/10",
             },
           ].map(({ label, value, icon: Icon, color, bg, iconBg }) => (
             <div
               key={label}
-              className={`rounded-2xl border bg-white ${bg} flex flex-col gap-2 px-4 py-4 shadow-sm`}
+              className={`rounded-2xl border bg-card ${bg} flex flex-col gap-2 px-4 py-4 shadow-sm`}
             >
               <div
                 className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
@@ -379,27 +374,27 @@ export default function DataAbsenPage() {
                 <p className={`text-2xl leading-none font-black ${color}`}>
                   {value}
                 </p>
-                <p className="mt-0.5 text-xs text-slate-500">{label}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* ── Table card ── */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           {/* ─ Toolbar ─ */}
-          <div className="flex flex-col gap-3 border-b border-slate-50 px-5 pt-4 pb-3">
+          <div className="flex flex-col gap-3 border-b border-border/50 px-5 pt-4 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-800">
+                <h2 className="text-sm font-bold text-foreground">
                   Rekap Absensi Dzuhur
                 </h2>
-                <p className="mt-0.5 text-xs text-slate-400">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {filtered.length} dari {data.length} siswa
                   {activeFilterCount > 0 && (
                     <button
                       onClick={resetFilters}
-                      className="ml-2 inline-flex items-center gap-0.5 font-semibold text-teal-600 hover:underline"
+                      className="ml-2 inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
                     >
                       <X className="h-3 w-3" /> Reset filter
                     </button>
@@ -410,7 +405,7 @@ export default function DataAbsenPage() {
               <div className="flex flex-wrap items-center gap-2">
                 {/* Search */}
                 <div className="relative">
-                  <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Cari nama, NIS, kelas..."
                     value={search}
@@ -418,7 +413,7 @@ export default function DataAbsenPage() {
                       setSearch(e.target.value)
                       setPage(1)
                     }}
-                    className="h-9 w-52 rounded-xl border-slate-200 bg-slate-50 pl-8 text-xs focus-visible:ring-teal-400"
+                    className="h-9 w-52 rounded-xl border-border bg-muted/50 pl-8 text-xs focus-visible:ring-primary"
                   />
                 </div>
 
@@ -429,22 +424,22 @@ export default function DataAbsenPage() {
                   style={{
                     background:
                       showFilterPanel || activeFilterCount > 0
-                        ? "rgba(13,148,136,0.07)"
-                        : "#fff",
+                        ? "var(--color-primary-transparent)"
+                        : "transparent",
                     borderColor:
                       showFilterPanel || activeFilterCount > 0
-                        ? "#0d9488"
-                        : "#e2e8f0",
+                        ? "var(--color-primary)"
+                        : "var(--color-border)",
                     color:
                       showFilterPanel || activeFilterCount > 0
-                        ? "#0d9488"
-                        : "#64748b",
+                        ? "var(--color-primary)"
+                        : "var(--color-muted-foreground)",
                   }}
                 >
                   <Filter className="h-3.5 w-3.5" />
                   Filter
                   {activeFilterCount > 0 && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-teal-500 text-[9px] font-black text-white">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-primary-foreground">
                       {activeFilterCount}
                     </span>
                   )}
@@ -463,10 +458,10 @@ export default function DataAbsenPage() {
 
             {/* Filter panel */}
             {showFilterPanel && (
-              <div className="flex flex-wrap gap-3 border-t border-slate-50 pt-1 pb-0.5">
+              <div className="flex flex-wrap gap-3 border-t border-border/50 pt-1 pb-0.5">
                 {/* Kelas */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                     Kelas
                   </label>
                   <select
@@ -475,7 +470,7 @@ export default function DataAbsenPage() {
                       setFilterKelas(e.target.value)
                       setPage(1)
                     }}
-                    className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 pr-8 pl-3 text-xs text-slate-700 outline-none focus:border-teal-400"
+                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 pr-8 pl-3 text-xs text-foreground outline-none focus:border-primary"
                   >
                     <option>Semua Kelas</option>
                     {KELAS_LIST.map((k) => (
@@ -486,7 +481,7 @@ export default function DataAbsenPage() {
 
                 {/* Tanggal */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                     Tanggal
                   </label>
                   <input
@@ -496,302 +491,177 @@ export default function DataAbsenPage() {
                       setFilterTanggal(e.target.value)
                       setPage(1)
                     }}
-                    className="h-8 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 outline-none focus:border-teal-400"
+                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
                   />
-                </div>
-
-                {/* Quick date buttons */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-                    Cepat
-                  </label>
-                  <div className="flex gap-1.5">
-                    {[
-                      {
-                        label: "Hari ini",
-                        val: new Date().toISOString().split("T")[0],
-                      },
-                      { label: "Semua", val: "" },
-                    ].map(({ label, val }) => (
-                      <button
-                        key={label}
-                        onClick={() => {
-                          setFilterTanggal(val)
-                          setPage(1)
-                        }}
-                        className="h-8 rounded-lg border px-3 text-xs font-semibold transition-all"
-                        style={{
-                          background:
-                            filterTanggal === val
-                              ? "rgba(13,148,136,0.08)"
-                              : "#fff",
-                          borderColor:
-                            filterTanggal === val ? "#0d9488" : "#e2e8f0",
-                          color: filterTanggal === val ? "#0d9488" : "#64748b",
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {/* ─ Tabs ─ */}
-          <div className="scrollbar-none flex gap-0 overflow-x-auto border-b border-slate-50 px-5">
-            {TABS.map((tab) => {
-              const count =
-                tab === "Semua"
-                  ? data.length
-                  : data.filter((s) => s.status === TAB_TO_STATUS[tab]).length
-              const isActive = activeTab === tab
-              return (
-                <button
-                  key={tab}
-                  onClick={() => handleTabChange(tab)}
-                  className="flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all"
-                  style={{
-                    borderColor: isActive ? "#0d9488" : "transparent",
-                    color: isActive ? "#0d9488" : "#94a3b8",
-                  }}
-                >
-                  {tab}
-                  <span
-                    className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                    style={{
-                      background: isActive ? "rgba(13,148,136,0.1)" : "#f1f5f9",
-                      color: isActive ? "#0d9488" : "#94a3b8",
-                    }}
-                  >
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
+          <div className="flex items-center border-b border-border/50 px-5">
+            {TABS.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className={`relative px-4 py-3 text-xs font-bold transition-colors ${
+                  activeTab === tab
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab}
+                {activeTab === tab && (
+                  <div className="absolute right-0 bottom-0 left-0 h-0.5 bg-primary" />
+                )}
+              </button>
+            ))}
           </div>
 
           {/* ─ Table ─ */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full text-left">
               <thead>
-                <tr style={{ background: "#f8fafc" }}>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Siswa
-                  </th>
-                  <th className="px-3 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Kelas
-                  </th>
-                  <th className="px-3 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Tanggal
-                  </th>
-                  <th className="px-3 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Waktu
-                  </th>
-                  <th className="px-3 py-3 text-left text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                    Status
-                  </th>
-                  <th className="w-10 px-3 py-3" />
+                <tr className="bg-muted/30 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                  <th className="px-5 py-3">Siswa</th>
+                  <th className="px-5 py-3">Waktu & Tanggal</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3 text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody>
-                {paginated.length === 0 ? (
+              <tbody className="divide-y divide-border/50">
+                {paginated.length > 0 ? (
+                  paginated.map((s) => (
+                    <tr
+                      key={s.id}
+                      className="group transition-colors hover:bg-muted/40"
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8 border-2 border-background">
+                            <AvatarImage
+                              src={`https://i.pravatar.cc/100?u=${s.id}`}
+                            />
+                            <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                              {s.nama.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-bold text-foreground">
+                              {s.nama}
+                            </p>
+                            <p className="text-[10px] font-medium text-muted-foreground">
+                              {s.nis} • {s.kelas}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                            <Clock className="h-3 w-3 text-primary" />
+                            {s.waktu === "—" ? "Belum absen" : `${s.waktu} WIB`}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            <CalendarDays className="h-3 w-3" />
+                            {s.tanggal}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <Badge
+                          variant="outline"
+                          className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${STATUS_META[s.status].badge}`}
+                        >
+                          {STATUS_META[s.status].label}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-44 rounded-xl"
+                          >
+                            <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
+                              Ubah Status
+                            </DropdownMenuLabel>
+                            {Object.entries(STATUS_META).map(([key, meta]) => (
+                              <DropdownMenuItem
+                                key={key}
+                                onClick={() =>
+                                  handleStatusChange(s.id, key as AbsenStatus)
+                                }
+                                className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
+                              >
+                                <div
+                                  className={`h-2 w-2 rounded-full ${meta.dot}`}
+                                />
+                                {meta.label}
+                              </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(s.id)}
+                              className="flex cursor-pointer items-center gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Hapus Record
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
-                    <td colSpan={6} className="py-16 text-center">
+                    <td colSpan={4} className="px-5 py-12 text-center">
                       <div className="flex flex-col items-center gap-2">
-                        <Users className="h-8 w-8 text-slate-200" />
-                        <p className="text-sm text-slate-400">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                          <Search className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm font-bold text-foreground">
                           Tidak ada data ditemukan
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Coba sesuaikan filter atau kata kunci pencarian Anda
                         </p>
                         <button
                           onClick={resetFilters}
-                          className="text-xs font-semibold text-teal-600 hover:underline"
+                          className="mt-2 text-xs font-bold text-primary hover:underline"
                         >
-                          Reset filter
+                          Reset semua filter
                         </button>
                       </div>
                     </td>
                   </tr>
-                ) : (
-                  paginated.map((s, i) => {
-                    const st = STATUS_META[s.status]
-                    return (
-                      <tr
-                        key={s.id}
-                        className="border-t border-slate-50 transition-colors hover:bg-slate-50/70"
-                        style={{
-                          background: i % 2 !== 0 ? "#fafcff" : undefined,
-                        }}
-                      >
-                        {/* Siswa */}
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-3">
-                            <div>
-                              <p className="text-sm leading-tight font-semibold text-slate-800">
-                                {s.nama}
-                              </p>
-                              <p className="font-mono text-xs text-slate-400">
-                                {s.nis}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        {/* Kelas */}
-                        <td className="px-3 py-3">
-                          <span className="inline-block rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                            {s.kelas}
-                          </span>
-                        </td>
-                        {/* Tanggal */}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                            <CalendarDays className="h-3.5 w-3.5 text-slate-300" />
-                            {new Date(s.tanggal).toLocaleDateString("id-ID", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </div>
-                        </td>
-                        {/* Waktu */}
-                        <td className="px-3 py-3">
-                          <div
-                            className="flex items-center gap-1.5 text-xs font-semibold"
-                            style={{
-                              color: s.waktu === "—" ? "#cbd5e1" : "#334155",
-                            }}
-                          >
-                            <Clock className="h-3.5 w-3.5 text-slate-300" />
-                            {s.waktu === "—" ? "—" : `${s.waktu} WIB`}
-                          </div>
-                        </td>
-                        {/* Status */}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`h-2 w-2 flex-shrink-0 rounded-full ${st.dot}`}
-                            />
-                            <Badge
-                              variant="outline"
-                              className={`rounded-lg border px-2 py-0.5 text-[10px] font-semibold ${st.badge}`}
-                            >
-                              {st.label}
-                            </Badge>
-                          </div>
-                        </td>
-                        {/* Actions */}
-                        <td className="px-3 py-3">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="w-44 rounded-2xl p-1"
-                            >
-                              <DropdownMenuLabel className="px-2 pb-1 text-[10px] text-slate-400">
-                                Ubah Status
-                              </DropdownMenuLabel>
-                              {(
-                                [
-                                  "hadir",
-                                  "haid",
-                                  "tidak_hadir",
-                                ] as AbsenStatus[]
-                              ).map((st) => (
-                                <DropdownMenuItem
-                                  key={st}
-                                  onClick={() => handleStatusChange(s.id, st)}
-                                  className="cursor-pointer gap-2 rounded-xl text-xs"
-                                >
-                                  <div
-                                    className={`h-2 w-2 flex-shrink-0 rounded-full ${STATUS_META[st].dot}`}
-                                  />
-                                  {STATUS_META[st].label}
-                                  {s.status === st && (
-                                    <CheckCircle2 className="ml-auto h-3 w-3 text-teal-500" />
-                                  )}
-                                </DropdownMenuItem>
-                              ))}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="cursor-pointer rounded-xl text-xs">
-                                <Eye className="mr-2 h-3.5 w-3.5 text-slate-400" />{" "}
-                                Detail
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(s.id)}
-                                className="cursor-pointer rounded-xl text-xs text-red-500 focus:bg-red-50 focus:text-red-500"
-                              >
-                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Hapus
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    )
-                  })
                 )}
               </tbody>
             </table>
           </div>
 
           {/* ─ Pagination ─ */}
-          <div className="flex items-center justify-between border-t border-slate-50 px-5 py-3">
-            <p className="text-xs text-slate-400">
-              Halaman{" "}
-              <span className="font-semibold text-slate-600">{page}</span> dari{" "}
-              <span className="font-semibold text-slate-600">{totalPages}</span>
-              &nbsp;·&nbsp; {filtered.length} data
+          <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-5 py-4">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+              Halaman {page} dari {totalPages}
             </p>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+                onClick={() => setPage((p) => p - 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-4 w-4" />
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(
-                  (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1
-                )
-                .reduce<(number | "...")[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1)
-                    acc.push("...")
-                  acc.push(p)
-                  return acc
-                }, [])
-                .map((p, i) =>
-                  p === "..." ? (
-                    <span
-                      key={`ellipsis-${i}`}
-                      className="w-7 text-center text-xs text-slate-400"
-                    >
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p as number)}
-                      className="h-7 w-7 rounded-lg text-xs font-semibold transition-all"
-                      style={{
-                        background: page === p ? "#0d9488" : "transparent",
-                        color: page === p ? "white" : "#64748b",
-                      }}
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"
+                onClick={() => setPage((p) => p + 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>

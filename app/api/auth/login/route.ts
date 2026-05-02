@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/lib/supabaseClient";
 
 export async function POST(req: Request) {
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     const { data: panitiaData } = await supabase
       .from("panitia")
       .select("*")
-      .or(`email.eq.${identifier},nis.eq.${identifier}`)
+      .eq("email", identifier)
       .eq("password", password)
       .maybeSingle();
 

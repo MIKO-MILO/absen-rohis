@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   UserCircle,
   CheckCircle2,
-  X,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -59,7 +58,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs font-semibold tracking-wider text-slate-600 uppercase">
+      <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         {label}
       </Label>
       <Input
@@ -68,12 +67,12 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={`h-11 rounded-xl border bg-slate-50 px-4 text-sm focus-visible:ring-teal-400 ${
-          error ? "border-red-300" : "border-slate-200"
+        className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm focus-visible:ring-primary ${
+          error ? "border-destructive/50" : "border-border"
         } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
       />
       {error && (
-        <p className="flex items-center gap-1 text-xs text-red-500">
+        <p className="flex items-center gap-1 text-xs text-destructive">
           <AlertCircle className="h-3 w-3" /> {error}
         </p>
       )}
@@ -84,7 +83,7 @@ function Field({
 // ═══════════════════════════════════════════════════════════════════
 // ── MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════
-export default function EditSiswaPage() {
+export default function EditPanitiaPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = searchParams.get("id")
@@ -191,9 +190,9 @@ export default function EditSiswaPage() {
       <AdminShell>
         <div className="flex h-[60vh] items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
-            <p className="text-sm font-medium text-slate-500">
-              Memuat data siswa...
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Memuat data panitia...
             </p>
           </div>
         </div>
@@ -205,21 +204,22 @@ export default function EditSiswaPage() {
     return (
       <AdminShell>
         <div className="flex h-[60vh] items-center justify-center px-4">
-          <div className="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-teal-50">
-              <CheckCircle2 className="h-10 w-10 text-teal-500" />
+          <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-8 text-center shadow-xl shadow-muted-foreground/10">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <CheckCircle2 className="h-10 w-10 text-primary" />
             </div>
-            <h2 className="text-xl font-black text-slate-800">
+            <h2 className="text-xl font-black text-foreground">
               Update Berhasil!
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Data siswa <strong>{form.nama}</strong> telah berhasil diperbarui.
+            <p className="mt-2 text-sm text-muted-foreground">
+              Data panitia <strong>{form.nama}</strong> telah berhasil
+              diperbarui.
             </p>
             <Button
-              onClick={() => router.push("/admin/siswa")}
-              className="mt-8 h-12 w-full rounded-2xl bg-slate-900 text-sm font-bold text-white hover:bg-slate-800"
+              onClick={() => router.push("/admin/panitia")}
+              className="mt-8 h-12 w-full rounded-2xl bg-primary text-sm font-bold text-primary-foreground hover:opacity-90"
             >
-              Kembali ke Data Siswa
+              Kembali ke Data Panitia
             </Button>
           </div>
         </div>
@@ -233,26 +233,28 @@ export default function EditSiswaPage() {
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-800"
+            className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" /> Kembali
           </button>
-          <h1 className="text-lg font-bold text-slate-800">Edit Data Siswa</h1>
+          <h1 className="text-lg font-bold text-foreground">
+            Edit Data Panitia
+          </h1>
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl shadow-slate-200/40">
-          <div className="h-1.5 bg-gradient-to-r from-teal-500 to-cyan-500" />
+        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xl shadow-muted-foreground/5">
+          <div className="h-1.5 bg-linear-to-r from-primary to-primary/60" />
 
           <div className="p-6 md:p-8">
             <div className="mb-8 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50">
-                <UserCircle className="h-8 w-8 text-teal-600" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                <UserCircle className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-800">
-                  Informasi Siswa
+                <h2 className="text-base font-bold text-foreground">
+                  Informasi Panitia
                 </h2>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-foreground">
                   Pastikan semua data sudah benar sebelum menyimpan.
                 </p>
               </div>
@@ -281,7 +283,7 @@ export default function EditSiswaPage() {
               />
 
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold tracking-wider text-slate-600 uppercase">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   Kelas
                 </Label>
                 <select
@@ -290,8 +292,8 @@ export default function EditSiswaPage() {
                     setForm((p) => ({ ...p, kelas: e.target.value }))
                     setErrors((p) => ({ ...p, kelas: undefined }))
                   }}
-                  className={`h-11 rounded-xl border bg-slate-50 px-4 text-sm text-slate-700 transition-all focus:ring-2 focus:ring-teal-400 focus:outline-none ${
-                    errors.kelas ? "border-red-300" : "border-slate-200"
+                  className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm text-foreground transition-all focus:ring-2 focus:ring-primary focus:outline-none ${
+                    errors.kelas ? "border-destructive/50" : "border-border"
                   }`}
                 >
                   <option value="" disabled>
@@ -304,14 +306,14 @@ export default function EditSiswaPage() {
                   ))}
                 </select>
                 {errors.kelas && (
-                  <p className="flex items-center gap-1 text-xs text-red-500">
+                  <p className="flex items-center gap-1 text-xs text-destructive">
                     <AlertCircle className="h-3 w-3" /> {errors.kelas}
                   </p>
                 )}
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold tracking-wider text-slate-600 uppercase">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   Jenis Kelamin
                 </Label>
                 <div className="flex gap-3">
@@ -325,8 +327,8 @@ export default function EditSiswaPage() {
                       }}
                       className={`h-11 flex-1 rounded-xl border text-sm font-medium transition-all ${
                         form.jenisKelamin === jk
-                          ? "border-teal-400 bg-teal-50 font-semibold text-teal-700"
-                          : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300"
+                          ? "border-primary bg-primary/10 font-semibold text-primary"
+                          : "border-border bg-muted/50 text-muted-foreground hover:border-muted-foreground/50"
                       }`}
                     >
                       {jk}
@@ -334,7 +336,7 @@ export default function EditSiswaPage() {
                   ))}
                 </div>
                 {errors.jenisKelamin && (
-                  <p className="flex items-center gap-1 text-xs text-red-500">
+                  <p className="flex items-center gap-1 text-xs text-destructive">
                     <AlertCircle className="h-3 w-3" /> {errors.jenisKelamin}
                   </p>
                 )}
@@ -355,7 +357,7 @@ export default function EditSiswaPage() {
                 type="button"
                 variant="outline"
                 onClick={() => router.back()}
-                className="h-12 rounded-2xl px-8 text-sm font-bold text-slate-600 transition-all hover:bg-slate-50"
+                className="h-12 rounded-2xl px-8 text-sm font-bold text-muted-foreground transition-all hover:bg-muted"
               >
                 Batal
               </Button>
@@ -363,11 +365,11 @@ export default function EditSiswaPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="h-12 rounded-2xl bg-gradient-to-r from-teal-500 to-cyan-500 px-10 text-sm font-bold text-white shadow-lg shadow-teal-100 transition-all hover:from-teal-400 hover:to-cyan-400 active:scale-95 disabled:opacity-50"
+                className="h-12 rounded-2xl bg-primary px-10 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/10 transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
               >
                 {submitting ? (
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                     Menyimpan...
                   </div>
                 ) : (

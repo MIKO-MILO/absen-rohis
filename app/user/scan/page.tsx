@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
@@ -11,7 +13,6 @@ import {
   XCircle,
   Loader2,
   HeartPulse,
-  HandMetal,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -23,24 +24,24 @@ const PILIHAN_CONFIG = {
     label: "Hadir",
     desc: "Saya mengikuti sholat Dzuhur",
     icon: CheckCircle2,
-    active: "border-teal-400 bg-teal-500/20",
-    inactive: "border-white/10 bg-white/5",
-    iconColor: "text-teal-400",
-    badgeColor: "bg-teal-500",
+    active: "border-primary bg-primary/20",
+    inactive: "border-border/10 bg-muted/5",
+    iconColor: "text-primary",
+    badgeColor: "bg-primary",
     successText: "Hadir sholat Dzuhur berhasil dicatat ✅",
-    successColor: "text-emerald-300",
-    ringColor: "rgba(52,211,153,0.4)",
-    ringBg: "rgba(52,211,153,0.15)",
+    successColor: "text-primary",
+    ringColor: "rgba(13,148,136,0.4)",
+    ringBg: "rgba(13,148,136,0.15)",
     iconSuccess: CheckCircle2,
-    iconSuccessColor: "text-emerald-400",
-    btnClass: "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-900/40",
+    iconSuccessColor: "text-teal-400",
+    btnClass: "bg-teal-600 hover:bg-teal-500 shadow-teal-900/40",
   },
   berhalangan: {
     label: "Berhalangan",
     desc: "Saya sedang haid / uzur syar'i",
     icon: HeartPulse,
     active: "border-pink-400 bg-pink-500/20",
-    inactive: "border-white/10 bg-white/5",
+    inactive: "border-border/10 bg-muted/5",
     iconColor: "text-pink-400",
     badgeColor: "bg-pink-500",
     successText: "Keterangan berhalangan berhasil dicatat 🌸",
@@ -229,7 +230,7 @@ export default function ScanQRPage() {
               ].map((pos, i) => (
                 <span
                   key={i}
-                  className={`absolute ${pos} h-10 w-10 border-[3px] border-teal-400`}
+                  className={`absolute ${pos} h-10 w-10 border-[3px] border-teal-500`}
                   style={{
                     borderRight: "none",
                     borderBottom: "none",
@@ -241,14 +242,14 @@ export default function ScanQRPage() {
                 <div
                   className="absolute right-1 left-1 h-0.5 rounded-full bg-teal-400/80"
                   style={{
-                    boxShadow: "0 0 8px 2px rgba(45,212,191,0.6)",
+                    boxShadow: "0 0 8px 2px rgba(20,184,166,0.4)",
                     animation: "scanline 2s ease-in-out infinite",
                   }}
                 />
               )}
               {!cameraReady && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="h-10 w-10 animate-spin text-teal-400" />
+                  <Loader2 className="h-10 w-10 animate-spin text-teal-500" />
                 </div>
               )}
             </div>
@@ -261,7 +262,7 @@ export default function ScanQRPage() {
             <Button
               onClick={handleScanSuccess}
               disabled={!cameraReady}
-              className="h-12 rounded-2xl bg-teal-600/80 px-8 text-sm font-semibold text-white backdrop-blur-sm hover:bg-teal-500"
+              className="h-12 rounded-2xl bg-teal-600/80 px-8 text-sm font-semibold text-white backdrop-blur-sm hover:bg-teal-600"
             >
               Simulasi Berhasil Scan
             </Button>
@@ -273,7 +274,7 @@ export default function ScanQRPage() {
           <div className="flex w-full flex-col gap-5">
             {/* Header */}
             <div className="text-center">
-              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-teal-400/50 bg-teal-500/20">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-teal-500/50 bg-teal-500/20">
                 <CheckCircle2 className="h-7 w-7 text-teal-400" />
               </div>
               <h2 className="text-xl font-black text-white">
@@ -299,7 +300,7 @@ export default function ScanQRPage() {
                     }`}
                   >
                     <div
-                      className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
                         isSelected ? "bg-white/15" : "bg-white/5"
                       }`}
                     >
@@ -311,7 +312,7 @@ export default function ScanQRPage() {
                     </div>
                     {/* Radio indicator */}
                     <div
-                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
                         isSelected
                           ? `border-current ${c.iconColor}`
                           : "border-white/20"
@@ -348,7 +349,7 @@ export default function ScanQRPage() {
               <button
                 onClick={handleKonfirmasi}
                 disabled={!pilihan}
-                className={`h-12 flex-2 flex-grow-[2] rounded-2xl text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30 ${
+                className={`h-12 flex-2 grow-2 rounded-2xl text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30 ${
                   pilihan ? PILIHAN_CONFIG[pilihan].btnClass : "bg-white/20"
                 }`}
               >
@@ -415,7 +416,7 @@ export default function ScanQRPage() {
             <div className="flex w-full flex-col gap-3">
               <Button
                 onClick={handleRetry}
-                className="h-12 rounded-2xl bg-teal-600 font-bold text-white hover:bg-teal-500"
+                className="h-12 rounded-2xl bg-primary font-bold text-primary-foreground hover:opacity-90"
               >
                 Coba Lagi
               </Button>
