@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react-hooks/immutability */
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -233,7 +229,8 @@ export default function AbsenSholatPage() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => router.push("/rohis/pageqr")}
-            className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+            className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-base font-bold text-white shadow-lg shadow-primary/20 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+            style={{ background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)" }}
           >
             {" "}
             {"Generate QR Code"}

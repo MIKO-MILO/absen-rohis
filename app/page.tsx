@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState } from "react"
@@ -62,7 +61,13 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-between overflow-hidden bg-background">
       {/* ── Top illustration area ── */}
-      <div className="relative flex min-h-[38vh] w-full max-w-md flex-col items-center justify-end overflow-hidden rounded-b-[3rem] bg-linear-to-br from-primary to-primary/80 pb-10">
+      <div
+        className="relative flex min-h-[38vh] w-full max-w-md flex-col items-center justify-end overflow-hidden rounded-b-[3rem] pb-10"
+        style={{
+          background:
+            "linear-gradient(135deg, var(--banner-start) 0%, var(--banner-end) 100%)",
+        }}
+      >
         {/* Decorative blobs */}
         <div
           aria-hidden
@@ -246,6 +251,7 @@ export default function LoginPage() {
             onClick={handleLogin}
             disabled={loading}
             className="mt-1 flex h-13 w-full items-center gap-2 rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)" }}
           >
             {loading ? (
               <>
@@ -254,8 +260,8 @@ export default function LoginPage() {
               </>
             ) : (
               <>
-                <LogIn className="h-4 w-4" />
-                Masuk
+                <LogIn className="h-4 w-4 text-white" />
+                <h1 className="font-bold text-white">Masuk</h1>
               </>
             )}
           </Button>

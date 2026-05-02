@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/immutability */
 "use client"
 
 import { AdminShell } from "../_components/AdminShell"

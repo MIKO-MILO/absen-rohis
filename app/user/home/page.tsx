@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react-hooks/immutability */
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -12,12 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import ClockWIB from "@/components/mycomponent/clock"
-import {
-  CheckCircle2,
-  QrCode,
-  Clock,
-  AlignLeft,
-} from "lucide-react"
+import { CheckCircle2, QrCode, Clock, AlignLeft } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -155,7 +146,7 @@ export default function AbsenSholatPage() {
     <div className="flex min-h-screen flex-col items-center bg-background">
       {/* ── Header Banner ── */}
       <div
-        className="relative w-full max-w-md overflow-hidden shadow-lg shadow-teal-900/10 rounded-b-[2rem] pb-8 pt-10 px-5"
+        className="relative w-full max-w-md overflow-hidden rounded-b-[2rem] px-5 pt-10 pb-8 shadow-lg shadow-teal-900/10"
         style={{
           background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
         }}
@@ -163,11 +154,11 @@ export default function AbsenSholatPage() {
         {/* Decorative circles */}
         <div
           aria-hidden
-          className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10"
+          className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10"
         />
         <div
           aria-hidden
-          className="absolute -bottom-5 -left-7.5 w-25 h-25 rounded-full bg-white/5"
+          className="absolute -bottom-5 -left-7.5 h-25 w-25 rounded-full bg-white/5"
         />
 
         {/* User Info */}
@@ -230,9 +221,7 @@ export default function AbsenSholatPage() {
         </div>
 
         {/* Dzuhur Status Card */}
-        <div
-          className="relative z-10 mt-5 flex items-center justify-between rounded-2xl p-4 bg-white/20 backdrop-blur-md border border-white/25"
-        >
+        <div className="relative z-10 mt-5 flex items-center justify-between rounded-2xl border border-white/25 bg-white/20 p-4 backdrop-blur-md">
           <div>
             <p className="mb-0.5 text-[10px] font-semibold tracking-widest text-teal-50 uppercase">
               Absensi Sholat
@@ -311,13 +300,21 @@ export default function AbsenSholatPage() {
             className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-base font-bold transition-all duration-200 ${
               sudahAbsen
                 ? "cursor-not-allowed border border-border bg-muted text-muted-foreground shadow-none"
-                : "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98]"
+                : "bg-[linear-gradient(135deg,#0d9488_0%,#0891b2_100%)] text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98]"
             } `}
           >
             <QrCode
-              className={`h-6 w-6 ${sudahAbsen ? "text-muted-foreground" : "text-primary-foreground"}`}
+              className={`h-6 w-6 ${sudahAbsen ? "text-white" : "text-white"}`}
             />
-            {sudahAbsen ? "Sudah Absen Hari Ini" : "Scan QR untuk Absen"}
+            {sudahAbsen ? (
+              <span className="font-semibold text-white">
+                Sudah Absen Hari Ini
+              </span>
+            ) : (
+              <span className="font-semibold text-white">
+                Scan QR untuk Absen
+              </span>
+            )}
           </Button>
 
           {sudahAbsen ? (

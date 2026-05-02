@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -331,7 +330,7 @@ export default function GenerateQRPage() {
                   style={{
                     width: `${progress}%`,
                     background: isExpired
-                      ? "var(--color-destructive)"
+                      ? "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)"
                       : isWarning
                         ? "linear-gradient(90deg, #fbbf24, #f59e0b)"
                         : "var(--color-primary)",
@@ -345,7 +344,8 @@ export default function GenerateQRPage() {
           <div className="flex gap-3 px-5 pb-5">
             <Button
               onClick={handleGenerate}
-              className="flex h-11 flex-1 items-center gap-2 rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 hover:opacity-90"
+              className="flex h-11 flex-1 items-center gap-2 rounded-2xl bg-primary text-sm font-bold text-white shadow-md shadow-primary/20 hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)" }}
             >
               <RefreshCw className="h-4 w-4" />
               {isExpired ? "Generate Baru" : "Perbarui QR"}

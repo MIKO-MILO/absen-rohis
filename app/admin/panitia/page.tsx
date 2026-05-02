@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { AdminShell } from "../_components/AdminShell"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback} from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
