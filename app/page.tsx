@@ -38,7 +38,11 @@ export default function LoginPage() {
         throw new Error(result.error || "Login gagal")
       }
 
-      // Simpan session sederhana (Opsional: gunakan localStorage atau cookie)
+      // Bersihkan sesi lama
+      localStorage.removeItem("user_session")
+      localStorage.removeItem("admin_session")
+
+      // Simpan session baru
       localStorage.setItem(
         "user_session",
         JSON.stringify({
@@ -51,8 +55,12 @@ export default function LoginPage() {
       )
 
       router.push(result.redirect)
-    } catch (err: any) {
-      setError(err.message || "Terjadi kesalahan")
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("Terjadi kesalahan")
+      }
     } finally {
       setLoading(false)
     }
@@ -251,7 +259,9 @@ export default function LoginPage() {
             onClick={handleLogin}
             disabled={loading}
             className="mt-1 flex h-13 w-full items-center gap-2 rounded-2xl bg-primary text-base font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)" }}
+            style={{
+              background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
+            }}
           >
             {loading ? (
               <>

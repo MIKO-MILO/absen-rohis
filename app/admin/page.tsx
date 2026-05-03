@@ -10,6 +10,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 
 export default function AdminLoginPage() {
   const router = useRouter()
+  // const [identifier] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPass, setShowPass] = useState(false)
@@ -20,19 +21,46 @@ export default function AdminLoginPage() {
     setError("")
 
     if (!username || !password) {
-      setError("Username dan password wajib diisi.")
+      setError("Username/Email/NIS dan password wajib diisi.")
       return
     }
 
     setLoading(true)
-    // Simulasi request — ganti dengan API call nyata
-    await new Promise((r) => setTimeout(r, 1500))
-    setLoading(false)
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: username, password }),
+      })
 
-    if (username === "admin" && password === "admin123") {
-      router.push("/admin/dashboard")
-    } else {
-      setError("Username atau password salah.")
+      const result = await res.json()
+
+      if (!res.ok) {
+        throw new Error(result.error || "Login gagal")
+      }
+
+      // Bersihkan sesi lama
+      localStorage.removeItem("user_session")
+      localStorage.removeItem("admin_session")
+
+      // Simpan session baru
+      localStorage.setItem(
+        "admin_session",
+        JSON.stringify({
+          id: result.user.id,
+          username: result.user.username,
+        })
+      )
+
+      router.push(result.redirect)
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("Terjadi kesalahan")
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -62,15 +90,14 @@ export default function AdminLoginPage() {
       />
 
       {/* Card */}
-      <div className="max-sm relative w-full">
-        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+      <div className="relative w-full max-w-[420px]">
+        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
           {/* Top accent bar */}
-          <div className="h-1.5 w-full bg-linear-to-r from-primary to-primary/60" />
 
-          <div className="flex flex-col gap-7 px-7 pt-8 pb-8">
+          <div className="flex flex-col gap-8 px-8 pt-10 pb-10">
             {/* Brand */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-primary to shadow-lg shadow-primary/10">
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-linear-to-br from-primary to-primary/80 shadow-xl shadow-primary/20">
                 <svg viewBox="0 0 48 48" fill="none" className="h-9 w-9">
                   <path
                     d="M24 4C24 4 20 10 20 14H28C28 10 24 4 24 4Z"
@@ -169,7 +196,7 @@ export default function AdminLoginPage() {
                   <Input
                     id="password"
                     type={showPass ? "text" : "password"}
-                    placeholder="••••••••"
+                    placeholder="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}

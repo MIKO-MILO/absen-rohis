@@ -131,14 +131,18 @@ function QRCanvas({ token, size = 220 }: { token: string; size?: number }) {
 export default function GenerateQRPage() {
   const router = useRouter()
   const [token, setToken] = useState<string>(() => generateToken())
-  const [countdown, setCountdown] = useState(QR_LIFETIME_SECONDS)
+  const [countdown, setCountdown] = useState(() => QR_LIFETIME_SECONDS)
   const [status, setStatus] = useState<QRStatus>("active")
   const [absenList] = useState<AbsenRecord[]>(DUMMY_ABSEN)
+  const progress = (countdown / QR_LIFETIME_SECONDS) * 100
+  const isWarning = countdown <= 15
+  const isExpired = status === "expired"
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ── Countdown timer ──────────────────────────────────────────────────────
   const startTimer = useCallback((initial = QR_LIFETIME_SECONDS) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
+
     setCountdown(initial)
     setStatus("active")
 
@@ -155,11 +159,21 @@ export default function GenerateQRPage() {
   }, [])
 
   useEffect(() => {
-    startTimer()
+    intervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!)
+          setStatus("expired")
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [startTimer])
+  }, [])
 
   // ── Generate QR baru ─────────────────────────────────────────────────────
   const handleGenerate = () => {
@@ -182,26 +196,23 @@ export default function GenerateQRPage() {
   }
 
   // ── Progress bar width ───────────────────────────────────────────────────
-  const progress = (countdown / QR_LIFETIME_SECONDS) * 100
-  const isWarning = countdown <= 15
-  const isExpired = status === "expired"
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">
       {/* ── Header ── */}
       <div
-        className="relative w-full max-w-md overflow-hidden shadow-lg shadow-teal-900/10 rounded-b-[2rem] pb-7 pt-10 px-5"
+        className="relative w-full max-w-md overflow-hidden rounded-b-[2rem] px-5 pt-10 pb-7 shadow-lg shadow-teal-900/10"
         style={{
           background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
         }}
       >
         <div
           aria-hidden
-          className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/7"
+          className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/7"
         />
         <div
           aria-hidden
-          className="absolute -bottom-5 -left-7.5 w-25 h-25 rounded-full bg-white/5"
+          className="absolute -bottom-5 -left-7.5 h-25 w-25 rounded-full bg-white/5"
         />
 
         <div className="relative z-10 flex items-center gap-3">
@@ -330,7 +341,7 @@ export default function GenerateQRPage() {
                   style={{
                     width: `${progress}%`,
                     background: isExpired
-                      ? "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)"
+                      ? "var(--color-destructive)"
                       : isWarning
                         ? "linear-gradient(90deg, #fbbf24, #f59e0b)"
                         : "var(--color-primary)",
@@ -344,8 +355,7 @@ export default function GenerateQRPage() {
           <div className="flex gap-3 px-5 pb-5">
             <Button
               onClick={handleGenerate}
-              className="flex h-11 flex-1 items-center gap-2 rounded-2xl bg-primary text-sm font-bold text-white shadow-md shadow-primary/20 hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)" }}
+              className="flex h-11 flex-1 items-center gap-2 rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 hover:opacity-90"
             >
               <RefreshCw className="h-4 w-4" />
               {isExpired ? "Generate Baru" : "Perbarui QR"}

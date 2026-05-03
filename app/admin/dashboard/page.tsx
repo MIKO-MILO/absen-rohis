@@ -46,7 +46,6 @@ const KELAS_DATA = [
   { kelas: "XII RPL B", total: 30, hadir: 29, pct: 97 },
 ]
 
-
 // ─── Line Chart ───────────────────────────────────────────────────────────────
 const CHART_W = 400
 const CHART_H = 120
@@ -182,54 +181,11 @@ export default function DashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
   const [, setLoading] = useState(true)
-
-  useEffect(() => {
-    const sessionStr = localStorage.getItem("user_session")
-    if (!sessionStr) {
-      router.push("/")
-      return
-    }
-
-    const session = JSON.parse(sessionStr)
-    if (session.role !== "admin") {
-      router.push("/")
-      return
-    }
-
-    const fetchAbsensi = async () => {
-      try {
-        const res = await fetch("/api/absensi")
-        const result = await res.json()
-
-        const formatted = result.map((r: any) => {
-          let rawStatus = (r.status || "").trim().toLowerCase()
-          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
-
-          const tanggal = r.tanggal ?? "—"
-
-          return {
-            id: r.id,
-            nama: r.users?.nama || "Tidak diketahui",
-            nis: r.users?.nis || "—",
-            kelas: r.users?.kelas || "—",
-            tanggal,
-            hari: getHari(tanggal),
-            waktu: r.waktu ?? "—",
-            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
-              ? rawStatus
-              : "tidak_hadir") as Status,
-          }
-        })
-        setData(formatted)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchAbsensi()
-  }, [router])
+  const today = WEEKLY[WEEKLY.length - 1]
+  const yesterday = WEEKLY[WEEKLY.length - 2]
+  const totalToday = today.hadir + today.Haid + today.tidak
+  const hadirPct = Math.round((today.hadir / totalToday) * 100)
+  const trendUp = today.hadir >= yesterday.hadir
 
   const getHari = (tanggal: string) => {
     if (!tanggal || tanggal === "—") return "—"
@@ -242,11 +198,53 @@ export default function DashboardPage() {
     })
   }
 
-  const today = WEEKLY[WEEKLY.length - 1]
-  const yesterday = WEEKLY[WEEKLY.length - 2]
-  const totalToday = today.hadir + today.Haid + today.tidak
-  const hadirPct = Math.round((today.hadir / totalToday) * 100)
-  const trendUp = today.hadir >= yesterday.hadir
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchAbsensi = async () => {
+      try {
+        const res = await fetch("/api/absensi")
+        const result = await res.json()
+
+        if (!isMounted) return
+
+        const formatted = result.map((r: SiswaRecord) => {
+          let rawStatus = (r.status || "").trim().toLowerCase()
+          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+
+          const tanggal = r.tanggal ?? "—"
+
+          return {
+            id: r.id,
+            nama: r.nama || "Tidak diketahui",
+            nis: r.nis || "—",
+            kelas: r.kelas || "—",
+            tanggal,
+            hari: getHari(tanggal),
+            waktu: r.waktu ?? "—",
+            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+              ? rawStatus
+              : "tidak_hadir") as Status,
+          }
+        })
+        if (isMounted) {
+          setData(formatted)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchAbsensi()
+
+    return () => {
+      isMounted = false
+    }
+  }, [router])
 
   return (
     <AdminShell>

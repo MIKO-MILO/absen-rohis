@@ -6,12 +6,7 @@ import { AdminShell } from "../_components/AdminShell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  AlertCircle,
-  ArrowLeft,
-  UserCircle,
-  CheckCircle2,
-} from "lucide-react"
+import { AlertCircle, ArrowLeft, UserCircle, CheckCircle2 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface ManualFormType {
@@ -87,61 +82,12 @@ export default function EditPanitiaPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = searchParams.get("id")
-
-  console.log("Edit page - id from URL:", id, "type:", typeof id)
-
-  const [form, setForm] = useState<ManualFormType>({
-    nama: "",
-    nis: "",
-    kelas: "",
-    jenisKelamin: "",
-    email: "",
-  })
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<ManualFormType>>({})
   const [success, setSuccess] = useState(false)
 
-  useEffect(() => {
-    if (!id) {
-      router.push("/admin/siswa")
-      return
-    }
-
-    const fetchSiswa = async () => {
-      try {
-        const res = await fetch(`/api/users/${id}`)
-        const text = await res.text()
-        console.log("Response status:", res.status)
-        console.log("Response body:", text)
-
-        if (!res.ok) throw new Error(`Gagal mengambil data: ${text}`)
-
-        let data
-        try {
-          data = JSON.parse(text)
-        } catch {
-          throw new Error("Format response tidak valid")
-        }
-
-        setForm({
-          nama: data.nama || "",
-          nis: String(data.nis) || "",
-          kelas: data.kelas || "",
-          jenisKelamin: data.jenis_kelamin || "",
-          email: data.email || "",
-        })
-      } catch (err) {
-        console.error("Fetch error:", err)
-        alert("Siswa tidak ditemukan")
-        router.push("/admin/siswa")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchSiswa()
-  }, [id, router])
+  console.log("Edit page - id from URL:", id, "type:", typeof id)
 
   const validate = () => {
     const e: Partial<ManualFormType> = {}
@@ -184,6 +130,55 @@ export default function EditPanitiaPage() {
       setSubmitting(false)
     }
   }
+
+  const [form, setForm] = useState<ManualFormType>({
+    nama: "",
+    nis: "",
+    kelas: "",
+    jenisKelamin: "",
+    email: "",
+  })
+
+  useEffect(() => {
+    if (!id) {
+      router.push("/admin/siswa")
+      return
+    }
+
+    const fetchSiswa = async () => {
+      try {
+        const res = await fetch(`/api/users/${id}`)
+        const text = await res.text()
+        console.log("Response status:", res.status)
+        console.log("Response body:", text)
+
+        if (!res.ok) throw new Error(`Gagal mengambil data: ${text}`)
+
+        let data
+        try {
+          data = JSON.parse(text)
+        } catch {
+          throw new Error("Format response tidak valid")
+        }
+
+        setForm({
+          nama: data.nama || "",
+          nis: String(data.nis) || "",
+          kelas: data.kelas || "",
+          jenisKelamin: data.jenis_kelamin || "",
+          email: data.email || "",
+        })
+      } catch (err) {
+        console.error("Fetch error:", err)
+        alert("Siswa tidak ditemukan")
+        router.push("/admin/siswa")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSiswa()
+  }, [id, router])
 
   if (loading) {
     return (

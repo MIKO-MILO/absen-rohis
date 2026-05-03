@@ -142,15 +142,15 @@ export default function DataAbsenPage() {
         console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
         console.log(result)
 
-        const formatted = result.map((s: any) => {
+        const formatted = result.map((s: SiswaRecord) => {
           let rawStatus = (s.status || "").trim().toLowerCase()
           if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
 
           return {
             id: s.id,
-            nama: s.users?.nama || "Tidak diketahui",
-            nis: s.users?.nis || "—",
-            kelas: s.users?.kelas || "—",
+            nama: s.nama || "Tidak diketahui",
+            nis: s.nis || "—",
+            kelas: s.kelas || "—",
             tanggal: s.tanggal ?? "—",
             waktu: s.waktu ?? "—",
             status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
@@ -258,10 +258,9 @@ export default function DataAbsenPage() {
         const result = await res.json()
         throw new Error(result.error || "Gagal memperbarui status")
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err)
-      alert(err.message || "Terjadi kesalahan")
-      // Revert state jika gagal
+      alert(err instanceof Error ? err.message : "Terjadi kesalahan")
       setData(oldData)
     }
   }

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { AdminShell } from "../_components/AdminShell"
-import { Avatar, AvatarFallback} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
@@ -42,6 +42,7 @@ interface UserRecord {
   password: string
   created_at: string
   avatar: string
+  divisi: string
 }
 
 const KELAS_LIST = [
@@ -79,7 +80,7 @@ export default function DataSiswaPage() {
         const res = await fetch("/api/panitia")
         const result = await res.json()
         setData(
-          result.map((u: any) => ({
+          result.map((u: UserRecord) => ({
             id: u.id,
             nama: u.nama,
             divisi: u.divisi,
@@ -91,7 +92,6 @@ export default function DataSiswaPage() {
             avatar: String(Math.floor(Math.random() * 70)),
           }))
         )
-
       } catch (err) {
         console.error(err)
       } finally {
@@ -141,9 +141,11 @@ export default function DataSiswaPage() {
   const toggleAll = () => {
     setSelected((prev) => {
       const next = new Set(prev)
-      allPageSelected
-        ? paginatedIds.forEach((id) => next.delete(id))
-        : paginatedIds.forEach((id) => next.add(id))
+      if (allPageSelected) {
+        paginatedIds.forEach((id) => next.delete(id))
+      } else {
+        paginatedIds.forEach((id) => next.add(id))
+      }
       return next
     })
   }
@@ -151,7 +153,11 @@ export default function DataSiswaPage() {
   const toggleOne = (id: number) =>
     setSelected((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
       return next
     })
 
@@ -169,8 +175,8 @@ export default function DataSiswaPage() {
         next.delete(id)
         return next
       })
-    } catch (err: any) {
-      alert(err.message || "Terjadi kesalahan saat menghapus data")
+    } catch (err: unknown) {
+      alert((err as Error).message || "Terjadi kesalahan saat menghapus data")
     }
   }
 
@@ -184,8 +190,8 @@ export default function DataSiswaPage() {
       )
       setData((prev) => prev.filter((s) => !selected.has(s.id)))
       clearSelected()
-    } catch (err: any) {
-      alert(err.message || "Terjadi kesalahan saat menghapus data")
+    } catch (err: unknown) {
+      alert((err as Error).message || "Terjadi kesalahan saat menghapus data")
     } finally {
       setShowDeleteModal(false)
     }
@@ -204,7 +210,9 @@ export default function DataSiswaPage() {
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <p className="text-sm text-muted-foreground">Memuat data panitia...</p>
+            <p className="text-sm text-muted-foreground">
+              Memuat data panitia...
+            </p>
           </div>
         </div>
       </AdminShell>
@@ -336,7 +344,7 @@ export default function DataSiswaPage() {
                   <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                     Kelas
                   </label>
-                  <select 
+                  <select
                     value={filterKelas}
                     onChange={(e) => {
                       setFilterKelas(e.target.value)
@@ -370,7 +378,7 @@ export default function DataSiswaPage() {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm text-left">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="bg-muted/30">
                   {/* Checkbox all */}
@@ -454,7 +462,7 @@ export default function DataSiswaPage() {
                             <Avatar className="h-8 w-8 shrink-0">
                               <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                                 {s.nama.slice(0, 2).toUpperCase()}
-                              </AvatarFallback> 
+                              </AvatarFallback>
                             </Avatar>
                             <p className="text-sm leading-tight font-semibold text-foreground">
                               {s.nama}
@@ -493,7 +501,9 @@ export default function DataSiswaPage() {
 
                         {/* Email */}
                         <td className="px-4 py-3">
-                          <p className="text-xs text-muted-foreground">{s.email}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.email}
+                          </p>
                         </td>
 
                         {/* Actions */}
@@ -535,7 +545,7 @@ export default function DataSiswaPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between border-t border-border/50 px-5 py-4 bg-muted/20">
+          <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-5 py-4">
             <div className="flex items-center gap-3">
               <p className="text-[10px] font-bold text-muted-foreground uppercase">
                 Halaman {page} dari {totalPages}
@@ -582,9 +592,11 @@ export default function DataSiswaPage() {
 
       {/* Bulk delete modal */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="sm:max-w-[400px] rounded-2xl">
+        <DialogContent className="rounded-2xl sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle className="text-foreground">Hapus Data Terpilih?</DialogTitle>
+            <DialogTitle className="text-foreground">
+              Hapus Data Terpilih?
+            </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Anda akan menghapus {selected.size} data panitia secara permanen.
               Tindakan ini tidak dapat dibatalkan.
@@ -599,7 +611,7 @@ export default function DataSiswaPage() {
             </button>
             <button
               onClick={handleBulkDelete}
-              className="rounded-xl bg-destructive px-4 py-2 text-xs font-bold text-destructive-foreground hover:opacity-90"
+              className="text-destructive-foreground rounded-xl bg-destructive px-4 py-2 text-xs font-bold hover:opacity-90"
             >
               Ya, Hapus Semua
             </button>
