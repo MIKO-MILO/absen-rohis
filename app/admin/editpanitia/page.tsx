@@ -17,10 +17,6 @@ interface ManualFormType {
   password: string
 }
 
-const DIVISI_OPTIONS = [
-  "Rohis - 26",
-]
-
 // ═══════════════════════════════════════════════════════════════════
 // ── FIELD Component
 // ═══════════════════════════════════════════════════════════════════
@@ -157,7 +153,7 @@ export default function EditPanitiaPage() {
           divisi: data.divisi || "",
           jenisKelamin: data.jenis_kelamin || "",
           email: data.email || "",
-          password: "", 
+          password: "",
         })
       } catch (err) {
         console.error("Fetch error:", err)

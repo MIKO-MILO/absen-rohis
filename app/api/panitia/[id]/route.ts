@@ -1,7 +1,7 @@
 import { supabase } from "../../../../lib/supabaseClient"
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -23,11 +23,14 @@ export async function GET(
     }
 
     if (!data) {
-      return Response.json({ error: "Panitia tidak ditemukan" }, { status: 404 })
+      return Response.json(
+        { error: "Panitia tidak ditemukan" },
+        { status: 404 }
+      )
     }
 
     return Response.json(data)
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("GET error:", err)
     return Response.json({ error: "Internal server error" }, { status: 500 })
   }
@@ -61,17 +64,21 @@ export async function PUT(
     }
 
     if (!data || data.length === 0) {
-      return Response.json({ error: "Panitia tidak ditemukan" }, { status: 404 })
+      return Response.json(
+        { error: "Panitia tidak ditemukan" },
+        { status: 404 }
+      )
     }
 
     return Response.json(data)
-  } catch (err) {
+  } catch (err: unknown) {
+    console.error("PUT error:", err)
     return Response.json({ error: "Invalid request" }, { status: 400 })
   }
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -89,7 +96,7 @@ export async function DELETE(
     }
 
     return Response.json({ message: "User deleted successfully" })
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("DELETE error:", err)
     return Response.json({ error: "Internal server error" }, { status: 500 })
   }

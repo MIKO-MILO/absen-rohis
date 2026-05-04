@@ -75,61 +75,6 @@ export default function ScanQRPage() {
   const [pilihan, setPilihan] = useState<AbsenPilihan>(null)
   const [confirmed, setConfirmed] = useState<AbsenPilihan>(null)
 
-  // ── Camera & Scan ──
-  const startScanning = useCallback(async (mode: "environment" | "user") => {
-    setScanState("scanning")
-    setCameraReady(false)
-    setErrorMsg("")
-
-    if (!codeReaderRef.current) {
-      codeReaderRef.current = new BrowserQRCodeReader()
-    }
-
-    try {
-      const devices = await codeReaderRef.current.listVideoInputDevices()
-      const selectedDevice =
-        devices.find((d: MediaDeviceInfo) =>
-          mode === "environment"
-            ? d.label.toLowerCase().includes("back") ||
-              d.label.toLowerCase().includes("rear")
-            : d.label.toLowerCase().includes("front")
-        ) || devices[0]
-
-      if (!selectedDevice) throw new Error("Kamera tidak ditemukan")
-
-      const result = await codeReaderRef.current.decodeFromVideoDevice(
-        selectedDevice.deviceId,
-        videoRef.current!,
-        (result, err) => {
-          if (result) {
-            const text = result.getText()
-            console.log("Scanned text:", text)
-
-            // 1. Cek apakah ini URL (misal scan dari kamera HP biasa lalu buka di app)
-            if (text.includes("token=")) {
-              const url = new URL(text)
-              const t = url.searchParams.get("token")
-              if (t && t.startsWith("ROHIS-DZUHUR-")) {
-                setToken(t)
-                handleScanSuccess()
-              }
-            }
-            // 2. Cek apakah ini raw token dengan prefix
-            else if (text.startsWith("ROHIS-DZUHUR-")) {
-              setToken(text)
-              handleScanSuccess()
-            }
-          }
-        }
-      )
-      setCameraReady(true)
-    } catch (err: any) {
-      console.error(err)
-      setScanState("error")
-      setErrorMsg("Gagal mengakses kamera. Pastikan izin sudah diberikan.")
-    }
-  }, [])
-
   const stopScanning = useCallback(() => {
     if (codeReaderRef.current) {
       codeReaderRef.current.reset()
@@ -141,6 +86,75 @@ export default function ScanQRPage() {
     setCameraReady(false)
   }, [])
 
+  // ── Setelah scan berhasil → tampilkan modal pilihan ─────────────────────────
+  const handleScanSuccess = useCallback(() => {
+    stopScanning()
+    setPilihan(null)
+    setScanState("pilih")
+  }, [stopScanning])
+
+  // ── Camera & Scan ──
+  const startScanning = useCallback(
+    async (mode: "environment" | "user") => {
+      setScanState("scanning")
+      setCameraReady(false)
+      setErrorMsg("")
+
+      if (!codeReaderRef.current) {
+        codeReaderRef.current = new BrowserQRCodeReader()
+      }
+
+      try {
+        const devices = await codeReaderRef.current.listVideoInputDevices()
+        const selectedDevice =
+          devices.find((d: MediaDeviceInfo) =>
+            mode === "environment"
+              ? d.label.toLowerCase().includes("back") ||
+                d.label.toLowerCase().includes("rear")
+              : d.label.toLowerCase().includes("front")
+          ) || devices[0]
+
+        if (!selectedDevice) throw new Error("Kamera tidak ditemukan")
+
+        await codeReaderRef.current.decodeFromVideoDevice(
+          selectedDevice.deviceId,
+          videoRef.current!,
+          (result) => {
+            if (result) {
+              const text = result.getText()
+              console.log("Scanned text:", text)
+
+              // 1. Cek apakah ini URL (misal scan dari kamera HP biasa lalu buka di app)
+              if (text.includes("token=")) {
+                const url = new URL(text)
+                const t = url.searchParams.get("token")
+                if (t && t.startsWith("ROHIS-DZUHUR-")) {
+                  setToken(t)
+                  handleScanSuccess()
+                }
+              }
+              // 2. Cek apakah ini raw token dengan prefix
+              else if (text.startsWith("ROHIS-DZUHUR-")) {
+                setToken(text)
+                handleScanSuccess()
+              }
+            }
+          }
+        )
+        setCameraReady(true)
+      } catch (err: unknown) {
+        console.error(err)
+        setScanState("error")
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Gagal mengakses kamera. Pastikan izin sudah diberikan."
+        setErrorMsg(msg)
+      }
+    },
+    [handleScanSuccess]
+  )
+
   useEffect(() => {
     if (token) {
       handleScanSuccess()
@@ -148,14 +162,7 @@ export default function ScanQRPage() {
       startScanning(facingMode)
     }
     return () => stopScanning()
-  }, [facingMode, startScanning, stopScanning])
-
-  // ── Setelah scan berhasil → tampilkan modal pilihan ─────────────────────────
-  const handleScanSuccess = () => {
-    stopScanning()
-    setPilihan(null)
-    setScanState("pilih")
-  }
+  }, [facingMode, startScanning, stopScanning, token, handleScanSuccess])
 
   // ── Konfirmasi pilihan ───────────────────────────────────────────────────────
   const handleKonfirmasi = async () => {
@@ -187,8 +194,10 @@ export default function ScanQRPage() {
 
       setConfirmed(pilihan)
       setScanState("success")
-    } catch (err: any) {
-      setErrorMsg(err.message)
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Terjadi kesalahan saat absen"
+      setErrorMsg(msg)
       setScanState("error")
     }
   }

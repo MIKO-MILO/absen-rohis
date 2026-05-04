@@ -91,8 +91,9 @@ export async function POST(req: Request) {
       success: true,
       message: "Absensi berhasil dicatat",
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Scan QR Route Error:", err)
-    return Response.json({ error: err.message }, { status: 500 })
+    const msg = err instanceof Error ? err.message : "Terjadi kesalahan server"
+    return Response.json({ error: msg }, { status: 500 })
   }
 }

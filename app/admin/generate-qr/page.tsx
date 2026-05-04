@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -28,10 +29,6 @@ const DZUHUR = {
   time: "12:00 - 13:00",
 }
 const DURASI_OPTIONS = [1, 2, 5, 7]
-
-function generateToken() {
-  return Math.random().toString(36).substring(2, 10).toUpperCase()
-}
 
 function pad(n: number) {
   return String(n).padStart(2, "0")
@@ -135,8 +132,10 @@ export default function GenerateQRPage() {
         token: data.token,
       })
       setSecondsLeft(durasi * 60)
-    } catch (err: any) {
-      alert(err.message)
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Terjadi kesalahan server"
+      alert(msg)
     } finally {
       setIsGenerating(false)
     }

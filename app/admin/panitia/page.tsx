@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -425,16 +426,21 @@ export default function DataSiswaPage() {
                       className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
                     />
                   </th>
-                  {["No", "Nama", "Jenis Kelamin", "Email", "Password", "Action"].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-[11px] font-bold tracking-wider text-muted-foreground uppercase last:w-10"
-                      >
-                        {h}
-                      </th>
-                    )
-                  )}
+                  {[
+                    "No",
+                    "Nama",
+                    "Jenis Kelamin",
+                    "Email",
+                    "Password",
+                    "Action",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-[11px] font-bold tracking-wider text-muted-foreground uppercase last:w-10"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -533,7 +539,7 @@ export default function DataSiswaPage() {
                             <DropdownMenuContent
                               align="end"
                               className="w-40 rounded-xl"
-                              >
+                            >
                               <DropdownMenuLabel>Action</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem

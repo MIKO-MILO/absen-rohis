@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -9,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import {
   ArrowLeft,
   RefreshCw,
-  Download,
   Clock,
   CheckCircle2,
   Users,
@@ -106,29 +106,8 @@ export default function GenerateQRPage() {
     }, 1000)
   }, [])
 
-  useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current!)
-          setStatus("expired")
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [])
-
-  useEffect(() => {
-    handleGenerate()
-  }, [])
-
   // ── Generate QR baru ─────────────────────────────────────────────────────
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     try {
       setStatus("generating")
 
@@ -156,11 +135,34 @@ export default function GenerateQRPage() {
       const data = await res.json()
       setToken(data.token) // 🔥 dari backend
       startTimer()
-    } catch (err: any) {
-      alert(err.message)
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Terjadi kesalahan server"
+      alert(msg)
       setStatus("expired")
     }
-  }
+  }, [startTimer])
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!)
+          setStatus("expired")
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    handleGenerate()
+  }, [handleGenerate])
 
   // ── Progress bar width ───────────────────────────────────────────────────
 

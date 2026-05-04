@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { AdminShell } from "../_components/AdminShell"
@@ -180,7 +181,6 @@ function LineChart() {
 export default function DashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
-  const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -235,12 +235,8 @@ export default function DashboardPage() {
         if (isMounted) {
           setData(formatted)
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err)
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
       }
     }
 

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -29,6 +30,18 @@ interface RiwayatItem {
   hari: string
   waktu: string
   status: Status
+  users?: {
+    nama: string
+    nis: string
+    kelas: string
+  }
+}
+
+interface UserSession {
+  id: string | number
+  nama: string
+  kelas: string
+  role?: string
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -65,11 +78,20 @@ export default function AbsenSholatPage() {
   const [sudahAbsen, setSudahAbsen] = useState(false)
   const [data, setData] = useState<RiwayatItem[]>([])
   const [, setLoading] = useState(true)
-  const [user, setUser] = useState<{
-    id: any
-    nama: string
-    kelas: string
-  } | null>(null)
+  const [user, setUser] = useState<UserSession | null>(null)
+
+  const summary = getSummary(data)
+
+  const getHari = (tanggal: string) => {
+    if (!tanggal || tanggal === "—") return "—"
+
+    const [y, m, d] = tanggal.split("-").map(Number)
+    const date = new Date(y, m - 1, d)
+
+    return date.toLocaleDateString("id-ID", {
+      weekday: "long",
+    })
+  }
 
   useEffect(() => {
     const sessionStr = localStorage.getItem("siswa_session")
@@ -78,15 +100,15 @@ export default function AbsenSholatPage() {
       return
     }
 
-    const session = JSON.parse(sessionStr)
+    const session: UserSession = JSON.parse(sessionStr)
     setUser(session)
 
     const fetchAbsensi = async () => {
       try {
         const res = await fetch(`/api/absensi?user_id=${session.id}`)
-        const result = await res.json()
+        const result: RiwayatItem[] = await res.json()
 
-        const formatted = result.map((r: any) => {
+        const formatted: RiwayatItem[] = result.map((r) => {
           let rawStatus = (r.status || "").trim().toLowerCase()
           if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
 
@@ -111,10 +133,10 @@ export default function AbsenSholatPage() {
         // Cek apakah sudah absen hari ini
         const today = new Date().toISOString().split("T")[0]
         const hasAbsenToday = formatted.some(
-          (r: any) => r.tanggal === today && r.status === "hadir"
+          (r) => r.tanggal === today && r.status === "hadir"
         )
         setSudahAbsen(hasAbsenToday)
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Error fetching absensi:", err)
       } finally {
         setLoading(false)
@@ -124,20 +146,7 @@ export default function AbsenSholatPage() {
     fetchAbsensi()
   }, [router])
 
-  const getHari = (tanggal: string) => {
-    if (!tanggal || tanggal === "—") return "—"
-
-    const [y, m, d] = tanggal.split("-").map(Number)
-    const date = new Date(y, m - 1, d)
-
-    return date.toLocaleDateString("id-ID", {
-      weekday: "long",
-    })
-  }
-
-  const summary = getSummary(data)
-
-  function handleLogout(event: React.MouseEvent<HTMLDivElement>): void {
+  function handleLogout(): void {
     localStorage.removeItem("siswa_session")
     router.push("/")
   }

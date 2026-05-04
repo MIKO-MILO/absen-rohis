@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -19,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LogOut } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
-import { int } from "@zxing/library/esm/customTypings"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -31,8 +31,15 @@ interface RiwayatItem {
   waktu: string
   status: Status
   nama: string
-  nis: int
+  nis: string | number
   kelas: string
+}
+
+interface PanitiaSession {
+  id: string | number
+  nama: string
+  divisi: string
+  role?: string
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -59,11 +66,7 @@ export default function AbsenSholatPage() {
   const router = useRouter()
   const [data, setData] = useState<RiwayatItem[]>([])
   const [, setLoading] = useState(true)
-  const [panitia, setPanitia] = useState<{
-    id: any
-    nama: string
-    divisi: string
-  } | null>(null)
+  const [panitia, setPanitia] = useState<PanitiaSession | null>(null)
 
   const getHari = (tanggal: string) => {
     if (!tanggal || tanggal === "—") return "—"
@@ -88,7 +91,7 @@ export default function AbsenSholatPage() {
       return
     }
 
-    const session = JSON.parse(sessionStr)
+    const session: PanitiaSession = JSON.parse(sessionStr)
 
     if (session.role !== "panitia") {
       router.push("/")
@@ -100,9 +103,9 @@ export default function AbsenSholatPage() {
     const fetchAbsensi = async () => {
       try {
         const res = await fetch(`/api/absensi`)
-        const result = await res.json()
+        const result: RiwayatItem[] = await res.json()
 
-        const formatted = result.map((e: RiwayatItem) => {
+        const formatted: RiwayatItem[] = result.map((e) => {
           let rawStatus = (e.status || "").trim().toLowerCase()
           if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
 
@@ -123,7 +126,7 @@ export default function AbsenSholatPage() {
         })
 
         setData(formatted)
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Error fetching absensi:", err)
       } finally {
         setLoading(false)

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -188,7 +189,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       try {
         const session = JSON.parse(sessionStr)
         setAdmin(session)
-      } catch (e) {
+      } catch {
         // Fallback for non-JSON session format
       }
       setIsAuthorized(true)
