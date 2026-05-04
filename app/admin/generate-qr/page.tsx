@@ -71,12 +71,19 @@ export default function GenerateQRPage() {
   const mins = Math.floor(secondsLeft / 60)
   const secs = secondsLeft % 60
 
-  const todayStr = new Date().toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const todayStr = mounted
+    ? new Date().toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : ""
 
   // countdown
   useEffect(() => {
@@ -100,28 +107,43 @@ export default function GenerateQRPage() {
 
   const handleGenerate = async () => {
     setIsGenerating(true)
-    await new Promise((r) => setTimeout(r, 600))
-    const token = generateToken()
-    setSession({
-      id: `ROHIS-DZUHUR-${token}`,
-      tanggal: new Date().toISOString().split("T")[0],
-      expiredAt: Date.now() + durasi * 60 * 1000,
-      token,
-    })
-    setSecondsLeft(durasi * 60)
-    setIsGenerating(false)
+    try {
+      const sessionStr =
+        localStorage.getItem("admin_session") ||
+        localStorage.getItem("panitia_session")
+      if (!sessionStr)
+        throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
+
+      const auth = JSON.parse(sessionStr)
+
+      const res = await fetch("/api/qr/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actor_id: auth.id,
+          role: auth.role,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Gagal generate QR")
+
+      setSession({
+        id: data.id,
+        tanggal: new Date().toISOString().split("T")[0],
+        expiredAt: Date.now() + durasi * 60 * 1000,
+        token: data.token,
+      })
+      setSecondsLeft(durasi * 60)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleRefresh = () => {
-    if (!session) return
-    const token = generateToken()
-    setSession({
-      ...session,
-      token,
-      id: `ROHIS-DZUHUR-${token}`,
-      expiredAt: Date.now() + durasi * 60 * 1000,
-    })
-    setSecondsLeft(durasi * 60)
+    handleGenerate()
   }
 
   const handleCopy = () => {

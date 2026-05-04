@@ -29,36 +29,28 @@ type ImportStatus = "valid" | "error" | "duplikat"
 
 interface ManualFormType {
   nama: string
-  nis: string
-  kelas: string
+  divisi: string
   jenisKelamin: string
+  email: string
+  password: string
 }
 
 interface ImportRow {
   no: number
   nama: string
-  nis: string
-  kelas: string
+  divisi: string
   jenisKelamin: string
+  email: string
+  password: string
   status: ImportStatus
   pesan?: string
 }
 
-const KELAS_OPTIONS = [
-  "X RPL A",
-  "X RPL B",
-  "X RPL C",
-  "XI IPA 1",
-  "XI IPA 2",
-  "XI IPS 1",
-  "XI IPS 2",
-  "XI RPL A",
-  "XII IPA 1",
-  "XII IPS 2",
-  "XII RPL B",
+const DIVISI_OPTIONS = [
+  "Rohis - 26",
 ]
 
-const DUMMY_NIS_EXISTING = ["22001", "22002", "22003"]
+const DUMMY_EMAIL_EXISTING = ["contoh@panitia.id"]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function parseCSV(text: string): string[][] {
@@ -66,63 +58,48 @@ function parseCSV(text: string): string[][] {
   return lines.map((line) => line.split(",").map((v) => String(v || "").trim()))
 }
 
-function normalizeRow(row: string[], kelas: string) {
-  const nama = row[1] || ""
-  const lp = row[2] || ""
-  const nis = [row[3], row[5], row[7]]
-    .filter(Boolean)
-    .join("")
-    .replace(/[^0-9]/g, "")
-
-  return {
-    nama,
-    nis,
-    kelas,
-    jenisKelamin: mapGender(lp),
-  }
-}
-
-const cleanNIS = (nis: string) => {
-  if (!nis) return ""
-  return String(nis).replace(/[^0-9]/g, "")
-}
-
 const mapGender = (val: string) => {
   if (val === undefined || val === null) return ""
   const v = String(val).trim().toUpperCase()
   if (v === "L" || v === "LAKI-LAKI") return "Laki-laki"
   if (v === "P" || v === "PEREMPUAN") return "Perempuan"
-  return ""
+  return String(val).trim()
 }
 
 function validateRow(
-  row: { nama: string; nis: string; kelas: string; jenisKelamin: string },
+  row: {
+    nama: string
+    divisi: string
+    jenisKelamin: string
+    email: string
+    password: string
+  },
   idx: number
 ): ImportRow {
   const base = { no: idx + 1, ...row }
   if (!row.nama) return { ...base, status: "error", pesan: "Nama kosong" }
-  if (!row.nis) return { ...base, status: "error", pesan: "NIS kosong" }
-  if (!row.kelas) return { ...base, status: "error", pesan: "Kelas kosong" }
-  if (DUMMY_NIS_EXISTING.includes(row.nis))
+  if (!row.divisi) return { ...base, status: "error", pesan: "Divisi kosong" }
+  if (!row.email) return { ...base, status: "error", pesan: "Email kosong" }
+  if (DUMMY_EMAIL_EXISTING.includes(row.email))
     return {
       ...base,
       status: "duplikat",
-      pesan: `NIS ${row.nis} sudah terdaftar`,
+      pesan: `Email ${row.email} sudah terdaftar`,
     }
   return { ...base, status: "valid" }
 }
 
 function downloadTemplate() {
   const csv = [
-    "Nama,NIS,Kelas,Jenis_Kelamin",
-    "Contoh Siswa,22100,X RPL A,Laki-laki",
-    "Contoh Siswi,22101,XI IPA 1,Perempuan",
+    "Nama,Divisi,Jenis_Kelamin,Email,Password",
+    "Contoh Panitia,Acara,Laki-laki,panitia1@panitia.id,123456",
+    "Contoh Panitia 2,Humas,Perempuan,panitia2@panitia.id,123456",
   ].join("\n")
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
-  a.download = "template-import-siswa.csv"
+  a.download = "template-import-panitia.csv"
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -185,8 +162,8 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
           <div>
             <p className="text-sm font-bold text-foreground">Input Manual</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Tambah satu panitia dengan mengisi form nama, NIS, kelas, dan
-              jenis kelamin.
+              Tambah satu panitia dengan mengisi form nama, divisi, dan jenis
+              kelamin.
             </p>
           </div>
           <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-primary">
@@ -231,9 +208,10 @@ function ManualForm({
 }) {
   const [form, setForm] = useState<ManualFormType>({
     nama: "",
-    nis: "",
-    kelas: "",
+    divisi: "",
     jenisKelamin: "",
+    email: "",
+    password: "",
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<ManualFormType>>({})
@@ -241,11 +219,12 @@ function ManualForm({
   const validate = () => {
     const e: Partial<ManualFormType> = {}
     if (!form.nama.trim()) e.nama = "Nama wajib diisi"
-    if (!form.nis.trim()) e.nis = "NIS wajib diisi"
-    else if (DUMMY_NIS_EXISTING.includes(form.nis))
-      e.nis = "NIS sudah terdaftar"
-    if (!form.kelas) e.kelas = "Kelas wajib dipilih"
+    if (!form.divisi) e.divisi = "Divisi wajib dipilih"
     if (!form.jenisKelamin) e.jenisKelamin = "Jenis kelamin wajib dipilih"
+    if (!form.email.trim()) e.email = "Email wajib diisi"
+    else if (DUMMY_EMAIL_EXISTING.includes(form.email))
+      e.email = "Email sudah terdaftar"
+    if (!form.password.trim()) e.password = "Password wajib diisi"
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -254,16 +233,15 @@ function ManualForm({
     if (!validate()) return
     setLoading(true)
     try {
-      const res = await fetch("/api/users", {
+      const res = await fetch("/api/panitia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nama: form.nama,
-          nis: Number(form.nis),
-          kelas: form.kelas,
+          divisi: form.divisi,
           jenis_kelamin: form.jenisKelamin,
-          email: `${form.nis}@school.id`,
-          password: "123456",
+          email: form.email,
+          password: form.password,
         }),
       })
       const result = await res.json()
@@ -315,43 +293,37 @@ function ManualForm({
                 setErrors((p) => ({ ...p, nama: undefined }))
               }}
             />
-            <Field
-              label="NIS"
-              placeholder="cth. 22013"
-              value={form.nis}
-              error={errors.nis}
-              onChange={(v) => {
-                setForm((p) => ({ ...p, nis: v }))
-                setErrors((p) => ({ ...p, nis: undefined }))
-              }}
-            />
+
+            {/* Divisi */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                Kelas
+                Divisi
               </Label>
               <select
-                value={form.kelas}
+                value={form.divisi}
                 onChange={(e) => {
-                  setForm((p) => ({ ...p, kelas: e.target.value }))
-                  setErrors((p) => ({ ...p, kelas: undefined }))
+                  setForm((p) => ({ ...p, divisi: e.target.value }))
+                  setErrors((p) => ({ ...p, divisi: undefined }))
                 }}
-                className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none ${errors.kelas ? "border-destructive/50" : "border-border"}`}
+                className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none ${errors.divisi ? "border-destructive/50" : "border-border"}`}
               >
                 <option value="" disabled>
-                  Pilih kelas...
+                  Pilih divisi...
                 </option>
-                {KELAS_OPTIONS.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
+                {DIVISI_OPTIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
                   </option>
                 ))}
               </select>
-              {errors.kelas && (
+              {errors.divisi && (
                 <p className="flex items-center gap-1 text-xs text-destructive">
-                  <AlertCircle className="h-3 w-3" /> {errors.kelas}
+                  <AlertCircle className="h-3 w-3" /> {errors.divisi}
                 </p>
               )}
             </div>
+
+            {/* Jenis Kelamin */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 Jenis Kelamin
@@ -377,7 +349,32 @@ function ManualForm({
                 </p>
               )}
             </div>
+
+            <Field
+              label="Email"
+              placeholder="cth. panitia@email.com"
+              type="email"
+              value={form.email}
+              error={errors.email}
+              onChange={(v) => {
+                setForm((p) => ({ ...p, email: v }))
+                setErrors((p) => ({ ...p, email: undefined }))
+              }}
+            />
+
+            <Field
+              label="Password"
+              placeholder="cth. 123456"
+              type="password"
+              value={form.password}
+              error={errors.password}
+              onChange={(v) => {
+                setForm((p) => ({ ...p, password: v }))
+                setErrors((p) => ({ ...p, password: undefined }))
+              }}
+            />
           </div>
+
           <div className="flex gap-3 pt-2">
             <Button
               type="button"
@@ -402,7 +399,7 @@ function ManualForm({
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// ── IMPORT FORM  (UPDATED: checkbox + gender column + filter)
+// ── IMPORT FORM
 // ═══════════════════════════════════════════════════════════════════
 function ImportForm({
   onBack,
@@ -411,145 +408,139 @@ function ImportForm({
   onBack: () => void
   onSuccess: (count: number) => void
 }) {
-  const [kelas, setKelas] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [fileName, setFileName] = useState("")
   const [rows, setRows] = useState<ImportRow[]>([])
   const [loading, setLoading] = useState(false)
   const [parsed, setParsed] = useState(false)
-  const [kelasError, setKelasError] = useState(false)
 
   // ── Filter state ──
-  const [filterKelas, setFilterKelas] = useState<string>("semua")
+  const [filterDivisi, setFilterDivisi] = useState<string>("semua")
   const [filterGender, setFilterGender] = useState<string>("semua")
 
-  // ── Checkbox state: Set of NIS yang dipilih ──
-  const [selectedNIS, setSelectedNIS] = useState<Set<string>>(new Set())
+  // ── Checkbox state: Set of email yang dipilih ──
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
 
   // Rows yang lolos filter
   const filteredRows = rows.filter((r) => {
-    const matchKelas = filterKelas === "semua" || r.kelas === filterKelas
+    const matchDivisi = filterDivisi === "semua" || r.divisi === filterDivisi
     const matchGender =
       filterGender === "semua" || r.jenisKelamin === filterGender
-    return matchKelas && matchGender
+    return matchDivisi && matchGender
   })
 
-  // Rows valid yang lolos filter
   const filteredValidRows = filteredRows.filter((r) => r.status === "valid")
 
-  // Semua valid di filter ter-centang?
   const allFilteredValidSelected =
     filteredValidRows.length > 0 &&
-    filteredValidRows.every((r) => selectedNIS.has(r.nis))
+    filteredValidRows.every((r) => selectedEmails.has(r.email))
   const someFilteredValidSelected =
-    filteredValidRows.some((r) => selectedNIS.has(r.nis)) &&
+    filteredValidRows.some((r) => selectedEmails.has(r.email)) &&
     !allFilteredValidSelected
 
-  // Toggle select all (hanya valid, sesuai filter aktif)
   const toggleSelectAll = () => {
-    setSelectedNIS((prev) => {
+    setSelectedEmails((prev) => {
       const next = new Set(prev)
       if (allFilteredValidSelected) {
-        filteredValidRows.forEach((r) => next.delete(r.nis))
+        filteredValidRows.forEach((r) => next.delete(r.email))
       } else {
-        filteredValidRows.forEach((r) => next.add(r.nis))
+        filteredValidRows.forEach((r) => next.add(r.email))
       }
       return next
     })
   }
 
-  // Toggle satu baris
-  const toggleRow = (nis: string, status: ImportStatus) => {
+  const toggleRow = (email: string, status: ImportStatus) => {
     if (status !== "valid") return
-    setSelectedNIS((prev) => {
+    setSelectedEmails((prev) => {
       const next = new Set(prev)
-      if (next.has(nis)) next.delete(nis)
-      else next.add(nis)
+      if (next.has(email)) next.delete(email)
+      else next.add(email)
       return next
     })
   }
 
-  // Setelah parse, auto-select semua valid
   const autoSelectValid = (newRows: ImportRow[]) => {
-    const validNIS = new Set(
-      newRows.filter((r) => r.status === "valid").map((r) => r.nis)
+    const validEmails = new Set(
+      newRows.filter((r) => r.status === "valid").map((r) => r.email)
     )
-    setSelectedNIS(validNIS)
+    setSelectedEmails(validEmails)
   }
 
-  // Unique kelas dari rows hasil parse
-  const uniqueKelasInRows = Array.from(
-    new Set(rows.map((r) => r.kelas).filter(Boolean))
+  const uniqueDivisiInRows = Array.from(
+    new Set(rows.map((r) => r.divisi).filter(Boolean))
   )
-  // Unique gender dari rows hasil parse
   const uniqueGenderInRows = Array.from(
     new Set(rows.map((r) => r.jenisKelamin).filter(Boolean))
   )
 
-  const processFile = useCallback(
-    (file: File) => {
-      setFileName(file.name)
-      setParsed(false)
-      setRows([])
-      setSelectedNIS(new Set())
-      setFilterKelas("semua")
-      setFilterGender("semua")
-      const ext = file.name.split(".").pop()?.toLowerCase()
+  const processFile = useCallback((file: File) => {
+    setFileName(file.name)
+    setParsed(false)
+    setRows([])
+    setSelectedEmails(new Set())
+    setFilterDivisi("semua")
+    setFilterGender("semua")
+    const ext = file.name.split(".").pop()?.toLowerCase()
 
-      if (ext === "csv") {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const text = e.target?.result as string
-          const rawRows = parseCSV(text)
-          if (!kelas) {
-            alert("Pilih kelas dulu!")
-            return
-          }
-          const filtered = rawRows.slice(1).filter((r) => r.length >= 2 && r[0])
-          const newRows = filtered.map((r, i) =>
-            validateRow(
-              {
-                nama: r[0] || "",
-                nis: cleanNIS(r[1] || ""),
-                kelas,
-                jenisKelamin: r[3] || "",
-              },
-              i
-            )
+    if (ext === "csv") {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const text = e.target?.result as string
+        const rawRows = parseCSV(text)
+        // Header: Nama, Divisi, Jenis_Kelamin, Email, Password
+        const filtered = rawRows.slice(1).filter((r) => r.length >= 2 && r[0])
+        const newRows = filtered.map((r, i) =>
+          validateRow(
+            {
+              nama: r[0] || "",
+              divisi: r[1] || "",
+              jenisKelamin: mapGender(r[2] || ""),
+              email: r[3] || "",
+              password: r[4] || "123456",
+            },
+            i
           )
-          setRows(newRows)
-          autoSelectValid(newRows)
-          setParsed(true)
-        }
-        reader.readAsText(file)
-      } else if (ext === "xlsx" || ext === "xls") {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer)
-          const wb = XLSX.read(data, { type: "array" })
-          const ws = wb.Sheets[wb.SheetNames[0]]
-          const rawRows = XLSX.utils.sheet_to_json(ws, {
-            defval: "",
-            range: 14,
-            header: 1,
-          }) as string[][]
-          const MAX_ROWS = 36
-          const filtered = rawRows.filter((r) => r[1]).slice(0, MAX_ROWS)
-          const newRows = filtered.map((r, i) =>
-            validateRow(normalizeRow(r, kelas), i)
-          )
-          setRows(newRows)
-          autoSelectValid(newRows)
-          setParsed(true)
-        }
-        reader.readAsArrayBuffer(file)
-      } else {
-        alert("Format file tidak didukung. Gunakan .csv, .xlsx, atau .xls")
+        )
+        setRows(newRows)
+        autoSelectValid(newRows)
+        setParsed(true)
       }
-    },
-    [kelas]
-  )
+      reader.readAsText(file)
+    } else if (ext === "xlsx" || ext === "xls") {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer)
+        const wb = XLSX.read(data, { type: "array" })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rawRows = XLSX.utils.sheet_to_json(ws, {
+          defval: "",
+          header: 1,
+        }) as string[][]
+        // skip header row
+        const filtered = rawRows.slice(1).filter((r) => r[0])
+        const newRows = filtered.map((r, i) =>
+          validateRow(
+            {
+              nama: String(r[0] || ""),
+              divisi: String(r[1] || ""),
+              jenisKelamin: mapGender(String(r[2] || "")),
+              email: String(r[3] || ""),
+              password: String(r[4] || "123456"),
+            },
+            i
+          )
+        )
+        setRows(newRows)
+        autoSelectValid(newRows)
+        setParsed(true)
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      alert("Format file tidak didukung. Gunakan .csv, .xlsx, atau .xls")
+    }
+  }, [])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -562,24 +553,22 @@ function ImportForm({
   )
 
   const handleImport = async () => {
-    // Import hanya rows yang ada di selectedNIS (valid)
     const rowsToImport = rows.filter(
-      (r) => r.status === "valid" && selectedNIS.has(r.nis)
+      (r) => r.status === "valid" && selectedEmails.has(r.email)
     )
     if (!rowsToImport.length) return
     setLoading(true)
     try {
-      const res = await fetch("/api/users", {
+      const res = await fetch("/api/panitia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          users: rowsToImport.map((r) => ({
+          panitia: rowsToImport.map((r) => ({
             nama: r.nama,
-            nis: Number(r.nis),
-            kelas: r.kelas,
+            divisi: r.divisi,
             jenis_kelamin: r.jenisKelamin,
-            email: `${r.nis}@absen.id`,
-            password: `${r.nis}`,
+            email: r.email,
+           password: r.password,
           })),
         }),
       })
@@ -601,7 +590,7 @@ function ImportForm({
   const duplikatCount = rows.filter((r) => r.status === "duplikat").length
   const errorCount = rows.filter((r) => r.status === "error").length
   const selectedCount = rows.filter(
-    (r) => r.status === "valid" && selectedNIS.has(r.nis)
+    (r) => r.status === "valid" && selectedEmails.has(r.email)
   ).length
 
   const STATUS_ICON: Record<ImportStatus, React.ReactNode> = {
@@ -616,7 +605,6 @@ function ImportForm({
     duplikat: "bg-amber-500/10",
   }
 
-  // Badge warna jenis kelamin
   const GENDER_BADGE: Record<string, string> = {
     "Laki-laki": "bg-blue-500/10 text-blue-500 border-blue-500/20",
     Perempuan: "bg-pink-500/10 text-pink-500 border-pink-500/20",
@@ -675,31 +663,9 @@ function ImportForm({
             <p className="mt-0.5 text-[10px] text-muted-foreground/60">
               Kolom wajib:{" "}
               <span className="font-semibold text-muted-foreground/80">
-                Nama, NIS, Kelas, Jenis_Kelamin
+                Nama, Divisi, Jenis_Kelamin, Email, Password
               </span>
             </p>
-          </div>
-
-          {/* Pilih Kelas */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase">
-              Kelas
-            </Label>
-            <select
-              value={kelas}
-              onChange={(e) => {
-                setKelas(e.target.value)
-                setKelasError(false)
-              }}
-              className="h-11 rounded-xl border border-border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
-            >
-              <option value="">Pilih kelas...</option>
-              {KELAS_OPTIONS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Drop zone */}
@@ -711,20 +677,11 @@ function ImportForm({
               }}
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
-              onClick={() => {
-                if (!kelas) {
-                  setKelasError(true)
-                  return
-                }
-                setKelasError(false)
-                inputRef.current?.click()
-              }}
+              onClick={() => inputRef.current?.click()}
               className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 transition-all ${
-                kelasError
-                  ? "border-destructive/50 bg-destructive/5"
-                  : dragging
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5"
+                dragging
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5"
               }`}
             >
               <div
@@ -748,11 +705,6 @@ function ImportForm({
                 accept=".csv,.xlsx,.xls"
                 className="hidden"
                 onChange={(e) => {
-                  if (!kelas) {
-                    setKelasError(true)
-                    return
-                  }
-                  setKelasError(false)
                   const f = e.target.files?.[0]
                   if (f) processFile(f)
                 }}
@@ -771,8 +723,8 @@ function ImportForm({
                     setRows([])
                     setParsed(false)
                     setFileName("")
-                    setSelectedNIS(new Set())
-                    setFilterKelas("semua")
+                    setSelectedEmails(new Set())
+                    setFilterDivisi("semua")
                     setFilterGender("semua")
                   }}
                   className="text-blue-500/60 hover:text-blue-500"
@@ -825,16 +777,16 @@ function ImportForm({
                   <Filter className="h-3.5 w-3.5" /> Filter:
                 </div>
 
-                {/* Filter Kelas */}
+                {/* Filter Divisi */}
                 <select
-                  value={filterKelas}
-                  onChange={(e) => setFilterKelas(e.target.value)}
+                  value={filterDivisi}
+                  onChange={(e) => setFilterDivisi(e.target.value)}
                   className="h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
                 >
-                  <option value="semua">Semua Kelas</option>
-                  {uniqueKelasInRows.map((k) => (
-                    <option key={k} value={k}>
-                      {k}
+                  <option value="semua">Semua Divisi</option>
+                  {uniqueDivisiInRows.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
                     </option>
                   ))}
                 </select>
@@ -854,10 +806,10 @@ function ImportForm({
                 </select>
 
                 {/* Reset filter */}
-                {(filterKelas !== "semua" || filterGender !== "semua") && (
+                {(filterDivisi !== "semua" || filterGender !== "semua") && (
                   <button
                     onClick={() => {
-                      setFilterKelas("semua")
+                      setFilterDivisi("semua")
                       setFilterGender("semua")
                     }}
                     className="flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted-foreground/10"
@@ -874,7 +826,7 @@ function ImportForm({
               {/* ── TABLE ── */}
               <div className="overflow-hidden rounded-2xl border border-border">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-sm">
+                  <table className="w-full min-w-[600px] text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
                         {/* Checkbox select-all */}
@@ -895,9 +847,10 @@ function ImportForm({
                         {[
                           "No",
                           "Nama",
-                          "NIS",
-                          "Kelas",
+                          "Divisi",
                           "Jenis Kelamin",
+                          "Email",
+                          "Password",
                           "Status",
                         ].map((h) => (
                           <th
@@ -921,12 +874,12 @@ function ImportForm({
                         </tr>
                       ) : (
                         filteredRows.map((r) => {
-                          const isSelected = selectedNIS.has(r.nis)
+                          const isSelected = selectedEmails.has(r.email)
                           const isDisabled = r.status !== "valid"
                           return (
                             <tr
                               key={r.no}
-                              onClick={() => toggleRow(r.nis, r.status)}
+                              onClick={() => toggleRow(r.email, r.status)}
                               className={`transition-colors last:border-0 ${
                                 isDisabled
                                   ? STATUS_ROW[r.status]
@@ -944,7 +897,7 @@ function ImportForm({
                                   type="checkbox"
                                   checked={isSelected}
                                   disabled={isDisabled}
-                                  onChange={() => toggleRow(r.nis, r.status)}
+                                  onChange={() => toggleRow(r.email, r.status)}
                                   className="h-4 w-4 cursor-pointer rounded border-border accent-primary disabled:cursor-not-allowed disabled:opacity-40"
                                 />
                               </td>
@@ -959,12 +912,9 @@ function ImportForm({
                                 )}
                               </td>
                               <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                {r.nis || "—"}
+                                {r.divisi || "—"}
                               </td>
-                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                                {r.kelas || "—"}
-                              </td>
-                              {/* ── Kolom Jenis Kelamin (BARU) ── */}
+                              {/* Jenis Kelamin */}
                               <td className="px-4 py-2.5">
                                 {r.jenisKelamin ? (
                                   <span
@@ -979,6 +929,12 @@ function ImportForm({
                                     —
                                   </span>
                                 )}
+                              </td>
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                {r.email || "—"}
+                              </td>
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                                {r.password || "—"}
                               </td>
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center gap-1.5">
@@ -1018,12 +974,12 @@ function ImportForm({
                 {selectedCount < validCount && (
                   <button
                     onClick={() => {
-                      const allValidNIS = new Set(
+                      const allValidEmails = new Set(
                         rows
                           .filter((r) => r.status === "valid")
-                          .map((r) => r.nis)
+                          .map((r) => r.email)
                       )
-                      setSelectedNIS(allValidNIS)
+                      setSelectedEmails(allValidEmails)
                     }}
                     className="ml-auto text-[10px] font-semibold text-primary hover:underline"
                   >
@@ -1036,7 +992,7 @@ function ImportForm({
                 <div className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                   <p className="text-xs text-amber-700">
-                    Data duplikat dan error tidak bisa dipilih and akan dilewati
+                    Data duplikat dan error tidak bisa dipilih dan akan dilewati
                     otomatis.
                   </p>
                 </div>
@@ -1061,14 +1017,6 @@ function ImportForm({
               </Button>
             </div>
           )}
-
-          <div className="flex items-center justify-center">
-            {kelasError && (
-              <p className="animate-pulse text-xs text-destructive">
-                * Pilih kelas terlebih dahulu sebelum upload file
-              </p>
-            )}
-          </div>
         </div>
       </div>
     </div>

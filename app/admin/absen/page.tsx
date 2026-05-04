@@ -178,12 +178,17 @@ export default function DataAbsenPage() {
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const PER_PAGE = 8
 
-  const todayStr = new Date().toLocaleDateString("id-ID", {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const todayStr = mounted ? new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-  })
+  }) : ""
 
   // ── Filter logic ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {

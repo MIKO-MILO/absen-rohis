@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useSearchParams } from "next/navigation"
 import {
   ArrowLeft,
   FlashlightIcon as Torch,
@@ -14,6 +15,7 @@ import {
   Loader2,
   HeartPulse,
 } from "lucide-react"
+import { BrowserQRCodeReader } from "@zxing/library"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type ScanState = "idle" | "scanning" | "pilih" | "success" | "error"
@@ -59,8 +61,9 @@ export default function ScanQRPage() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const animFrameRef = useRef<number | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const codeReaderRef = useRef<BrowserQRCodeReader | null>(null)
+  const searchParams = useSearchParams()
+  const [token, setToken] = useState<string | null>(searchParams.get("token"))
 
   const [scanState, setScanState] = useState<ScanState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
@@ -72,89 +75,151 @@ export default function ScanQRPage() {
   const [pilihan, setPilihan] = useState<AbsenPilihan>(null)
   const [confirmed, setConfirmed] = useState<AbsenPilihan>(null)
 
-  // ── Camera ──────────────────────────────────────────────────────────────────
-  const startCamera = useCallback(async (mode: "environment" | "user") => {
-    if (streamRef.current)
-      streamRef.current.getTracks().forEach((t) => t.stop())
-    setCameraReady(false)
+  // ── Camera & Scan ──
+  const startScanning = useCallback(async (mode: "environment" | "user") => {
     setScanState("scanning")
+    setCameraReady(false)
+    setErrorMsg("")
+
+    if (!codeReaderRef.current) {
+      codeReaderRef.current = new BrowserQRCodeReader()
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: mode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play()
-          setCameraReady(true)
+      const devices = await codeReaderRef.current.listVideoInputDevices()
+      const selectedDevice =
+        devices.find((d: MediaDeviceInfo) =>
+          mode === "environment"
+            ? d.label.toLowerCase().includes("back") ||
+              d.label.toLowerCase().includes("rear")
+            : d.label.toLowerCase().includes("front")
+        ) || devices[0]
+
+      if (!selectedDevice) throw new Error("Kamera tidak ditemukan")
+
+      const result = await codeReaderRef.current.decodeFromVideoDevice(
+        selectedDevice.deviceId,
+        videoRef.current!,
+        (result, err) => {
+          if (result) {
+            const text = result.getText()
+            console.log("Scanned text:", text)
+
+            // 1. Cek apakah ini URL (misal scan dari kamera HP biasa lalu buka di app)
+            if (text.includes("token=")) {
+              const url = new URL(text)
+              const t = url.searchParams.get("token")
+              if (t && t.startsWith("ROHIS-DZUHUR-")) {
+                setToken(t)
+                handleScanSuccess()
+              }
+            }
+            // 2. Cek apakah ini raw token dengan prefix
+            else if (text.startsWith("ROHIS-DZUHUR-")) {
+              setToken(text)
+              handleScanSuccess()
+            }
+          }
         }
-      }
-    } catch {
-      setScanState("error")
-      setErrorMsg(
-        "Tidak dapat mengakses kamera. Pastikan izin kamera sudah diberikan."
       )
+      setCameraReady(true)
+    } catch (err: any) {
+      console.error(err)
+      setScanState("error")
+      setErrorMsg("Gagal mengakses kamera. Pastikan izin sudah diberikan.")
     }
   }, [])
 
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+  const stopScanning = useCallback(() => {
+    if (codeReaderRef.current) {
+      codeReaderRef.current.reset()
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
     setCameraReady(false)
   }, [])
 
-  const toggleTorch = useCallback(async () => {
-    if (!streamRef.current) return
-    const track = streamRef.current.getVideoTracks()[0]
-    try {
-      // @ts-ignore
-      await track.applyConstraints({ advanced: [{ torch: !torch }] })
-      setTorch((p) => !p)
-    } catch {}
-  }, [torch])
-
-  const switchCamera = useCallback(() => {
-    const next = facingMode === "environment" ? "user" : "environment"
-    setFacingMode(next)
-    startCamera(next)
-    setTorch(false)
-  }, [facingMode, startCamera])
-
   useEffect(() => {
-    startCamera(facingMode)
-    return () => stopCamera()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (token) {
+      handleScanSuccess()
+    } else {
+      startScanning(facingMode)
+    }
+    return () => stopScanning()
+  }, [facingMode, startScanning, stopScanning])
 
   // ── Setelah scan berhasil → tampilkan modal pilihan ─────────────────────────
   const handleScanSuccess = () => {
-    stopCamera()
+    stopScanning()
     setPilihan(null)
     setScanState("pilih")
   }
 
   // ── Konfirmasi pilihan ───────────────────────────────────────────────────────
-  const handleKonfirmasi = () => {
-    if (!pilihan) return
-    setConfirmed(pilihan)
-    setScanState("success")
+  const handleKonfirmasi = async () => {
+    if (!pilihan || !token) return
+
+    try {
+      const sessionStr = localStorage.getItem("siswa_session")
+      if (!sessionStr)
+        throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
+      const session = JSON.parse(sessionStr)
+
+      const res = await fetch("/api/qr/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token,
+          status: pilihan, // hadir / berhalangan
+          user_id: session.id,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal absen")
+      }
+
+      setConfirmed(pilihan)
+      setScanState("success")
+    } catch (err: any) {
+      setErrorMsg(err.message)
+      setScanState("error")
+    }
   }
 
   const handleBack = () => {
-    stopCamera()
+    stopScanning()
     router.back()
   }
+
   const handleRetry = () => {
     setErrorMsg("")
-    startCamera(facingMode)
+    setToken(null)
+    startScanning(facingMode)
   }
+
+  const toggleTorch = useCallback(async () => {
+    // Torch handling with zxing is limited, but we can try via stream
+    if (streamRef.current) {
+      const track = streamRef.current.getVideoTracks()[0]
+      try {
+        // @ts-ignore
+        await track.applyConstraints({ advanced: [{ torch: !torch }] })
+        setTorch((p) => !p)
+      } catch {}
+    }
+  }, [torch])
+
+  const switchCamera = useCallback(() => {
+    const next = facingMode === "environment" ? "user" : "environment"
+    setFacingMode(next)
+  }, [facingMode])
 
   const cfg = confirmed ? PILIHAN_CONFIG[confirmed] : null
   const SuccessIcon = cfg?.iconSuccess ?? CheckCircle2
@@ -168,7 +233,6 @@ export default function ScanQRPage() {
         playsInline
         muted
       />
-      <canvas ref={canvasRef} className="hidden" />
 
       {/* Overlay — lebih gelap saat modal pilihan */}
       <div
@@ -260,7 +324,10 @@ export default function ScanQRPage() {
 
             {/* Dev: simulate */}
             <Button
-              onClick={handleScanSuccess}
+              onClick={() => {
+                setToken("ROHIS-DZUHUR-SIMULASI-TOKEN")
+                handleScanSuccess()
+              }}
               disabled={!cameraReady}
               className="h-12 rounded-2xl bg-teal-600/80 px-8 text-sm font-semibold text-white backdrop-blur-sm hover:bg-teal-600"
             >

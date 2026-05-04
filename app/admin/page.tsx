@@ -39,16 +39,13 @@ export default function AdminLoginPage() {
         throw new Error(result.error || "Login gagal")
       }
 
-      // Bersihkan sesi lama
-      localStorage.removeItem("user_session")
-      localStorage.removeItem("admin_session")
-
-      // Simpan session baru
+      // Simpan session admin
       localStorage.setItem(
         "admin_session",
         JSON.stringify({
           id: result.user.id,
-          username: result.user.username,
+          username: result.user.username || result.user.nama,
+          role: "admin"
         })
       )
 

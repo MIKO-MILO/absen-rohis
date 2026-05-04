@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import QRCode from "qrcode"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -40,11 +41,6 @@ const DUMMY_ABSEN: AbsenRecord[] = [
   { id: 3, nama: "Siti Nurhaliza", kelas: "XI IPA 2", waktu: "12:07" },
 ]
 
-// ─── Helper: generate token unik ─────────────────────────────────────────────
-function generateToken() {
-  return `ROHIS-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-}
-
 // ─── Helper: format sisa waktu ───────────────────────────────────────────────
 function formatCountdown(sec: number) {
   const m = Math.floor(sec / 60)
@@ -61,61 +57,13 @@ function QRCanvas({ token, size = 220 }: { token: string; size?: number }) {
 
   useEffect(() => {
     if (!canvasRef.current || !token) return
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
 
-    // ── Placeholder visual (ganti dengan QRCode.toCanvas di production) ──
-    canvas.width = size
-    canvas.height = size
-    ctx.clearRect(0, 0, size, size)
+    const url = `${window.location.origin}/scan?token=${token}`
 
-    // Background
-    ctx.fillStyle = "#ffffff"
-    ctx.fillRect(0, 0, size, size)
-
-    // Grid pattern sebagai placeholder QR
-    const cell = size / 25
-    const pattern = [
-      [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1],
-      [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-      [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-      [1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1],
-      [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-      [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-      [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1],
-      [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-      [1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1],
-      [0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
-      [1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1],
-      [0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
-      [1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1],
-      [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-      [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1],
-      [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-      [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-      [1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1],
-      [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-      [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-      [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1],
-    ]
-
-    const offset = 2
-    pattern.forEach((row, r) => {
-      row.forEach((cell_val, c) => {
-        ctx.fillStyle = cell_val ? "#0f172a" : "#ffffff"
-        ctx.fillRect(
-          offset * cell + c * cell,
-          offset * cell + r * cell,
-          cell - 0.5,
-          cell - 0.5
-        )
-      })
+    QRCode.toCanvas(canvasRef.current, url, {
+      width: size,
+      margin: 2,
     })
-
-    // ── Production: ganti blok di atas dengan ──
-    // import QRCode from "qrcode";
-    // QRCode.toCanvas(canvas, token, { width: size, margin: 2 });
   }, [token, size])
 
   return (
@@ -130,7 +78,7 @@ function QRCanvas({ token, size = 220 }: { token: string; size?: number }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function GenerateQRPage() {
   const router = useRouter()
-  const [token, setToken] = useState<string>(() => generateToken())
+  const [token, setToken] = useState<string>("")
   const [countdown, setCountdown] = useState(() => QR_LIFETIME_SECONDS)
   const [status, setStatus] = useState<QRStatus>("active")
   const [absenList] = useState<AbsenRecord[]>(DUMMY_ABSEN)
@@ -175,24 +123,43 @@ export default function GenerateQRPage() {
     }
   }, [])
 
-  // ── Generate QR baru ─────────────────────────────────────────────────────
-  const handleGenerate = () => {
-    setStatus("generating")
-    setTimeout(() => {
-      setToken(generateToken())
-      startTimer()
-    }, 600)
-  }
+  useEffect(() => {
+    handleGenerate()
+  }, [])
 
-  // ── Download QR ──────────────────────────────────────────────────────────
-  const handleDownload = () => {
-    const canvas = document.querySelector("canvas")
-    if (!canvas) return
-    const url = canvas.toDataURL("image/png")
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `qr-dzuhur-${new Date().toLocaleDateString("id-ID").replace(/\//g, "-")}.png`
-    a.click()
+  // ── Generate QR baru ─────────────────────────────────────────────────────
+  const handleGenerate = async () => {
+    try {
+      setStatus("generating")
+
+      const sessionStr = localStorage.getItem("panitia_session")
+      if (!sessionStr) {
+        throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
+      }
+      const session = JSON.parse(sessionStr)
+
+      const res = await fetch("/api/qr/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          panitia_id: session.id,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Request gagal")
+      }
+
+      const data = await res.json()
+      setToken(data.token) // 🔥 dari backend
+      startTimer()
+    } catch (err: any) {
+      alert(err.message)
+      setStatus("expired")
+    }
   }
 
   // ── Progress bar width ───────────────────────────────────────────────────
@@ -312,7 +279,7 @@ export default function GenerateQRPage() {
             {/* Token label */}
             <div className="flex w-full items-center justify-center gap-2 rounded-2xl bg-muted px-4 py-2">
               <p className="truncate font-mono text-xs text-muted-foreground">
-                {token}
+                {status === "generating" ? "Generating QR..." : token || "-"}
               </p>
             </div>
 
@@ -359,14 +326,6 @@ export default function GenerateQRPage() {
             >
               <RefreshCw className="h-4 w-4" />
               {isExpired ? "Generate Baru" : "Perbarui QR"}
-            </Button>
-            <Button
-              onClick={handleDownload}
-              disabled={isExpired}
-              variant="outline"
-              className="h-11 rounded-2xl border-border px-4 text-muted-foreground hover:bg-muted disabled:opacity-40"
-            >
-              <Download className="h-4 w-4" />
             </Button>
           </div>
         </div>

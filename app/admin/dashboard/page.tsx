@@ -180,7 +180,12 @@ function LineChart() {
 export default function DashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
-  const [, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   const today = WEEKLY[WEEKLY.length - 1]
   const yesterday = WEEKLY[WEEKLY.length - 2]
   const totalToday = today.hadir + today.Haid + today.tidak
@@ -286,12 +291,14 @@ export default function DashboardPage() {
               Ustadz Hasan
             </h2>
             <p className="mt-1 text-xs text-teal-200">
-              {new Date().toLocaleDateString("id-ID", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+              {mounted
+                ? new Date().toLocaleDateString("id-ID", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })
+                : ""}
             </p>
           </div>
           <Button

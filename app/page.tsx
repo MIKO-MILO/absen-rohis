@@ -38,13 +38,17 @@ export default function LoginPage() {
         throw new Error(result.error || "Login gagal")
       }
 
-      // Bersihkan sesi lama
-      localStorage.removeItem("user_session")
-      localStorage.removeItem("admin_session")
+      // Tentukan key session berdasarkan role
+      const sessionKey =
+        result.role === "admin"
+          ? "admin_session"
+          : result.role === "panitia"
+            ? "panitia_session"
+            : "siswa_session"
 
-      // Simpan session baru
+      // Simpan session spesifik role
       localStorage.setItem(
-        "user_session",
+        sessionKey,
         JSON.stringify({
           id: result.user.id,
           role: result.role,

@@ -11,24 +11,14 @@ import { AlertCircle, ArrowLeft, UserCircle, CheckCircle2 } from "lucide-react"
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface ManualFormType {
   nama: string
-  nis: string
-  kelas: string
+  divisi: string
   jenisKelamin: string
   email: string
+  password: string
 }
 
-const KELAS_OPTIONS = [
-  "X RPL A",
-  "X RPL B",
-  "X RPL C",
-  "XI IPA 1",
-  "XI IPA 2",
-  "XI IPS 1",
-  "XI IPS 2",
-  "XI RPL A",
-  "XII IPA 1",
-  "XII IPS 2",
-  "XII RPL B",
+const DIVISI_OPTIONS = [
+  "Rohis - 26",
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -87,14 +77,20 @@ export default function EditPanitiaPage() {
   const [errors, setErrors] = useState<Partial<ManualFormType>>({})
   const [success, setSuccess] = useState(false)
 
-  console.log("Edit page - id from URL:", id, "type:", typeof id)
+  const [form, setForm] = useState<ManualFormType>({
+    nama: "",
+    divisi: "",
+    jenisKelamin: "",
+    email: "",
+    password: "",
+  })
 
   const validate = () => {
     const e: Partial<ManualFormType> = {}
     if (!form.nama.trim()) e.nama = "Nama wajib diisi"
-    if (!form.nis.trim()) e.nis = "NIS wajib diisi"
-    if (!form.kelas) e.kelas = "Kelas wajib dipilih"
+    if (!form.divisi) e.divisi = "Divisi wajib dipilih"
     if (!form.jenisKelamin) e.jenisKelamin = "Jenis kelamin wajib dipilih"
+    if (!form.email.trim()) e.email = "Email wajib diisi"
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -104,16 +100,21 @@ export default function EditPanitiaPage() {
 
     setSubmitting(true)
     try {
-      const res = await fetch(`/api/users/${id}`, {
+      const body: Record<string, unknown> = {
+        nama: form.nama,
+        divisi: form.divisi,
+        jenis_kelamin: form.jenisKelamin,
+        email: form.email,
+      }
+      // Hanya kirim password jika diisi (opsional saat edit)
+      if (form.password.trim()) {
+        body.password = form.password
+      }
+
+      const res = await fetch(`/api/panitia/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nama: form.nama,
-          nis: Number(form.nis),
-          kelas: form.kelas,
-          jenis_kelamin: form.jenisKelamin,
-          email: form.email,
-        }),
+        body: JSON.stringify(body),
       })
 
       if (!res.ok) {
@@ -131,26 +132,16 @@ export default function EditPanitiaPage() {
     }
   }
 
-  const [form, setForm] = useState<ManualFormType>({
-    nama: "",
-    nis: "",
-    kelas: "",
-    jenisKelamin: "",
-    email: "",
-  })
-
   useEffect(() => {
     if (!id) {
-      router.push("/admin/siswa")
+      router.push("/admin/panitia")
       return
     }
 
-    const fetchSiswa = async () => {
+    const fetchPanitia = async () => {
       try {
-        const res = await fetch(`/api/users/${id}`)
+        const res = await fetch(`/api/panitia/${id}`)
         const text = await res.text()
-        console.log("Response status:", res.status)
-        console.log("Response body:", text)
 
         if (!res.ok) throw new Error(`Gagal mengambil data: ${text}`)
 
@@ -163,21 +154,21 @@ export default function EditPanitiaPage() {
 
         setForm({
           nama: data.nama || "",
-          nis: String(data.nis) || "",
-          kelas: data.kelas || "",
+          divisi: data.divisi || "",
           jenisKelamin: data.jenis_kelamin || "",
           email: data.email || "",
+          password: "", 
         })
       } catch (err) {
         console.error("Fetch error:", err)
-        alert("Siswa tidak ditemukan")
-        router.push("/admin/siswa")
+        alert("Panitia tidak ditemukan")
+        router.push("/admin/panitia")
       } finally {
         setLoading(false)
       }
     }
 
-    fetchSiswa()
+    fetchPanitia()
   }, [id, router])
 
   if (loading) {
@@ -256,6 +247,7 @@ export default function EditPanitiaPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Nama */}
               <Field
                 label="Nama Lengkap"
                 placeholder="cth. Aretha Safira P."
@@ -266,47 +258,20 @@ export default function EditPanitiaPage() {
                   setErrors((p) => ({ ...p, nama: undefined }))
                 }}
               />
+
+              {/* Divisi */}
               <Field
-                label="NIS"
-                placeholder="cth. 22013"
-                value={form.nis}
-                error={errors.nis}
+                label="Nama Lengkap"
+                placeholder="cth. Divisi A"
+                value={form.divisi}
+                error={errors.divisi}
                 onChange={(v) => {
-                  setForm((p) => ({ ...p, nis: v }))
-                  setErrors((p) => ({ ...p, nis: undefined }))
+                  setForm((p) => ({ ...p, divisi: v }))
+                  setErrors((p) => ({ ...p, divisi: undefined }))
                 }}
               />
 
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                  Kelas
-                </Label>
-                <select
-                  value={form.kelas}
-                  onChange={(e) => {
-                    setForm((p) => ({ ...p, kelas: e.target.value }))
-                    setErrors((p) => ({ ...p, kelas: undefined }))
-                  }}
-                  className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm text-foreground transition-all focus:ring-2 focus:ring-primary focus:outline-none ${
-                    errors.kelas ? "border-destructive/50" : "border-border"
-                  }`}
-                >
-                  <option value="" disabled>
-                    Pilih kelas...
-                  </option>
-                  {KELAS_OPTIONS.map((k) => (
-                    <option key={k} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                </select>
-                {errors.kelas && (
-                  <p className="flex items-center gap-1 text-xs text-destructive">
-                    <AlertCircle className="h-3 w-3" /> {errors.kelas}
-                  </p>
-                )}
-              </div>
-
+              {/* Jenis Kelamin */}
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   Jenis Kelamin
@@ -337,13 +302,32 @@ export default function EditPanitiaPage() {
                 )}
               </div>
 
+              {/* Email */}
+              <Field
+                label="Email"
+                placeholder="email@panitia.id"
+                type="email"
+                value={form.email}
+                error={errors.email}
+                onChange={(v) => {
+                  setForm((p) => ({ ...p, email: v }))
+                  setErrors((p) => ({ ...p, email: undefined }))
+                }}
+              />
+
+              {/* Password — opsional saat edit */}
               <div className="md:col-span-2">
                 <Field
-                  label="Email"
-                  placeholder="email@sekolah.id"
-                  value={form.email}
-                  onChange={(v) => setForm((p) => ({ ...p, email: v }))}
+                  label="Password Baru (opsional)"
+                  placeholder="Kosongkan jika tidak ingin mengganti password"
+                  type="password"
+                  value={form.password}
+                  onChange={(v) => setForm((p) => ({ ...p, password: v }))}
                 />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  * Isi hanya jika ingin mengganti password. Password disimpan
+                  sebagai angka (int8).
+                </p>
               </div>
             </div>
 

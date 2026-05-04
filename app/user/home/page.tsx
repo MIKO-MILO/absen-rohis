@@ -62,6 +62,7 @@ function getSummary(data: RiwayatItem[]) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AbsenSholatPage() {
   const router = useRouter()
+  const [sudahAbsen, setSudahAbsen] = useState(false)
   const [data, setData] = useState<RiwayatItem[]>([])
   const [, setLoading] = useState(true)
   const [user, setUser] = useState<{
@@ -69,10 +70,9 @@ export default function AbsenSholatPage() {
     nama: string
     kelas: string
   } | null>(null)
-  const [sudahAbsen, setSudahAbsen] = useState(false)
 
   useEffect(() => {
-    const sessionStr = localStorage.getItem("user_session")
+    const sessionStr = localStorage.getItem("siswa_session")
     if (!sessionStr) {
       router.push("/")
       return
@@ -137,8 +137,8 @@ export default function AbsenSholatPage() {
 
   const summary = getSummary(data)
 
-  function handleLogout(_event: React.MouseEvent<HTMLDivElement>): void {
-    localStorage.removeItem("user_session")
+  function handleLogout(event: React.MouseEvent<HTMLDivElement>): void {
+    localStorage.removeItem("siswa_session")
     router.push("/")
   }
 

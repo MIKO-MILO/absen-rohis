@@ -25,13 +25,14 @@ export async function POST(req: Request) {
         redirect: "/admin/dashboard",
       })
     }
-    // 2. Cek di tabel Panitia (email/NIS & password) // Asumsi tabel panitia: email, nis, password, role
+    // 2. Cek di tabel Panitia (email ATAU NIS & password)
     const { data: panitiaData } = await supabase
       .from("panitia")
       .select("*")
-      .eq("email", identifier)
+      .or(`email.eq.${identifier}`)
       .eq("password", password)
       .maybeSingle()
+    
     if (panitiaData) {
       return Response.json({
         user: panitiaData,
@@ -39,7 +40,8 @@ export async function POST(req: Request) {
         redirect: "/rohis/home",
       })
     }
-    // 3. Cek di tabel Users/Siswa (email & password) // Tabel users: email, password, role
+
+    // 3. Cek di tabel Users/Siswa (email & password)
     const { data: userData } = await supabase
       .from("users")
       .select("*")

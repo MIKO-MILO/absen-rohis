@@ -38,6 +38,7 @@ interface SidebarContentProps {
   router: AppRouterInstance
   setSidebarOpen: (open: boolean) => void
   handleLogout: () => void
+  adminName?: string
 }
 
 const SidebarContent = ({
@@ -46,6 +47,7 @@ const SidebarContent = ({
   router,
   setSidebarOpen,
   handleLogout,
+  adminName,
 }: SidebarContentProps) => (
   <aside className="flex h-full w-60 flex-col border-r border-border bg-card">
     {/* Brand */}
@@ -155,7 +157,7 @@ const SidebarContent = ({
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold text-foreground">
-            Ustadz Hasan
+            {adminName || "Ustadz Hasan"}
           </p>
           <p className="text-[10px] text-muted-foreground">Administrator</p>
         </div>
@@ -175,22 +177,39 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const redirecting = useRef(false)
-
-  const [isAuthorized] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false
-    return !!localStorage.getItem("admin_session")
-  })
+  const [mounted, setMounted] = useState(false)
+  const [isAuthorized, setIsAuthorized] = useState(false)
+  const [admin, setAdmin] = useState<{ username: string } | null>(null)
 
   useEffect(() => {
-    if (!isAuthorized && !redirecting.current) {
+    setMounted(true)
+    const sessionStr = localStorage.getItem("admin_session")
+    if (sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr)
+        setAdmin(session)
+      } catch (e) {
+        // Fallback for non-JSON session format
+      }
+      setIsAuthorized(true)
+    } else if (!redirecting.current) {
       redirecting.current = true
       router.replace("/admin")
     }
-  }, [isAuthorized, router])
+  }, [router])
 
   const handleLogout = () => {
     localStorage.removeItem("admin_session")
     router.push("/admin")
+  }
+
+  // Hindari rendering apapun sampai mounted untuk mencegah hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
   }
 
   if (!isAuthorized) {
@@ -210,23 +229,24 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           router={router}
           setSidebarOpen={setSidebarOpen}
           handleLogout={handleLogout}
+          adminName={admin?.username}
         />
       </div>
 
       {/* Mobile sidebar */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-          <div className="relative z-10 h-full">
+        <div
+          className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        >
+          <div className="h-full w-60" onClick={(e) => e.stopPropagation()}>
             <SidebarContent
               mobile
               pathname={pathname}
               router={router}
               setSidebarOpen={setSidebarOpen}
               handleLogout={handleLogout}
+              adminName={admin?.username}
             />
           </div>
         </div>
@@ -252,12 +272,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 )?.label ?? "Admin"}
               </h1>
               <p className="hidden text-[10px] text-muted-foreground sm:block">
-                {new Date().toLocaleDateString("id-ID", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
+                {mounted
+                  ? new Date().toLocaleDateString("id-ID", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : ""}
               </p>
             </div>
           </div>
@@ -277,7 +299,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     </AvatarFallback>
                   </Avatar>
                   <span className="hidden text-xs font-semibold text-foreground sm:block">
-                    Ustadz Hasan
+                    {admin?.username || "Ustadz Hasan"}
                   </span>
                 </button>
               </DropdownMenuTrigger>

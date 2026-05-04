@@ -71,6 +71,7 @@ export default function DataSiswaPage() {
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -175,19 +176,28 @@ export default function DataSiswaPage() {
   const clearSelected = () => setSelected(new Set())
 
   // ── Delete single ───────────────────────────────────────────────────────────
-  const handleDelete = async (id: number) => {
+  const openDeleteModal = (id: number) => {
+    setDeletingId(id)
+    setShowDeleteModal(true)
+  }
+
+  const handleDelete = async () => {
+    if (!deletingId) return
     try {
-      const res = await fetch(`/api/users/${id}`, { method: "DELETE" })
+      const res = await fetch(`/api/users/${deletingId}`, { method: "DELETE" })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Gagal hapus data")
-      setData((prev) => prev.filter((s) => s.id !== id))
+      setData((prev) => prev.filter((s) => s.id !== deletingId))
       setSelected((prev) => {
         const next = new Set(prev)
-        next.delete(id)
+        next.delete(deletingId)
         return next
       })
     } catch (err: unknown) {
       alert((err as Error).message || "Terjadi kesalahan saat menghapus data")
+    } finally {
+      setShowDeleteModal(false)
+      setDeletingId(null)
     }
   }
 
@@ -208,12 +218,27 @@ export default function DataSiswaPage() {
     }
   }
 
-  const todayStr = new Date().toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })
+  const confirmDelete = () => {
+    if (deletingId) {
+      handleDelete()
+    } else {
+      handleBulkDelete()
+    }
+  }
+
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const todayStr = mounted
+    ? new Date().toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : ""
 
   if (loading)
     return (
@@ -539,7 +564,7 @@ export default function DataSiswaPage() {
                                 Edit Siswa
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleDelete(s.id)}
+                                onClick={() => openDeleteModal(s.id)}
                                 className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -568,7 +593,10 @@ export default function DataSiswaPage() {
                     {selected.size} dipilih
                   </p>
                   <button
-                    onClick={() => setShowDeleteModal(true)}
+                    onClick={() => {
+                      setDeletingId(null)
+                      setShowDeleteModal(true)
+                    }}
                     className="flex items-center gap-1 rounded-lg bg-destructive/10 px-2 py-1 text-[10px] font-bold text-destructive hover:bg-destructive/20"
                   >
                     <Trash2 className="h-3 w-3" /> Hapus
@@ -602,31 +630,58 @@ export default function DataSiswaPage() {
         </div>
       </div>
 
-      {/* Bulk delete modal */}
-      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="rounded-2xl sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="text-foreground">
-              Hapus Data Terpilih?
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Anda akan menghapus {selected.size} data siswa secara permanen.
-              Tindakan ini tidak dapat dibatalkan.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 flex justify-end gap-3">
-            <button
-              onClick={() => setShowDeleteModal(false)}
-              className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-bold text-foreground hover:bg-muted"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleBulkDelete}
-              className="text-destructive-foreground rounded-xl bg-destructive px-4 py-2 text-xs font-bold hover:opacity-90"
-            >
-              Ya, Hapus Semua
-            </button>
+      {/* Delete confirmation modal */}
+      <Dialog
+        open={showDeleteModal}
+        onOpenChange={(open) => {
+          setShowDeleteModal(open)
+          if (!open) setDeletingId(null)
+        }}
+      >
+        <DialogContent className="overflow-hidden rounded-2xl p-0 sm:max-w-[400px]">
+          <div className="flex flex-col items-center p-6 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <Trash2 className="h-8 w-8 text-destructive" />
+            </div>
+            <DialogHeader className="mb-2">
+              <DialogTitle className="text-center text-xl font-bold text-foreground">
+                Hapus Data {deletingId ? "Siswa" : "Terpilih"}?
+              </DialogTitle>
+              <DialogDescription className="text-center text-sm text-muted-foreground">
+                {deletingId ? (
+                  <>
+                    Apakah Anda yakin ingin menghapus data siswa{" "}
+                    <span className="font-bold text-foreground">
+                      {data.find((s) => s.id === deletingId)?.nama}
+                    </span>
+                    ? Tindakan ini tidak dapat dibatalkan.
+                  </>
+                ) : (
+                  <>
+                    Anda akan menghapus{" "}
+                    <span className="font-bold text-foreground">
+                      {selected.size}
+                    </span>{" "}
+                    data siswa secara permanen. Tindakan ini tidak dapat
+                    dibatalkan.
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-6 flex w-full gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 rounded-xl bg-destructive px-4 py-2.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+              >
+                Ya, Hapus
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

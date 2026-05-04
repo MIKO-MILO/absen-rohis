@@ -59,8 +59,8 @@ export default function AbsenSholatPage() {
   const router = useRouter()
   const [data, setData] = useState<RiwayatItem[]>([])
   const [, setLoading] = useState(true)
-  const [panitia] = useState<{
-    id: int
+  const [panitia, setPanitia] = useState<{
+    id: any
     nama: string
     divisi: string
   } | null>(null)
@@ -77,12 +77,12 @@ export default function AbsenSholatPage() {
   }
 
   function handleLogout(): void {
-    localStorage.removeItem("user_session")
+    localStorage.removeItem("panitia_session")
     router.push("/")
   }
 
   useEffect(() => {
-    const sessionStr = localStorage.getItem("user_session")
+    const sessionStr = localStorage.getItem("panitia_session")
     if (!sessionStr) {
       router.push("/")
       return
@@ -94,6 +94,8 @@ export default function AbsenSholatPage() {
       router.push("/")
       return
     }
+
+    setPanitia(session)
 
     const fetchAbsensi = async () => {
       try {
