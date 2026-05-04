@@ -66,6 +66,10 @@ export default function GenerateQRPage() {
   const [copied, setCopied] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pct = session ? (secondsLeft / (durasi * 60)) * 100 : 0
+  const isExpired = session !== null && secondsLeft <= 0
+  const mins = Math.floor(secondsLeft / 60)
+  const secs = secondsLeft % 60
 
   const todayStr = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
@@ -73,11 +77,6 @@ export default function GenerateQRPage() {
     month: "long",
     year: "numeric",
   })
-
-  const pct = session ? (secondsLeft / (durasi * 60)) * 100 : 0
-  const isExpired = session !== null && secondsLeft <= 0
-  const mins = Math.floor(secondsLeft / 60)
-  const secs = secondsLeft % 60
 
   // countdown
   useEffect(() => {
@@ -145,7 +144,7 @@ export default function GenerateQRPage() {
     <AdminShell>
       <div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-5 md:px-6">
         {/* ── Banner ── */}
-        <div className="relative flex items-center justify-between overflow-hidden rounded-2xl bg-linear-to-br to from-primary/80 p-5">
+        <div className="to relative flex items-center justify-between overflow-hidden rounded-2xl bg-linear-to-br from-primary/80 p-5">
           <div
             aria-hidden
             className="absolute -top-7.5 -right-7.5 h-35 w-35 rounded-full bg-white/10"

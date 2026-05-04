@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -31,141 +32,185 @@ const NAV_ITEMS = [
   { label: "Generate QR", icon: QrCode, href: "/admin/generate-qr" },
 ]
 
+interface SidebarContentProps {
+  mobile?: boolean
+  pathname: string
+  router: AppRouterInstance
+  setSidebarOpen: (open: boolean) => void
+  handleLogout: () => void
+}
+
+const SidebarContent = ({
+  mobile = false,
+  pathname,
+  router,
+  setSidebarOpen,
+  handleLogout,
+}: SidebarContentProps) => (
+  <aside className="flex h-full w-60 flex-col border-r border-border bg-card">
+    {/* Brand */}
+    <div className="flex items-center justify-between border-b border-border/50 px-5 py-5">
+      <div className="flex items-center gap-2.5">
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-xl"
+          style={{ background: "linear-gradient(135deg,#0d9488,#0891b2)" }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+            <path
+              d="M12 2s-2 3-2 5h4c0-2-2-5-2-5z"
+              fill="white"
+              fillOpacity="0.9"
+            />
+            <path
+              d="M8 7h8v1c0 0-1 .5-1 2v9H9V10c0-1.5-1-2-1-2V7z"
+              fill="white"
+              fillOpacity="0.85"
+            />
+            <rect
+              x="4"
+              y="11"
+              width="4"
+              height="8"
+              rx="0.5"
+              fill="white"
+              fillOpacity="0.7"
+            />
+            <rect
+              x="16"
+              y="11"
+              width="4"
+              height="8"
+              rx="0.5"
+              fill="white"
+              fillOpacity="0.7"
+            />
+            <rect
+              x="3"
+              y="19"
+              width="18"
+              height="1.5"
+              rx="0.75"
+              fill="white"
+              fillOpacity="0.9"
+            />
+          </svg>
+        </div>
+        <div>
+          <p className="text-xs leading-none font-black text-foreground">
+            Absen Rohis
+          </p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            Admin Panel
+          </p>
+        </div>
+      </div>
+      {mobile && (
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      )}
+    </div>
+
+    {/* Nav */}
+    <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
+      {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
+        const active =
+          pathname === href || (href !== "/admin" && pathname.startsWith(href))
+        return (
+          <button
+            key={label}
+            onClick={() => {
+              if (mobile) setSidebarOpen(false)
+              router.push(href)
+            }}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all ${
+              active
+                ? "bg-primary/10 font-semibold text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <Icon
+              className={`h-4 w-4 shrink-0 ${active ? "text-primary" : ""}`}
+            />
+            {label}
+            {active && (
+              <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+            )}
+          </button>
+        )
+      })}
+    </nav>
+
+    {/* Profile */}
+    <div className="border-t border-border/50 px-3 py-4">
+      <div className="flex items-center gap-3 px-2">
+        <Avatar className="h-8 w-8">
+          <AvatarImage src="https://i.pravatar.cc/100?img=5" />
+          <AvatarFallback className="bg-primary text-xs text-primary-foreground">
+            AD
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold text-foreground">
+            Ustadz Hasan
+          </p>
+          <p className="text-[10px] text-muted-foreground">Administrator</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="text-muted-foreground transition-colors hover:text-destructive"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  </aside>
+)
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const redirecting = useRef(false)
 
-  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
-    <aside className="flex h-full w-60 flex-col border-r border-border bg-card">
-      {/* Brand */}
-      <div className="flex items-center justify-between border-b border-border/50 px-5 py-5">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-xl"
-            style={{ background: "linear-gradient(135deg,#0d9488,#0891b2)" }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-              <path
-                d="M12 2s-2 3-2 5h4c0-2-2-5-2-5z"
-                fill="white"
-                fillOpacity="0.9"
-              />
-              <path
-                d="M8 7h8v1c0 0-1 .5-1 2v9H9V10c0-1.5-1-2-1-2V7z"
-                fill="white"
-                fillOpacity="0.85"
-              />
-              <rect
-                x="4"
-                y="11"
-                width="4"
-                height="8"
-                rx="0.5"
-                fill="white"
-                fillOpacity="0.7"
-              />
-              <rect
-                x="16"
-                y="11"
-                width="4"
-                height="8"
-                rx="0.5"
-                fill="white"
-                fillOpacity="0.7"
-              />
-              <rect
-                x="3"
-                y="19"
-                width="18"
-                height="1.5"
-                rx="0.75"
-                fill="white"
-                fillOpacity="0.9"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs leading-none font-black text-foreground">
-              Absen Rohis
-            </p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
-              Admin Panel
-            </p>
-          </div>
-        </div>
-        {mobile && (
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
+  const [isAuthorized] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
+    return !!localStorage.getItem("admin_session")
+  })
+
+  useEffect(() => {
+    if (!isAuthorized && !redirecting.current) {
+      redirecting.current = true
+      router.replace("/admin")
+    }
+  }, [isAuthorized, router])
+
+  const handleLogout = () => {
+    localStorage.removeItem("admin_session")
+    router.push("/admin")
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
-
-      {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
-        {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
-          const active =
-            pathname === href ||
-            (href !== "/admin" && pathname.startsWith(href))
-          return (
-            <button
-              key={label}
-              onClick={() => {
-                router.push(href)
-                if (mobile) setSidebarOpen(false)
-              }}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all ${
-                active
-                  ? "bg-primary/10 font-semibold text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <Icon
-                className={`h-4 w-4 shrink-0 ${active ? "text-primary" : ""}`}
-              />
-              {label}
-              {active && (
-                <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
-              )}
-            </button>
-          )
-        })}
-      </nav>
-
-      {/* Profile */}
-      <div className="border-t border-border/50 px-3 py-4">
-        <div className="flex items-center gap-3 px-2">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src="https://i.pravatar.cc/100?img=5" />
-            <AvatarFallback className="bg-primary text-xs text-primary-foreground">
-              AD
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-foreground">
-              Ustadz Hasan
-            </p>
-            <p className="text-[10px] text-muted-foreground">Administrator</p>
-          </div>
-          <button
-            onClick={() => router.push("/login")}
-            className="text-muted-foreground transition-colors hover:text-destructive"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </aside>
-  )
+    )
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop sidebar */}
       <div className="hidden shrink-0 md:flex">
-        <SidebarContent />
+        <SidebarContent
+          pathname={pathname}
+          router={router}
+          setSidebarOpen={setSidebarOpen}
+          handleLogout={handleLogout}
+        />
       </div>
 
       {/* Mobile sidebar */}
@@ -176,7 +221,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             onClick={() => setSidebarOpen(false)}
           />
           <div className="relative z-10 h-full">
-            <SidebarContent mobile />
+            <SidebarContent
+              mobile
+              pathname={pathname}
+              router={router}
+              setSidebarOpen={setSidebarOpen}
+              handleLogout={handleLogout}
+            />
           </div>
         </div>
       )}
@@ -236,7 +287,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => router.push("/login")}
+                  onClick={handleLogout}
                   className="cursor-pointer rounded-xl text-destructive focus:bg-destructive/10 focus:text-destructive"
                 >
                   <LogOut className="mr-2 h-4 w-4" /> Keluar

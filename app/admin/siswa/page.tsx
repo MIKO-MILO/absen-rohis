@@ -74,29 +74,41 @@ export default function DataSiswaPage() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   useEffect(() => {
+    let isMounted = true
     ;(async () => {
       try {
         const res = await fetch("/api/users")
         const result = await res.json()
-        setData(
-          result.map((u: any) => ({
-            id: u.id,
-            nama: u.nama,
-            kelas: u.kelas,
-            jenis_kelamin: u.jenis_kelamin,
-            nis: u.nis,
-            email: u.email,
-            password: u.password,
-            created_at: u.created_at,
-            avatar: String(Math.floor(Math.random() * 70)),
-          }))
-        )
+
+        if (!isMounted) return
+
+        const mappedData = result.map((u: UserRecord) => ({
+          id: u.id,
+          nama: u.nama,
+          kelas: u.kelas,
+          jenis_kelamin: u.jenis_kelamin,
+          nis: u.nis,
+          email: u.email,
+          password: u.password,
+          created_at: u.created_at,
+          avatar: String(Math.floor(Math.random() * 70)),
+        }))
+
+        if (isMounted) {
+          setData(mappedData)
+        }
       } catch (err) {
         console.error(err)
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     })()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   // ── Filter ──────────────────────────────────────────────────────────────────
@@ -140,9 +152,11 @@ export default function DataSiswaPage() {
   const toggleAll = () => {
     setSelected((prev) => {
       const next = new Set(prev)
-      allPageSelected
-        ? paginatedIds.forEach((id) => next.delete(id))
-        : paginatedIds.forEach((id) => next.add(id))
+      if (allPageSelected) {
+        paginatedIds.forEach((id) => next.delete(id))
+      } else {
+        paginatedIds.forEach((id) => next.add(id))
+      }
       return next
     })
   }
@@ -150,7 +164,11 @@ export default function DataSiswaPage() {
   const toggleOne = (id: number) =>
     setSelected((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
       return next
     })
 
@@ -168,8 +186,8 @@ export default function DataSiswaPage() {
         next.delete(id)
         return next
       })
-    } catch (err: any) {
-      alert(err.message || "Terjadi kesalahan saat menghapus data")
+    } catch (err: unknown) {
+      alert((err as Error).message || "Terjadi kesalahan saat menghapus data")
     }
   }
 
@@ -183,8 +201,8 @@ export default function DataSiswaPage() {
       )
       setData((prev) => prev.filter((s) => !selected.has(s.id)))
       clearSelected()
-    } catch (err: any) {
-      alert(err.message || "Terjadi kesalahan saat menghapus data")
+    } catch (err: unknown) {
+      alert((err as Error).message || "Terjadi kesalahan saat menghapus data")
     } finally {
       setShowDeleteModal(false)
     }

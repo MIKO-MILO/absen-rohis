@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LogOut } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
+import { int } from "@zxing/library/esm/customTypings"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -30,6 +31,8 @@ interface RiwayatItem {
   waktu: string
   status: Status
   nama: string
+  nis: int
+  kelas: string
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -56,61 +59,11 @@ export default function AbsenSholatPage() {
   const router = useRouter()
   const [data, setData] = useState<RiwayatItem[]>([])
   const [, setLoading] = useState(true)
-  const [panitia, setPanitia] = useState<{
-    id: any
+  const [panitia] = useState<{
+    id: int
     nama: string
     divisi: string
   } | null>(null)
-
-  useEffect(() => {
-    const sessionStr = localStorage.getItem("user_session")
-    if (!sessionStr) {
-      router.push("/")
-      return
-    }
-
-    const session = JSON.parse(sessionStr)
-    // Pastikan yang login adalah panitia
-    if (session.role !== "panitia") {
-      router.push("/")
-      return
-    }
-    setPanitia(session)
-
-    const fetchAbsensi = async () => {
-      try {
-        const res = await fetch(`/api/absensi`)
-        const result = await res.json()
-
-        const formatted = result.map((e: any) => {
-          let rawStatus = (e.status || "").trim().toLowerCase()
-          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
-
-          const tanggal = e.tanggal ?? "—"
-
-          return {
-            id: e.id,
-            nama: e.users?.nama || "Tidak diketahui",
-            nis: e.users?.nis || "—",
-            kelas: e.users?.kelas || "—",
-            tanggal,
-            hari: getHari(tanggal),
-            waktu: e.waktu ?? "—",
-            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
-              ? rawStatus
-              : "tidak_hadir") as Status,
-          }
-        })
-        setData(formatted)
-      } catch (err) {
-        console.error("Error fetching absensi:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchAbsensi()
-  }, [router])
 
   const getHari = (tanggal: string) => {
     if (!tanggal || tanggal === "—") return "—"
@@ -123,10 +76,60 @@ export default function AbsenSholatPage() {
     })
   }
 
-  function handleLogout(_event: React.MouseEvent<HTMLDivElement>): void {
+  function handleLogout(): void {
     localStorage.removeItem("user_session")
     router.push("/")
   }
+
+  useEffect(() => {
+    const sessionStr = localStorage.getItem("user_session")
+    if (!sessionStr) {
+      router.push("/")
+      return
+    }
+
+    const session = JSON.parse(sessionStr)
+
+    if (session.role !== "panitia") {
+      router.push("/")
+      return
+    }
+
+    const fetchAbsensi = async () => {
+      try {
+        const res = await fetch(`/api/absensi`)
+        const result = await res.json()
+
+        const formatted = result.map((e: RiwayatItem) => {
+          let rawStatus = (e.status || "").trim().toLowerCase()
+          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+
+          const tanggal = e.tanggal ?? "—"
+
+          return {
+            id: e.id,
+            nama: e.nama || "Tidak diketahui",
+            nis: e.nis || "—",
+            kelas: e.kelas || "—",
+            tanggal,
+            hari: getHari(tanggal),
+            waktu: e.waktu ?? "—",
+            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+              ? rawStatus
+              : "tidak_hadir") as Status,
+          }
+        })
+
+        setData(formatted)
+      } catch (err) {
+        console.error("Error fetching absensi:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAbsensi()
+  }, [router])
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">
@@ -158,7 +161,9 @@ export default function AbsenSholatPage() {
             <h1 className="truncate text-base leading-tight font-semibold text-white">
               {panitia?.nama || "Memuat..."}
             </h1>
-            <p className="text-xs text-teal-50">{panitia?.divisi || "Memuat..."}</p>
+            <p className="text-xs text-teal-50">
+              {panitia?.divisi || "Memuat..."}
+            </p>
             <ClockWIB />
           </div>
 
@@ -230,7 +235,9 @@ export default function AbsenSholatPage() {
           <Button
             onClick={() => router.push("/rohis/pageqr")}
             className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-base font-bold text-white shadow-lg shadow-primary/20 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-            style={{ background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)" }}
+            style={{
+              background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
+            }}
           >
             {" "}
             {"Generate QR Code"}
