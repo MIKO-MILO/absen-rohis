@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LogOut } from "lucide-react"
-import { ModeToggle } from "@/components/mode-toggle"
+import { ModeButton } from "@/components/mode-button"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -42,6 +42,18 @@ interface PanitiaSession {
   role?: string
 }
 
+interface AbsensiResponse {
+  id: number
+  status: string
+  tanggal: string
+  waktu: string
+  users: {
+    nama: string
+    nis: string
+    kelas: string
+  } | null
+}
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<Status, string> = {
   hadir: "Hadir",
@@ -61,23 +73,23 @@ const STATUS_DOT: Record<Status, string> = {
   haid: "bg-blue-500",
 }
 
+const getHari = (tanggal: string) => {
+  if (!tanggal || tanggal === "—") return "—"
+
+  const [y, m, d] = tanggal.split("-").map(Number)
+  const date = new Date(y, m - 1, d)
+
+  return date.toLocaleDateString("id-ID", {
+    weekday: "long",
+  })
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AbsenSholatPage() {
   const router = useRouter()
   const [data, setData] = useState<RiwayatItem[]>([])
-  const [, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [panitia, setPanitia] = useState<PanitiaSession | null>(null)
-
-  const getHari = (tanggal: string) => {
-    if (!tanggal || tanggal === "—") return "—"
-
-    const [y, m, d] = tanggal.split("-").map(Number)
-    const date = new Date(y, m - 1, d)
-
-    return date.toLocaleDateString("id-ID", {
-      weekday: "long",
-    })
-  }
 
   function handleLogout(): void {
     localStorage.removeItem("panitia_session")
@@ -85,6 +97,8 @@ export default function AbsenSholatPage() {
   }
 
   useEffect(() => {
+    let isMounted = true
+
     const sessionStr = localStorage.getItem("panitia_session")
     if (!sessionStr) {
       router.push("/")
@@ -98,42 +112,57 @@ export default function AbsenSholatPage() {
       return
     }
 
-    setPanitia(session)
+    if (isMounted) {
+      setPanitia(session)
+    }
 
-    const fetchAbsensi = async () => {
+    const fetchAbsensi = async (panitiaId: string | number) => {
       try {
-        const res = await fetch(`/api/absensi`)
-        const result: RiwayatItem[] = await res.json()
+        const res = await fetch(`/api/absensi?panitia_id=${panitiaId}`)
+        if (!res.ok) throw new Error("Gagal mengambil data")
+        const result = await res.json()
 
-        const formatted: RiwayatItem[] = result.map((e) => {
-          let rawStatus = (e.status || "").trim().toLowerCase()
-          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+        if (!isMounted) return
 
-          const tanggal = e.tanggal ?? "—"
+        const formatted: RiwayatItem[] = (result as AbsensiResponse[]).map(
+          (e): RiwayatItem => {
+            let rawStatus = (e.status || "").trim().toLowerCase()
+            if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
 
-          return {
-            id: e.id,
-            nama: e.nama || "Tidak diketahui",
-            nis: e.nis || "—",
-            kelas: e.kelas || "—",
-            tanggal,
-            hari: getHari(tanggal),
-            waktu: e.waktu ?? "—",
-            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
-              ? rawStatus
-              : "tidak_hadir") as Status,
+            const tanggal = e.tanggal ?? "—"
+
+            return {
+              id: e.id,
+              nama: e.users?.nama || "Tidak diketahui",
+              nis: e.users?.nis || "—",
+              kelas: e.users?.kelas || "—",
+              tanggal,
+              hari: getHari(tanggal),
+              waktu: e.waktu ?? "—",
+              status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+                ? rawStatus
+                : "tidak_hadir") as Status,
+            }
           }
-        })
+        )
 
-        setData(formatted)
+        if (isMounted) {
+          setData(formatted)
+        }
       } catch (err: unknown) {
         console.error("Error fetching absensi:", err)
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
-    fetchAbsensi()
+    fetchAbsensi(session.id)
+
+    return () => {
+      isMounted = false
+    }
   }, [router])
 
   return (
@@ -173,7 +202,7 @@ export default function AbsenSholatPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <ModeToggle />
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-xl bg-white/15 p-2 transition-colors outline-none hover:bg-white/25">
@@ -203,6 +232,8 @@ export default function AbsenSholatPage() {
                     </div>
                   </div>
                 </DropdownMenuLabel>
+
+                <ModeButton />
 
                 <DropdownMenuItem
                   onClick={handleLogout}
@@ -260,33 +291,57 @@ export default function AbsenSholatPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            {data.map((e) => (
-              <Card
-                key={e.id}
-                className="rounded-2xl border border-border bg-card shadow-sm"
-              >
-                <CardContent className="flex items-center gap-3 px-4 py-3">
-                  <div
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[e.status]}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-tight font-semibold text-foreground">
-                      {e.nama}
-                    </p>
-                    <p className="text-xs leading-tight text-muted-foreground">
-                      {e.hari}, {e.tanggal} -{" "}
-                      {e.waktu !== "—" ? `${e.waktu} WIB` : "Tidak ada catatan"}
-                    </p>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={`shrink-0 rounded-lg border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[e.status]}`}
-                  >
-                    {STATUS_LABEL[e.status]}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
+            {loading ? (
+              // Skeleton loading
+              [1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-20 w-full animate-pulse rounded-2xl bg-muted"
+                />
+              ))
+            ) : data.length > 0 ? (
+              data.map((e) => (
+                <Card
+                  key={e.id}
+                  className="rounded-2xl border border-border bg-card shadow-sm"
+                >
+                  <CardContent className="flex items-center gap-3 px-4 py-3">
+                    <div
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[e.status]}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm leading-tight font-semibold text-foreground">
+                        {e.nama}
+                      </p>
+                      <p className="text-xs leading-tight text-muted-foreground">
+                        {e.hari}, {e.tanggal} -{" "}
+                        {e.waktu !== "—"
+                          ? `${e.waktu} WIB`
+                          : "Tidak ada catatan"}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`shrink-0 rounded-lg border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLE[e.status]}`}
+                    >
+                      {STATUS_LABEL[e.status]}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <Clock className="h-6 w-6 text-muted-foreground/40" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Belum ada riwayat scan
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground/60">
+                  Riwayat siswa yang kamu scan akan muncul di sini
+                </p>
+              </div>
+            )}
           </div>
         </section>
       </div>

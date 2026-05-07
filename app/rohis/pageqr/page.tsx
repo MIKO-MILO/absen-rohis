@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
@@ -35,11 +36,6 @@ interface AbsenRecord {
 const QR_LIFETIME_SECONDS = 60 // QR expired setelah 60 detik
 
 // ─── Dummy live absen ────────────────────────────────────────────────────────
-const DUMMY_ABSEN: AbsenRecord[] = [
-  { id: 1, nama: "Aretha Safira P.", kelas: "X RPL C", waktu: "12:03" },
-  { id: 2, nama: "Muhammad Fajar", kelas: "X RPL A", waktu: "12:05" },
-  { id: 3, nama: "Siti Nurhaliza", kelas: "XI IPA 2", waktu: "12:07" },
-]
 
 // ─── Helper: format sisa waktu ───────────────────────────────────────────────
 function formatCountdown(sec: number) {
@@ -81,7 +77,8 @@ export default function GenerateQRPage() {
   const [token, setToken] = useState<string>("")
   const [countdown, setCountdown] = useState(() => QR_LIFETIME_SECONDS)
   const [status, setStatus] = useState<QRStatus>("active")
-  const [absenList] = useState<AbsenRecord[]>(DUMMY_ABSEN)
+  const [absenList, setAbsenList] = useState<AbsenRecord[]>([])
+  const [lastAbsenId, setLastAbsenId] = useState<number | null>(null)
   const progress = (countdown / QR_LIFETIME_SECONDS) * 100
   const isWarning = countdown <= 15
   const isExpired = status === "expired"
@@ -143,26 +140,57 @@ export default function GenerateQRPage() {
     }
   }, [startTimer])
 
-  useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current!)
-          setStatus("expired")
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+  // ── Fetch Live Absen ─────────────────────────────────────────────────────
+  const fetchLiveAbsen = useCallback(async () => {
+    try {
+      const sessionStr = localStorage.getItem("panitia_session")
+      if (!sessionStr) return
+      const session = JSON.parse(sessionStr)
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      const res = await fetch(`/api/absensi?panitia_id=${session.id}`)
+      if (!res.ok) return
+
+      const data = await res.json()
+
+      // Ambil 5 terbaru saja untuk tampilan live
+      const latest = data
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.created_at || b.tanggal + " " + b.waktu).getTime() -
+            new Date(a.created_at || a.tanggal + " " + a.waktu).getTime()
+        )
+        .slice(0, 5)
+        .map((item: any) => ({
+          id: item.id,
+          nama: item.users?.nama || "Siswa",
+          kelas: item.users?.kelas || "-",
+          waktu: item.waktu || "-",
+        }))
+
+      setAbsenList(latest)
+
+      // Jika ada absen baru masuk, refresh QR otomatis
+      if (latest.length > 0) {
+        const newestId = latest[0].id
+        if (lastAbsenId !== null && newestId !== lastAbsenId) {
+          // Ada absen baru! Refresh QR
+          handleGenerate()
+        }
+        setLastAbsenId(newestId)
+      }
+    } catch (err) {
+      console.error("Live fetch error:", err)
     }
-  }, [])
+  }, [lastAbsenId, handleGenerate])
 
   useEffect(() => {
     handleGenerate()
   }, [handleGenerate])
+
+  useEffect(() => {
+    const interval = setInterval(fetchLiveAbsen, 3000)
+    return () => clearInterval(interval)
+  }, [fetchLiveAbsen])
 
   // ── Progress bar width ───────────────────────────────────────────────────
 

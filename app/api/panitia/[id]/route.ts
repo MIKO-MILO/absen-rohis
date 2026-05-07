@@ -23,10 +23,7 @@ export async function GET(
     }
 
     if (!data) {
-      return Response.json(
-        { error: "Panitia tidak ditemukan" },
-        { status: 404 }
-      )
+      return Response.json({ error: "Panitia tidak ditemukan" }, { status: 404 })
     }
 
     return Response.json(data)
@@ -64,10 +61,7 @@ export async function PUT(
     }
 
     if (!data || data.length === 0) {
-      return Response.json(
-        { error: "Panitia tidak ditemukan" },
-        { status: 404 }
-      )
+      return Response.json({ error: "Panitia tidak ditemukan" }, { status: 404 })
     }
 
     return Response.json(data)

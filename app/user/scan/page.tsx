@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  HeartPulse,
 } from "lucide-react"
 import { BrowserQRCodeReader } from "@zxing/library"
 
@@ -40,19 +39,19 @@ const PILIHAN_CONFIG = {
   },
   berhalangan: {
     label: "Berhalangan",
-    desc: "Saya sedang haid / uzur syar'i",
-    icon: HeartPulse,
-    active: "border-pink-400 bg-pink-500/20",
+    desc: "Haid",
+    icon: XCircle,
+    active: "border-red-400 bg-red-500/20",
     inactive: "border-border/10 bg-muted/5",
-    iconColor: "text-pink-400",
-    badgeColor: "bg-pink-500",
+    iconColor: "text-red-400",
+    badgeColor: "bg-red-500",
     successText: "Keterangan berhalangan berhasil dicatat 🌸",
-    successColor: "text-pink-300",
+    successColor: "text-red-300",
     ringColor: "rgba(244,114,182,0.4)",
     ringBg: "rgba(244,114,182,0.15)",
-    iconSuccess: HeartPulse,
-    iconSuccessColor: "text-pink-400",
-    btnClass: "bg-pink-500 hover:bg-pink-400 shadow-pink-900/40",
+    iconSuccess: XCircle,
+    iconSuccessColor: "text-red-400",
+    btnClass: "bg-red-500 hover:bg-red-400 shadow-red-900/40",
   },
 }
 
@@ -74,6 +73,7 @@ export default function ScanQRPage() {
   const [cameraReady, setCameraReady] = useState(false)
   const [pilihan, setPilihan] = useState<AbsenPilihan>(null)
   const [confirmed, setConfirmed] = useState<AbsenPilihan>(null)
+  const [absenNama, setAbsenNama] = useState<string>("")
 
   const stopScanning = useCallback(() => {
     if (codeReaderRef.current) {
@@ -192,8 +192,14 @@ export default function ScanQRPage() {
         throw new Error(data.error || "Gagal absen")
       }
 
+      setAbsenNama(data.nama || "Siswa")
       setConfirmed(pilihan)
       setScanState("success")
+
+      // Otomatis pindah ke home setelah 3 detik
+      setTimeout(() => {
+        router.push("/user/home")
+      }, 3000)
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Terjadi kesalahan saat absen"
@@ -243,20 +249,14 @@ export default function ScanQRPage() {
         muted
       />
 
-      {/* Overlay — lebih gelap saat modal pilihan */}
-      <div
-        className={`absolute inset-0 transition-all duration-300 ${scanState === "pilih" ? "bg-black/75 backdrop-blur-sm" : "bg-black/50"}`}
-      />
-
       {/* Top bar — sembunyikan saat pilih/success */}
       {(scanState === "scanning" || scanState === "error") && (
         <div className="absolute top-0 right-0 left-0 z-20 flex items-center justify-between px-4 pt-12 pb-4">
           <button
             onClick={handleBack}
-            className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition-transform active:scale-95"
+            className="flex items-center rounded-full border border-white/10 bg-black/40 px-2 py-2 text-sm font-medium text-white backdrop-blur-sm transition-transform active:scale-95"
           >
             <ArrowLeft className="h-4 w-4" />
-            Kembali
           </button>
           <div className="flex gap-2">
             {facingMode === "environment" && (
@@ -449,22 +449,21 @@ export default function ScanQRPage() {
             </div>
             <div>
               <h2 className="text-2xl font-black text-white">Berhasil!</h2>
-              <p className={`mt-1 text-sm ${cfg.successColor}`}>
+              <p className={`mt-1 text-base font-bold text-teal-300`}>
+                {absenNama}
+              </p>
+              <p className={`mt-0.5 text-sm ${cfg.successColor}`}>
                 {cfg.successText}
               </p>
-              <p className="mt-2 text-xs text-white/40">
-                {new Date().toLocaleTimeString("id-ID", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}{" "}
-                WIB
+              <p className="mt-4 text-[10px] text-white/30 italic">
+                Mengalihkan ke beranda dalam 3 detik...
               </p>
             </div>
             <Button
               onClick={() => router.push("/user/home")}
               className={`h-12 rounded-2xl px-10 font-bold text-white shadow-lg ${cfg.btnClass}`}
             >
-              Kembali ke Beranda
+              Kembali Sekarang
             </Button>
           </div>
         )}

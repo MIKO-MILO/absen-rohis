@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { AdminShell } from "../_components/AdminShell"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import {
@@ -43,6 +43,18 @@ interface SiswaRecord {
   waktu: string
   status: AbsenStatus
   tanggal: string
+}
+
+interface AbsensiResponse {
+  id: number
+  status: string
+  tanggal: string
+  waktu: string
+  users: {
+    nama: string
+    nis: string
+    kelas: string
+  } | null
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -131,42 +143,47 @@ function exportToExcel(data: SiswaRecord[], filename = "Absensi-Dzuhur") {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DataAbsenPage() {
   const [data, setData] = useState<SiswaRecord[]>([])
-  const [, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
     const fetchAbsensi = async () => {
       try {
         const res = await fetch("/api/absensi")
         const result = await res.json()
-        console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-        console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-        console.log(result)
 
-        const formatted = result.map((s: SiswaRecord) => {
-          let rawStatus = (s.status || "").trim().toLowerCase()
-          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+        if (!isMounted) return
 
-          return {
-            id: s.id,
-            nama: s.nama || "Tidak diketahui",
-            nis: s.nis || "—",
-            kelas: s.kelas || "—",
-            tanggal: s.tanggal ?? "—",
-            waktu: s.waktu ?? "—",
-            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
-              ? rawStatus
-              : "tidak_hadir") as AbsenStatus,
+        const formatted = (result as AbsensiResponse[]).map(
+          (s): SiswaRecord => {
+            let rawStatus = (s.status || "").trim().toLowerCase()
+            if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+
+            return {
+              id: s.id,
+              nama: s.users?.nama || "Tidak diketahui",
+              nis: s.users?.nis || "—",
+              kelas: s.users?.kelas || "—",
+              tanggal: s.tanggal ?? "—",
+              waktu: s.waktu ?? "—",
+              status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+                ? rawStatus
+                : "tidak_hadir") as AbsenStatus,
+            }
           }
-        })
+        )
         setData(formatted)
       } catch (err) {
         console.error("Error fetching absensi:", err)
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
 
     fetchAbsensi()
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const router = useRouter()
@@ -178,17 +195,14 @@ export default function DataAbsenPage() {
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const PER_PAGE = 8
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  const todayStr = mounted ? new Date().toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }) : ""
+  const todayStr = !loading
+    ? new Date().toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : ""
 
   // ── Filter logic ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -423,7 +437,7 @@ export default function DataAbsenPage() {
                 {/* Filter toggle */}
                 <button
                   onClick={() => setShowFilterPanel((v) => !v)}
-                  className="relative flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-all"
+                  className="relative flex h-9 items-center gap-1.5 rounded-xl border border-muted bg-muted/50 px-3 text-xs font-semibold transition-all hover:bg-muted/75"
                   style={{
                     background:
                       showFilterPanel || activeFilterCount > 0
@@ -451,7 +465,7 @@ export default function DataAbsenPage() {
                 {/* Export Excel */}
                 <button
                   onClick={() => exportToExcel(filtered)}
-                  className="flex h-9 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  className="flex h-9 items-center gap-1.5 rounded-xl border border-muted bg-muted/50 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/75"
                 >
                   <FileSpreadsheet className="h-3.5 w-3.5" />
                   Export Excel
@@ -542,10 +556,7 @@ export default function DataAbsenPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8 border-2 border-background">
-                            <AvatarImage
-                              src={`https://i.pravatar.cc/100?u=${s.id}`}
-                            />
-                            <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                            <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                               {s.nama.slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>

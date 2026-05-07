@@ -72,24 +72,40 @@ export async function POST(req: Request) {
     const mappedStatus = status === "berhalangan" ? "haid" : "hadir"
 
     // ✅ insert absensi
-    const { error: insertError } = await supabase.from("absensi").insert([
-      {
-        user_id: user_id,
-        tanggal: today,
-        waktu,
-        status: mappedStatus,
-        panitia_id: qr.panitia_id,
-      },
-    ])
+    const { data: insertedData, error: insertError } = await supabase
+      .from("absensi")
+      .insert([
+        {
+          user_id: user_id,
+          tanggal: today,
+          waktu,
+          status: mappedStatus,
+          panitia_id: qr.panitia_id,
+        },
+      ])
+      .select(`
+        *,
+        users (
+          nama
+        )
+      `)
+      .single()
 
     if (insertError) {
       console.error("Insert Absensi Error:", insertError)
       throw new Error("Gagal menyimpan data absensi")
     }
 
+    // 🔒 Nonaktifkan QR setelah digunakan (1 kali scan saja)
+    await supabase
+      .from("qr_token")
+      .update({ aktif: false })
+      .eq("id", qr.id)
+
     return Response.json({
       success: true,
       message: "Absensi berhasil dicatat",
+      nama: insertedData?.users?.nama || "Siswa",
     })
   } catch (err: unknown) {
     console.error("Scan QR Route Error:", err)

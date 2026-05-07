@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { AdminShell } from "../_components/AdminShell"
@@ -26,6 +25,18 @@ interface SiswaRecord {
   waktu: string
   status: Status
   tanggal: string
+}
+
+interface AbsensiResponse {
+  id: number
+  status: string
+  tanggal: string
+  waktu: string
+  users: {
+    nama: string
+    nis: string
+    kelas: string
+  } | null
 }
 
 type Status = "hadir" | "haid" | "tidak_hadir"
@@ -181,11 +192,8 @@ function LineChart() {
 export default function DashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
-  const [mounted, setMounted] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
   const today = WEEKLY[WEEKLY.length - 1]
   const yesterday = WEEKLY[WEEKLY.length - 2]
   const totalToday = today.hadir + today.Haid + today.tidak
@@ -213,30 +221,34 @@ export default function DashboardPage() {
 
         if (!isMounted) return
 
-        const formatted = result.map((r: SiswaRecord) => {
-          let rawStatus = (r.status || "").trim().toLowerCase()
-          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+        const formatted = (result as AbsensiResponse[]).map(
+          (r): SiswaRecord => {
+            let rawStatus = (r.status || "").trim().toLowerCase()
+            if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
 
-          const tanggal = r.tanggal ?? "—"
+            const tanggal = r.tanggal ?? "—"
 
-          return {
-            id: r.id,
-            nama: r.nama || "Tidak diketahui",
-            nis: r.nis || "—",
-            kelas: r.kelas || "—",
-            tanggal,
-            hari: getHari(tanggal),
-            waktu: r.waktu ?? "—",
-            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
-              ? rawStatus
-              : "tidak_hadir") as Status,
+            return {
+              id: r.id,
+              nama: r.users?.nama || "Tidak diketahui",
+              nis: r.users?.nis || "—",
+              kelas: r.users?.kelas || "—",
+              tanggal,
+              hari: getHari(tanggal),
+              waktu: r.waktu ?? "—",
+              status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+                ? rawStatus
+                : "tidak_hadir") as Status,
+            }
           }
-        })
+        )
         if (isMounted) {
           setData(formatted)
         }
       } catch (err: unknown) {
         console.error(err)
+      } finally {
+        if (isMounted) setLoading(false)
       }
     }
 
@@ -287,7 +299,7 @@ export default function DashboardPage() {
               Ustadz Hasan
             </h2>
             <p className="mt-1 text-xs text-teal-200">
-              {mounted
+              {!loading
                 ? new Date().toLocaleDateString("id-ID", {
                     weekday: "long",
                     day: "numeric",
