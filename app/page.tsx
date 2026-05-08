@@ -280,16 +280,6 @@ export default function LoginPage() {
             )}
           </Button>
         </div>
-
-        {/* Hint for demo */}
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
-          <p className="mb-1 text-xs font-semibold text-primary">Info Login</p>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            <span className="font-bold">Admin:</span> email admin &nbsp;·&nbsp;
-            <span className="font-bold">Panitia:</span> email/NIS &nbsp;·&nbsp;
-            <span className="font-bold">Siswa:</span> email siswa
-          </p>
-        </div>
       </div>
 
       {/* ── Footer ── */}

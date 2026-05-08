@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -30,6 +28,17 @@ interface AbsenRecord {
   nama: string
   kelas: string
   waktu: string
+}
+
+interface AbsensiResponse {
+  id: number
+  waktu: string
+  tanggal: string
+  created_at?: string
+  users: {
+    nama: string
+    kelas: string
+  } | null
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -78,35 +87,47 @@ export default function GenerateQRPage() {
   const [countdown, setCountdown] = useState(() => QR_LIFETIME_SECONDS)
   const [status, setStatus] = useState<QRStatus>("active")
   const [absenList, setAbsenList] = useState<AbsenRecord[]>([])
-  const [lastAbsenId, setLastAbsenId] = useState<number | null>(null)
+  const lastAbsenIdRef = useRef<number | null>(null)
   const progress = (countdown / QR_LIFETIME_SECONDS) * 100
   const isWarning = countdown <= 15
   const isExpired = status === "expired"
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isMounted = useRef(true)
+
+  useEffect(() => {
+    isMounted.current = true
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
 
   // ── Countdown timer ──────────────────────────────────────────────────────
   const startTimer = useCallback((initial = QR_LIFETIME_SECONDS) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
 
-    setCountdown(initial)
-    setStatus("active")
+    if (isMounted.current) {
+      setCountdown(initial)
+      setStatus("active")
+    }
 
     intervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current!)
-          setStatus("expired")
-          return 0
-        }
-        return prev - 1
-      })
+      if (isMounted.current) {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            setStatus("expired")
+            return 0
+          }
+          return prev - 1
+        })
+      }
     }, 1000)
   }, [])
 
   // ── Generate QR baru ─────────────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
     try {
-      setStatus("generating")
+      if (isMounted.current) setStatus("generating")
 
       const sessionStr = localStorage.getItem("panitia_session")
       if (!sessionStr) {
@@ -130,13 +151,15 @@ export default function GenerateQRPage() {
       }
 
       const data = await res.json()
-      setToken(data.token) // 🔥 dari backend
-      startTimer()
+      if (isMounted.current) {
+        setToken(data.token)
+        startTimer()
+      }
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Terjadi kesalahan server"
-      alert(msg)
-      setStatus("expired")
+      console.error(msg)
+      if (isMounted.current) setStatus("expired")
     }
   }, [startTimer])
 
@@ -152,39 +175,48 @@ export default function GenerateQRPage() {
 
       const data = await res.json()
 
+      if (!isMounted.current) return
+
       // Ambil 5 terbaru saja untuk tampilan live
-      const latest = data
+      const latest = (data as AbsensiResponse[])
         .sort(
-          (a: any, b: any) =>
+          (a, b) =>
             new Date(b.created_at || b.tanggal + " " + b.waktu).getTime() -
             new Date(a.created_at || a.tanggal + " " + a.waktu).getTime()
         )
         .slice(0, 5)
-        .map((item: any) => ({
+        .map((item) => ({
           id: item.id,
           nama: item.users?.nama || "Siswa",
           kelas: item.users?.kelas || "-",
           waktu: item.waktu || "-",
         }))
 
-      setAbsenList(latest)
+      if (isMounted.current) {
+        setAbsenList(latest)
 
-      // Jika ada absen baru masuk, refresh QR otomatis
-      if (latest.length > 0) {
-        const newestId = latest[0].id
-        if (lastAbsenId !== null && newestId !== lastAbsenId) {
-          // Ada absen baru! Refresh QR
-          handleGenerate()
+        // Jika ada absen baru masuk, refresh QR otomatis
+        if (latest.length > 0) {
+          const newestId = latest[0].id
+          if (
+            lastAbsenIdRef.current !== null &&
+            newestId !== lastAbsenIdRef.current
+          ) {
+            handleGenerate()
+          }
+          lastAbsenIdRef.current = newestId
         }
-        setLastAbsenId(newestId)
       }
     } catch (err) {
       console.error("Live fetch error:", err)
     }
-  }, [lastAbsenId, handleGenerate])
+  }, [handleGenerate])
 
   useEffect(() => {
-    handleGenerate()
+    const init = async () => {
+      await handleGenerate()
+    }
+    init()
   }, [handleGenerate])
 
   useEffect(() => {

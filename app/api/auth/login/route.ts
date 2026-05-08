@@ -55,7 +55,7 @@ export async function POST(req: Request) {
         redirect: "/user/home",
       })
     }
-    return Response.json({ error: "Kredensial tidak valid" }, { status: 401 })
+    return Response.json({ error: "Email atau Password Salah" }, { status: 401 })
   } catch (error: unknown) {
     console.error("Login error:", error)
     return Response.json({ error: "Terjadi kesalahan server" }, { status: 500 })

@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeButton } from "@/components/mode-button"
+import { TEST_CONFIG } from "@/lib/test-config"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -284,7 +285,7 @@ export default function UserHomePage() {
                     Mengecek...
                   </span>
                 </div>
-              ) : sudahAbsen ? (
+              ) : sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
                 // ── Sudah absen hari ini ──
                 <div className="flex flex-col items-center gap-1">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-400/20 ring-2 ring-emerald-300/50">
@@ -352,28 +353,24 @@ export default function UserHomePage() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => router.push("/user/scan")}
-            disabled={sudahAbsen}
+            disabled={sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN}
             className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-base font-bold transition-all duration-200 ${
-              sudahAbsen
-                ? "bg-[linear-gradient(135deg,#0d9488_0%,#0891b2_100%)] text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98]"
+              sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN
+                ? "cursor-not-allowed bg-muted text-muted-foreground"
                 : "bg-[linear-gradient(135deg,#0d9488_0%,#0891b2_100%)] text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98]"
             } `}
           >
             <QrCode
-              className={`h-6 w-6 ${sudahAbsen ? "text-white" : "text-white"}`}
+              className={`h-6 w-6 ${sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? "text-muted-foreground" : "text-white"}`}
             />
-            {sudahAbsen ? (
-              <span className="font-semibold text-white">
-                Sudah Absen Hari Ini
-              </span>
+            {sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
+              <span className="font-semibold">Sudah Absen Hari Ini</span>
             ) : (
-              <span className="font-semibold text-white">
-                Scan QR untuk Absen
-              </span>
+              <span className="font-semibold">Scan QR untuk Absen</span>
             )}
           </Button>
 
-          {sudahAbsen ? (
+          {sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
             <p className="text-center text-xs font-semibold text-primary">
               Anda Sudah Absen
             </p>

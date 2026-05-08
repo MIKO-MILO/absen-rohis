@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { BrowserQRCodeReader } from "@zxing/library"
+import { TEST_CONFIG } from "@/lib/test-config"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type ScanState = "idle" | "scanning" | "pilih" | "success" | "error"
@@ -332,16 +333,34 @@ export default function ScanQRPage() {
             </p>
 
             {/* Dev: simulate */}
-            <Button
-              onClick={() => {
-                setToken("ROHIS-DZUHUR-SIMULASI-TOKEN")
-                handleScanSuccess()
-              }}
-              disabled={!cameraReady}
-              className="h-12 rounded-2xl bg-teal-600/80 px-8 text-sm font-semibold text-white backdrop-blur-sm hover:bg-teal-600"
-            >
-              Simulasi Berhasil Scan
-            </Button>
+            {TEST_CONFIG.ENABLE_SIMULATION && (
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={() => {
+                    setToken("ROHIS-DZUHUR-SIMULASI-TOKEN")
+                    handleScanSuccess()
+                  }}
+                  disabled={!cameraReady}
+                  className="h-12 rounded-2xl bg-teal-600/80 px-8 text-sm font-semibold text-white backdrop-blur-sm hover:bg-teal-600"
+                >
+                  Simulasi Berhasil Scan
+                </Button>
+                <div className="flex items-center justify-center gap-2">
+                  <div
+                    className={`h-2 w-2 rounded-full ${TEST_CONFIG.ENABLE_TIME_RESTRICTION ? "bg-yellow-500" : "bg-gray-500"}`}
+                  />
+                  <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">
+                    Time Restriction:{" "}
+                    {TEST_CONFIG.ENABLE_TIME_RESTRICTION
+                      ? "ON (Fri 12-14)"
+                      : "OFF"}
+                  </span>
+                </div>
+                <p className="text-center text-[9px] text-white/20">
+                  Edit lib/test-config.ts to toggle
+                </p>
+              </div>
+            )}
           </>
         )}
 
@@ -435,36 +454,63 @@ export default function ScanQRPage() {
           </div>
         )}
 
-        {/* ── SUCCESS ── */}
+        {/* ── SUCCESS MODAL ── */}
         {scanState === "success" && cfg && (
-          <div className="flex flex-col items-center gap-5 text-center">
-            <div
-              className="flex h-24 w-24 items-center justify-center rounded-full"
-              style={{
-                background: cfg.ringBg,
-                border: `2px solid ${cfg.ringColor}`,
-              }}
-            >
-              <SuccessIcon className={`h-14 w-14 ${cfg.iconSuccessColor}`} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Overlay */}
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+
+            {/* Modal Card */}
+            <div className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-white/10 bg-[#0A0A0A] p-8 text-center shadow-2xl">
+              {/* Decorative Background */}
+              <div
+                className="absolute -top-24 -left-24 h-48 w-48 rounded-full blur-[80px]"
+                style={{ background: cfg.ringColor }}
+              />
+
+              <div className="relative flex flex-col items-center gap-6">
+                <div
+                  className="flex h-24 w-24 items-center justify-center rounded-full shadow-lg"
+                  style={{
+                    background: cfg.ringBg,
+                    border: `2px solid ${cfg.ringColor}`,
+                  }}
+                >
+                  <SuccessIcon
+                    className={`h-12 w-12 ${cfg.iconSuccessColor}`}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black tracking-tight text-white">
+                    Berhasil!
+                  </h2>
+                  <div className="flex flex-col items-center gap-1">
+                    <p className="text-lg font-medium text-white/60">
+                      Terima kasih,
+                    </p>
+                    <p className="text-2xl font-bold text-teal-400">
+                      {absenNama}
+                    </p>
+                  </div>
+                  <p className={`mt-2 text-sm font-medium ${cfg.successColor}`}>
+                    {cfg.successText}
+                  </p>
+                </div>
+
+                <div className="mt-2 w-full space-y-4">
+                  <Button
+                    onClick={() => router.push("/user/home")}
+                    className={`h-14 w-full rounded-2xl text-base font-bold text-white shadow-xl transition-all active:scale-95 ${cfg.btnClass}`}
+                  >
+                    Kembali ke Beranda
+                  </Button>
+                  <p className="text-xs text-white/30 italic">
+                    Otomatis kembali dalam 3 detik...
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-black text-white">Berhasil!</h2>
-              <p className={`mt-1 text-base font-bold text-teal-300`}>
-                {absenNama}
-              </p>
-              <p className={`mt-0.5 text-sm ${cfg.successColor}`}>
-                {cfg.successText}
-              </p>
-              <p className="mt-4 text-[10px] text-white/30 italic">
-                Mengalihkan ke beranda dalam 3 detik...
-              </p>
-            </div>
-            <Button
-              onClick={() => router.push("/user/home")}
-              className={`h-12 rounded-2xl px-10 font-bold text-white shadow-lg ${cfg.btnClass}`}
-            >
-              Kembali Sekarang
-            </Button>
           </div>
         )}
 

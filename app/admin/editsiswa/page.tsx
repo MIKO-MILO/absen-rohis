@@ -15,6 +15,7 @@ interface ManualFormType {
   kelas: string
   jenisKelamin: string
   email: string
+  password: string
 }
 
 const KELAS_OPTIONS = [
@@ -113,6 +114,7 @@ export default function EditSiswaPage() {
           kelas: form.kelas,
           jenis_kelamin: form.jenisKelamin,
           email: form.email,
+          password: form.password || undefined,
         }),
       })
 
@@ -137,6 +139,7 @@ export default function EditSiswaPage() {
     kelas: "",
     jenisKelamin: "",
     email: "",
+    password: "",
   })
 
   useEffect(() => {
@@ -167,6 +170,7 @@ export default function EditSiswaPage() {
           kelas: data.kelas || "",
           jenisKelamin: data.jenis_kelamin || "",
           email: data.email || "",
+          password: data.password || "",
         })
       } catch (err) {
         console.error("Fetch error:", err)
@@ -333,15 +337,20 @@ export default function EditSiswaPage() {
                   </p>
                 )}
               </div>
-
-              <div className="md:col-span-2">
+              
                 <Field
                   label="Email"
                   placeholder="email@sekolah.id"
                   value={form.email}
                   onChange={(v) => setForm((p) => ({ ...p, email: v }))}
                 />
-              </div>
+
+                <Field
+                  label="Password"
+                  placeholder="cth. 123456"
+                  value={form.password}
+                  onChange={(v) => setForm((p) => ({ ...p, password: v }))}
+                />
             </div>
 
             <div className="mt-10 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

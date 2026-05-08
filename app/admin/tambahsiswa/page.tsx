@@ -262,8 +262,8 @@ function ManualForm({
           nis: Number(form.nis),
           kelas: form.kelas,
           jenis_kelamin: form.jenisKelamin,
-          email: `${form.nis}@school.id`,
-          password: "123456",
+          email: `${form.nis}@absen.id`,
+          password: `${form.nis}`,
         }),
       })
       const result = await res.json()

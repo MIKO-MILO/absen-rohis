@@ -1,6 +1,23 @@
 import { supabase } from "@/lib/supabaseClient"
+import { TEST_CONFIG } from "@/lib/test-config"
 
 export async function POST(req: Request) {
+  interface QRToken {
+    id: string | number
+    token?: string
+    aktif: boolean
+    panitia_id: string | number | null
+    expired_at?: string
+    is_simulation?: boolean
+  }
+
+  interface AbsensiInsertResponse {
+    id: number
+    users: {
+      nama: string
+    } | null
+  }
+
   try {
     const body = await req.json()
     const { token, status, user_id } = body // token, status (hadir/berhalangan), user_id dari session
@@ -15,18 +32,45 @@ export async function POST(req: Request) {
     // 🔍 ambil token murni (buang prefix ROHIS-DZUHUR-)
     const cleanToken = token.replace("ROHIS-DZUHUR-", "")
 
-    // 🔍 cek QR
-    const { data: qr, error: qrError } = await supabase
-      .from("qr_token")
-      .select("*")
-      .eq("token", cleanToken)
-      .maybeSingle()
+    let qr: QRToken
 
-    if (qrError || !qr) {
-      return Response.json(
-        { error: "QR Code tidak valid atau sudah dihapus" },
-        { status: 400 }
-      )
+    if (cleanToken === "SIMULASI-TOKEN") {
+      if (!TEST_CONFIG.ENABLE_SIMULATION) {
+        return Response.json(
+          { error: "Mode simulasi sedang dinonaktifkan" },
+          { status: 403 }
+        )
+      }
+
+      // 🛠️ Bypass untuk mode simulasi pengembangan
+      // Cari satu panitia ID yang ada di DB agar insert absensi tidak gagal (foreign key)
+      const { data: dummyPanitia } = await supabase
+        .from("panitia")
+        .select("id")
+        .limit(1)
+        .maybeSingle()
+
+      qr = {
+        id: "simulasi",
+        aktif: true,
+        panitia_id: dummyPanitia?.id || null,
+        is_simulation: true,
+      }
+    } else {
+      // 🔍 cek QR asli di DB
+      const { data, error: qrError } = await supabase
+        .from("qr_token")
+        .select("*")
+        .eq("token", cleanToken)
+        .maybeSingle()
+
+      if (qrError || !data) {
+        return Response.json(
+          { error: "QR Code tidak valid atau sudah dihapus" },
+          { status: 400 }
+        )
+      }
+      qr = data
     }
 
     if (!qr.aktif) {
@@ -41,6 +85,27 @@ export async function POST(req: Request) {
         { error: "QR Code sudah kadaluarsa" },
         { status: 400 }
       )
+    }
+
+    // 🕒 Cek Batasan Waktu (Jumat 12:00 - 14:00)
+    if (TEST_CONFIG.ENABLE_TIME_RESTRICTION) {
+      const now = new Date()
+      const day = now.getDay() // 0 = Minggu, 5 = Jumat
+      const hour = now.getHours()
+
+      if (day !== 5) {
+        return Response.json(
+          { error: "Absensi hanya tersedia di hari Jumat" },
+          { status: 403 }
+        )
+      }
+
+      if (hour < 12 || hour >= 14) {
+        return Response.json(
+          { error: "Absensi hanya tersedia pukul 12:00 - 14:00 WIB" },
+          { status: 403 }
+        )
+      }
     }
 
     const today = new Date().toISOString().split("T")[0]
@@ -72,7 +137,7 @@ export async function POST(req: Request) {
     const mappedStatus = status === "berhalangan" ? "haid" : "hadir"
 
     // ✅ insert absensi
-    const { data: insertedData, error: insertError } = await supabase
+    const { data, error: insertError } = await supabase
       .from("absensi")
       .insert([
         {
@@ -83,12 +148,14 @@ export async function POST(req: Request) {
           panitia_id: qr.panitia_id,
         },
       ])
-      .select(`
+      .select(
+        `
         *,
         users (
           nama
         )
-      `)
+      `
+      )
       .single()
 
     if (insertError) {
@@ -96,11 +163,12 @@ export async function POST(req: Request) {
       throw new Error("Gagal menyimpan data absensi")
     }
 
+    const insertedData = data as AbsensiInsertResponse
+
     // 🔒 Nonaktifkan QR setelah digunakan (1 kali scan saja)
-    await supabase
-      .from("qr_token")
-      .update({ aktif: false })
-      .eq("id", qr.id)
+    if (!qr.is_simulation && TEST_CONFIG.ENABLE_ONE_TIME_SCAN) {
+      await supabase.from("qr_token").update({ aktif: false }).eq("id", qr.id)
+    }
 
     return Response.json({
       success: true,
