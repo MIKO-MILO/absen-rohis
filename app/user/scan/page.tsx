@@ -528,7 +528,7 @@ export default function ScanQRPage() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
-                Kamera Tidak Tersedia
+                {errorMsg}
               </h2>
               <p className="mt-2 max-w-xs text-sm leading-relaxed text-red-300">
                 {errorMsg}

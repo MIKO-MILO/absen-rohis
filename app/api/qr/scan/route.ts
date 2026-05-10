@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient"
-import { TEST_CONFIG } from "@/lib/test-config"
+import { TEST_CONFIG, isWithinTimeRestriction } from "@/lib/test-config"
 
 export async function POST(req: Request) {
   interface QRToken {
@@ -88,9 +88,9 @@ export async function POST(req: Request) {
     }
 
     // 🕒 Cek Batasan Waktu (Jumat 12:00 - 14:00)
-    if (TEST_CONFIG.ENABLE_TIME_RESTRICTION) {
-      const now = new Date()
-      const day = now.getDay() // 0 = Minggu, 5 = Jumat
+    const now = new Date()
+    if (!isWithinTimeRestriction(now)) {
+      const day = now.getDay()
       const hour = now.getHours()
 
       if (day !== 5) {
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const today = new Date().toISOString().split("T")[0]
+    const today = now.toISOString().split("T")[0]
 
     // 🔁 cek sudah absen (untuk tanggal hari ini)
     const { data: existing } = await supabase
@@ -126,7 +126,6 @@ export async function POST(req: Request) {
     }
 
     // Format waktu ke HH:mm:ss (Postgres TIME format)
-    const now = new Date()
     const waktu = [
       now.getHours().toString().padStart(2, "0"),
       now.getMinutes().toString().padStart(2, "0"),

@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeButton } from "@/components/mode-button"
-import { TEST_CONFIG } from "@/lib/test-config"
+import { TEST_CONFIG, isWithinTimeRestriction } from "@/lib/test-config"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -105,6 +105,16 @@ export default function UserHomePage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<UserSession | null>(null)
   const [sudahAbsen, setSudahAbsen] = useState(false)
+  const [now, setNow] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const isTimeAllowed = isWithinTimeRestriction(now)
+  const shouldDisableButton =
+    (sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN) || !isTimeAllowed
 
   const summary = getSummary(data)
 
@@ -353,24 +363,32 @@ export default function UserHomePage() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => router.push("/user/scan")}
-            disabled={sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN}
+            disabled={shouldDisableButton}
             className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-base font-bold transition-all duration-200 ${
-              sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN
+              shouldDisableButton
                 ? "cursor-not-allowed bg-muted text-muted-foreground"
                 : "bg-[linear-gradient(135deg,#0d9488_0%,#0891b2_100%)] text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98]"
             } `}
           >
             <QrCode
-              className={`h-6 w-6 ${sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? "text-muted-foreground" : "text-white"}`}
+              className={`h-6 w-6 ${shouldDisableButton ? "text-muted-foreground" : "text-white"}`}
             />
-            {sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
+            {!isTimeAllowed ? (
+              <span className="font-semibold">
+                Absensi Hanya Jumat 12:00-14:00
+              </span>
+            ) : sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
               <span className="font-semibold">Sudah Absen Hari Ini</span>
             ) : (
               <span className="font-semibold">Scan QR untuk Absen</span>
             )}
           </Button>
 
-          {sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
+          {!isTimeAllowed ? (
+            <p className="text-center text-xs font-semibold text-destructive">
+              Absensi hanya tersedia pada hari Jumat pukul 12:00 - 14:00 WIB
+            </p>
+          ) : sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
             <p className="text-center text-xs font-semibold text-primary">
               Anda Sudah Absen
             </p>
