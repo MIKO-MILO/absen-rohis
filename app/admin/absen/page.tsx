@@ -6,6 +6,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -150,7 +159,14 @@ export default function DataAbsenPage() {
     const fetchAbsensi = async () => {
       try {
         const res = await fetch("/api/absensi")
-        const result = await res.json()
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+        const text = await res.text()
+        if (!text) {
+          throw new Error("Empty response from server")
+        }
+        const result = JSON.parse(text)
 
         if (!isMounted) return
 
@@ -193,6 +209,10 @@ export default function DataAbsenPage() {
   const [filterTanggal, setFilterTanggal] = useState("")
   const [page, setPage] = useState(1)
   const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const clearSelected = () => setSelected(new Set())
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const PER_PAGE = 8
 
   const todayStr = !loading
@@ -224,6 +244,11 @@ export default function DataAbsenPage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const paginatedIds = paginated.map((s) => s.id)
+
+  const allPageSelected =
+    paginatedIds.length > 0 && paginatedIds.every((id) => selected.has(id))
+  const somePageSelected = paginatedIds.some((id) => selected.has(id))
 
   const summary = useMemo(
     () => ({
@@ -256,8 +281,81 @@ export default function DataAbsenPage() {
     setPage(1)
   }
 
-  const handleDelete = (id: number) =>
-    setData((prev) => prev.filter((s) => s.id !== id))
+  // ── Checkbox ────────────────────────────────────────────────────────────────
+  const toggleAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allPageSelected) {
+        paginatedIds.forEach((id) => next.delete(id))
+      } else {
+        paginatedIds.forEach((id) => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const toggleOne = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+
+  const openDeleteModal = (id: number) => {
+    setDeletingId(id)
+    setShowDeleteModal(true)
+  }
+
+  const handleDelete = async () => {
+    if (!deletingId) return
+    try {
+      const res = await fetch(`/api/absensi/${deletingId}`, {
+        method: "DELETE",
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || "Gagal hapus data")
+      setData((prev) => prev.filter((s) => s.id !== deletingId))
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.delete(deletingId)
+        return next
+      })
+    } catch (err: unknown) {
+      alert((err as Error).message || "Terjadi kesalahan saat menghapus data")
+    } finally {
+      setShowDeleteModal(false)
+      setDeletingId(null)
+    }
+  }
+
+  // ── Delete bulk ─────────────────────────────────────────────────────────────
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) =>
+          fetch(`/api/absensi/${id}`, { method: "DELETE" })
+        )
+      )
+      setData((prev) => prev.filter((s) => !selected.has(s.id)))
+      clearSelected()
+    } catch (err: unknown) {
+      alert((err as Error).message || "Terjadi kesalahan saat menghapus data")
+    } finally {
+      setShowDeleteModal(false)
+    }
+  }
+
+  const confirmDelete = () => {
+    if (deletingId) {
+      handleDelete()
+    } else {
+      handleBulkDelete()
+    }
+  }
 
   const handleStatusChange = async (id: number, newStatus: AbsenStatus) => {
     // Optimistic update
@@ -540,6 +638,19 @@ export default function DataAbsenPage() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-muted/30 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                  <th className="w-10 py-3 pr-2 pl-5">
+                    <input
+                      type="checkbox"
+                      checked={allPageSelected}
+                      ref={(el) => {
+                        if (el)
+                          el.indeterminate =
+                            somePageSelected && !allPageSelected
+                      }}
+                      onChange={toggleAll}
+                      className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+                    />
+                  </th>
                   <th className="px-5 py-3">Siswa</th>
                   <th className="px-5 py-3">Waktu & Tanggal</th>
                   <th className="px-5 py-3">Status</th>
@@ -553,6 +664,14 @@ export default function DataAbsenPage() {
                       key={s.id}
                       className="group transition-colors hover:bg-muted/40"
                     >
+                      <td className="py-3 pr-2 pl-5">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(s.id)}
+                          onChange={() => toggleOne(s.id)}
+                          className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+                        />
+                      </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8 border-2 border-background">
@@ -620,7 +739,7 @@ export default function DataAbsenPage() {
                             ))}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => handleDelete(s.id)}
+                              onClick={() => openDeleteModal(s.id)}
                               className="flex cursor-pointer items-center gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                             >
                               <Trash2 className="h-3.5 w-3.5" /> Hapus Record
@@ -681,6 +800,28 @@ export default function DataAbsenPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Hapus</DialogTitle>
+            <DialogDescription>
+              {deletingId
+                ? "Anda yakin ingin menghapus record absensi ini?"
+                : `Anda yakin ingin menghapus ${selected.size} record absensi?`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   )
 }

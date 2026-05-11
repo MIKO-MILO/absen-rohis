@@ -105,16 +105,20 @@ export default function UserHomePage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<UserSession | null>(null)
   const [sudahAbsen, setSudahAbsen] = useState(false)
-  const [now, setNow] = useState(new Date())
+  const [now, setNow] = useState<Date | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+    setNow(new Date())
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  const isTimeAllowed = isWithinTimeRestriction(now)
+  const isTimeAllowed = mounted && now ? isWithinTimeRestriction(now) : true
   const shouldDisableButton =
-    (sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN) || !isTimeAllowed
+    (sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN) ||
+    (mounted && !isTimeAllowed)
 
   const summary = getSummary(data)
 
@@ -363,17 +367,19 @@ export default function UserHomePage() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => router.push("/user/scan")}
-            disabled={shouldDisableButton}
+            disabled={mounted ? shouldDisableButton : false}
             className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-base font-bold transition-all duration-200 ${
-              shouldDisableButton
+              mounted && shouldDisableButton
                 ? "cursor-not-allowed bg-muted text-muted-foreground"
                 : "bg-[linear-gradient(135deg,#0d9488_0%,#0891b2_100%)] text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98]"
             } `}
           >
             <QrCode
-              className={`h-6 w-6 ${shouldDisableButton ? "text-muted-foreground" : "text-white"}`}
+              className={`h-6 w-6 ${mounted && shouldDisableButton ? "text-muted-foreground" : "text-white"}`}
             />
-            {!isTimeAllowed ? (
+            {!mounted ? (
+              <span className="font-semibold">Scan QR untuk Absen</span>
+            ) : !isTimeAllowed ? (
               <span className="font-semibold">
                 Absensi Hanya Jumat 12:00-14:00
               </span>
@@ -384,7 +390,11 @@ export default function UserHomePage() {
             )}
           </Button>
 
-          {!isTimeAllowed ? (
+          {!mounted ? (
+            <p className="text-center text-xs text-muted-foreground">
+              Arahkan kamera ke QR Code yang tersedia di masjid
+            </p>
+          ) : !isTimeAllowed ? (
             <p className="text-center text-xs font-semibold text-destructive">
               Absensi hanya tersedia pada hari Jumat pukul 12:00 - 14:00 WIB
             </p>

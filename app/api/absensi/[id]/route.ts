@@ -74,3 +74,24 @@ export async function PUT(
     return Response.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const targetId = isNaN(Number(id)) ? id : Number(id)
+
+    const { error } = await supabase.from("absensi").delete().eq("id", targetId)
+
+    if (error) {
+      return Response.json({ error: error.message }, { status: 500 })
+    }
+
+    return Response.json({ success: true })
+  } catch (err) {
+    console.error("DELETE error:", err)
+    return Response.json({ error: "Internal server error" }, { status: 500 })
+  }
+}

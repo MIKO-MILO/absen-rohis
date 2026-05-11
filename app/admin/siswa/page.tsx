@@ -73,6 +73,7 @@ export default function DataSiswaPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const clearSelected = () => setSelected(new Set())
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -174,7 +175,6 @@ export default function DataSiswaPage() {
       return next
     })
 
-  const clearSelected = () => setSelected(new Set())
 
   // ── Delete single ───────────────────────────────────────────────────────────
   const openDeleteModal = (id: number) => {
