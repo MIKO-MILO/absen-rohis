@@ -9,7 +9,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -37,9 +36,10 @@ import {
   X,
   CalendarDays,
   Filter,
+  AlertTriangle,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import * as XLSX from "xlsx"
+import XLSX from "xlsx-js-style"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AbsenStatus = "hadir" | "haid" | "tidak_hadir"
@@ -49,6 +49,7 @@ interface SiswaRecord {
   nama: string
   nis: string
   kelas: string
+  jenis_kelamin?: string
   waktu: string
   status: AbsenStatus
   tanggal: string
@@ -63,6 +64,7 @@ interface AbsensiResponse {
     nama: string
     nis: string
     kelas: string
+    jenis_kelamin: string
   } | null
 }
 
@@ -118,30 +120,195 @@ const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
 
 // ─── Export to XLSX ───────────────────────────────────────────────────────────
 function exportToExcel(data: SiswaRecord[], filename = "Absensi-Dzuhur") {
-  const rows = data.map((s, i) => ({
-    No: i + 1,
-    NIS: s.nis,
-    "Nama Siswa": s.nama,
-    Kelas: s.kelas,
-    Tanggal: s.tanggal,
-    "Waktu Absen": s.waktu === "—" ? "" : `${s.waktu} WIB`,
-    Status: STATUS_META[s.status].label,
-  }))
+  const wb = XLSX.utils.book_new()
+  const ws: XLSX.WorkSheet = {}
 
-  const ws = XLSX.utils.json_to_sheet(rows)
+  // ── Konfigurasi ──────────────────────────────────────────────────────────
+  const KELAS = "KELAS X REKAYASA PERANGKAT LUNAK (RPL) - A"
+  const TAHUN = "TAHUN PELAJARAN : 2025/2026"
+  const SEKOLAH = "SMK NEGERI 4 KOTA MALANG"
+  const INSTANSI = "PEMERINTAH PROVINSI JAWA TIMUR"
+  const DINAS = "DINAS PENDIDIKAN"
+  const ALAMAT =
+    "Jalan Tanimbar Nomor 22, Kasin, Klojen, Malang, Jawa Timur 65117"
+  const KONTAK =
+    "Telepon (0341) 353798, Faksimile (0341) 363099, Laman www.smkn4malang.sch.id"
 
-  // Column widths
-  ws["!cols"] = [
-    { wch: 5 },
-    { wch: 10 },
-    { wch: 24 },
-    { wch: 12 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 14 },
+  // Tambahkan helper ini di luar fungsi exportToExcel
+  function getDayName(tanggal: string): string {
+    const days = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
+    return days[new Date(tanggal).getDay()]
+  }
+
+  // Lalu di dalam exportToExcel, ganti:
+  const dateEntries = [
+    ...new Map(
+      data.map((s) => [s.tanggal, getDayName(s.tanggal)]) // ← pakai helper
+    ).entries(),
+  ].sort((a, b) => a[0].localeCompare(b[0]))
+
+  const students = [...new Map(data.map((s) => [s.nis, s])).values()]
+
+  // Layout kolom:
+  // A=NO, B=NAMA, C=L/P, D=NIS1, E=/, F=NIS2, G=., H=NIS3
+  // I..? = tanggal kehadiran (dinamis)
+  // berikutnya = S, I, A, KET
+  const ATTEND_START = 8 // kolom I (0-index = 8)
+  const numDates = dateEntries.length
+  const S_COL = ATTEND_START + numDates // Sakit
+  const I_COL = S_COL + 1 // Izin
+  const A_COL = S_COL + 2 // Alfa
+  const KET_COL = S_COL + 3 // Keterangan
+  const LAST_COL = KET_COL
+
+  const enc = XLSX.utils.encode_cell
+  const S = (r: number, c: number) => enc({ r, c })
+
+  // Helper: set cell
+  function cell(r: number, c: number, v: string | number, t: "s" | "n" = "s") {
+    ws[S(r, c)] = { v, t }
+  }
+
+  // ── Baris 1–5: Kop Surat ──────────────────────────────────────────────────
+  cell(0, 0, INSTANSI)
+  cell(1, 0, DINAS)
+  cell(2, 0, SEKOLAH)
+  cell(3, 0, ALAMAT)
+  cell(4, 0, KONTAK)
+  // baris 6 kosong (spacer)
+  // ── Baris 8–10: Judul ────────────────────────────────────────────────────
+  cell(7, 0, "DAFTAR HADIR SISWA")
+  cell(8, 0, KELAS)
+  cell(9, 0, TAHUN)
+
+  // ── Baris 12: Header utama (row index 11) ────────────────────────────────
+  cell(11, 0, "NO")
+  cell(11, 1, "NAMA")
+  cell(11, 2, "L/P")
+  cell(11, 3, "No. INDUK SISWA")
+  cell(11, ATTEND_START, "KEHADIRAN")
+  cell(11, S_COL, "JUMLAH")
+  cell(11, KET_COL, "KET")
+
+  // ── Baris 13: Nama hari (row index 12) ───────────────────────────────────
+  dateEntries.forEach(([, hari], i) => {
+    cell(12, ATTEND_START + i, hari) // "Sen", "Sel", "Rab", dst
+  })
+  cell(12, S_COL, "S")
+  cell(12, I_COL, "I")
+  cell(12, A_COL, "A")
+
+  // ── Baris 14: Tanggal (row index 13) ─────────────────────────────────────
+  dateEntries.forEach(([tanggal], i) => {
+    // Kirim sebagai Date supaya Excel format d-mmm
+    ws[S(13, ATTEND_START + i)] = {
+      v: tanggal,
+      t: "s",
+      z: "d-mmm",
+    }
+  })
+
+  // ── Baris 15+: Data siswa (row index 14+) ────────────────────────────────
+  students.forEach((s, idx) => {
+    const r = 14 + idx
+    cell(r, 0, idx + 1, "n")
+    cell(r, 1, s.nama)
+    cell(r, 2, s.jenis_kelamin === "Laki-laki" ? "L" : "P")
+    cell(r, 3, s.nis)
+    cell(r, 4, "") // kosong (tidak ada format split NIS)
+    cell(r, 5, "")
+    cell(r, 6, "")
+    cell(r, 7, "")
+
+    let sakit = 0,
+      izin = 0,
+      alfa = 0
+
+    dateEntries.forEach(([tanggal], i) => {
+      const rec = data.find((d) => d.nis === s.nis && d.tanggal === tanggal)
+      const status = rec ? STATUS_META[rec.status as AbsenStatus].label : ""
+      cell(r, ATTEND_START + i, status)
+      if (status === "H") hadirCount++
+      else if (status === "I") haidCount++
+      else if (status === "T") tidakHadirCount++
+    })
+
+    cell(r, H_COL, hadirCount, "n")
+    cell(r, I_COL, haidCount, "n")
+    cell(r, T_COL, tidakHadirCount, "n")
+  })
+
+  // ── Footer: ringkasan L/P ─────────────────────────────────────────────────
+  const footerRow = 14 + students.length + 2 // jarak 2 baris
+  const jumlahL = students.filter((s) => s.jenis_kelamin === "Laki-laki").length // ← s.jenis_kelamin
+  const jumlahP = students.filter((s) => s.jenis_kelamin === "Perempuan").length
+
+  cell(footerRow, 1, "Laki - Laki")
+  cell(footerRow, 2, jumlahL, "n")
+  cell(footerRow + 1, 1, "Perempuan")
+  cell(footerRow + 1, 2, jumlahP, "n")
+  cell(footerRow + 2, 1, "Jumlah")
+  cell(footerRow + 2, 2, jumlahL + jumlahP, "n")
+
+  // Tanda tangan
+  cell(footerRow, 10, `Malang, ___________________ ${new Date().getFullYear()}`)
+  cell(footerRow + 1, 10, "Wali Kelas")
+
+  // ── Sheet range ───────────────────────────────────────────────────────────
+  ws["!ref"] = XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: { r: footerRow + 5, c: LAST_COL },
+  })
+
+  // ── Merges ────────────────────────────────────────────────────────────────
+  const LC = LAST_COL
+  ws["!merges"] = [
+    // Kop surat (baris 1–5 span semua kolom)
+    { s: { r: 0, c: 0 }, e: { r: 0, c: LC } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: LC } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: LC } },
+    { s: { r: 3, c: 0 }, e: { r: 3, c: LC } },
+    { s: { r: 4, c: 0 }, e: { r: 4, c: LC } },
+    { s: { r: 5, c: 0 }, e: { r: 5, c: LC } }, // spacer
+    // Judul
+    { s: { r: 7, c: 0 }, e: { r: 7, c: LC } },
+    { s: { r: 8, c: 0 }, e: { r: 8, c: LC } },
+    { s: { r: 9, c: 0 }, e: { r: 9, c: LC } },
+    // Header tabel — NO, NAMA, L/P merge 3 baris vertikal
+    { s: { r: 11, c: 0 }, e: { r: 13, c: 0 } },
+    { s: { r: 11, c: 1 }, e: { r: 13, c: 1 } },
+    { s: { r: 11, c: 2 }, e: { r: 13, c: 2 } },
+    // No. INDUK SISWA merge D–H dan 3 baris
+    { s: { r: 11, c: 3 }, e: { r: 13, c: 7 } },
+    // KEHADIRAN merge horizontal baris 1
+    { s: { r: 11, c: ATTEND_START }, e: { r: 11, c: S_COL - 1 } },
+    // JUMLAH merge S/I/A baris 1–2
+    { s: { r: 11, c: S_COL }, e: { r: 12, c: A_COL } },
+    // KET merge 3 baris
+    { s: { r: 11, c: KET_COL }, e: { r: 13, c: KET_COL } },
+    // S, I, A merge baris 2–3
+    { s: { r: 12, c: S_COL }, e: { r: 13, c: S_COL } },
+    { s: { r: 12, c: I_COL }, e: { r: 13, c: I_COL } },
+    { s: { r: 12, c: A_COL }, e: { r: 13, c: A_COL } },
   ]
 
-  const wb = XLSX.utils.book_new()
+  // ── Lebar kolom (persis dari file asli) ───────────────────────────────────
+  ws["!cols"] = [
+    { wch: 4.0 }, // A  NO
+    { wch: 42.9 }, // B  NAMA
+    { wch: 4.1 }, // C  L/P
+    { wch: 6.7 }, // D  NIS1
+    { wch: 2.0 }, // E  /
+    { wch: 6.7 }, // F  NIS2
+    { wch: 1.4 }, // G  .
+    { wch: 5.7 }, // H  NIS3
+    ...dateEntries.map(() => ({ wch: 4.7 })), // I..? per tanggal
+    { wch: 4.3 }, // S
+    { wch: 4.3 }, // I
+    { wch: 4.3 }, // A
+    { wch: 8.7 }, // KET
+  ]
+
   XLSX.utils.book_append_sheet(wb, ws, "Absensi Dzuhur")
   XLSX.writeFile(
     wb,
@@ -149,7 +316,6 @@ function exportToExcel(data: SiswaRecord[], filename = "Absensi-Dzuhur") {
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DataAbsenPage() {
   const [data, setData] = useState<SiswaRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -180,6 +346,7 @@ export default function DataAbsenPage() {
               nama: s.users?.nama || "Tidak diketahui",
               nis: s.users?.nis || "—",
               kelas: s.users?.kelas || "—",
+              jenis_kelamin: s.users?.jenis_kelamin || "—",
               tanggal: s.tanggal ?? "—",
               waktu: s.waktu ?? "—",
               status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
@@ -654,7 +821,7 @@ export default function DataAbsenPage() {
                   <th className="px-5 py-3">Siswa</th>
                   <th className="px-5 py-3">Waktu & Tanggal</th>
                   <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Aksi</th>
+                  <th className="px-5 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -720,6 +887,8 @@ export default function DataAbsenPage() {
                             align="end"
                             className="w-44 rounded-xl"
                           >
+                            <DropdownMenuLabel>Action</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
                             <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
                               Ubah Status
                             </DropdownMenuLabel>
@@ -803,23 +972,38 @@ export default function DataAbsenPage() {
 
       {/* Delete Confirmation Modal */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Konfirmasi Hapus</DialogTitle>
-            <DialogDescription>
-              {deletingId
-                ? "Anda yakin ingin menghapus record absensi ini?"
-                : `Anda yakin ingin menghapus ${selected.size} record absensi?`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
-              Batal
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Hapus
-            </Button>
-          </DialogFooter>
+        <DialogContent className="max-w-[320px] rounded-3xl p-6">
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+              <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
+            </div>
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-xl font-bold">
+                Konfirmasi Hapus
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                {deletingId
+                  ? "Anda yakin ingin menghapus record absensi ini? Tindakan ini tidak dapat dibatalkan."
+                  : `Anda yakin ingin menghapus ${selected.size} record absensi? Tindakan ini tidak dapat dibatalkan.`}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-6 flex w-full gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteModal(false)}
+                className="rounded-2x flex-1 border-border py-6 font-semibold"
+              >
+                Batal
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                className="rounded-2x flex-1 bg-red-600 py-6 font-semibold text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+              >
+                Hapus
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </AdminShell>

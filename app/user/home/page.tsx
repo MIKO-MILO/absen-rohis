@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeButton } from "@/components/mode-button"
-import { TEST_CONFIG, isWithinTimeRestriction } from "@/lib/test-config"
+import { TEST_CONFIG, isPastAbsensiTime } from "@/lib/test-config"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -115,7 +115,7 @@ export default function UserHomePage() {
     return () => clearInterval(timer)
   }, [])
 
-  const isTimeAllowed = mounted && now ? isWithinTimeRestriction(now) : true
+  const isTimeAllowed = mounted && now ? !isPastAbsensiTime(now) : true
   const shouldDisableButton =
     (sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN) ||
     (mounted && !isTimeAllowed)
@@ -299,7 +299,7 @@ export default function UserHomePage() {
                     Mengecek...
                   </span>
                 </div>
-              ) : sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
+              ) : sudahAbsen ? (
                 // ── Sudah absen hari ini ──
                 <div className="flex flex-col items-center gap-1">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-400/20 ring-2 ring-emerald-300/50">
@@ -398,9 +398,9 @@ export default function UserHomePage() {
             <p className="text-center text-xs font-semibold text-destructive">
               Absensi hanya tersedia pada hari Jumat pukul 12:00 - 14:00 WIB
             </p>
-          ) : sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
+          ) : sudahAbsen ? (
             <p className="text-center text-xs font-semibold text-primary">
-              Anda Sudah Absen
+              Anda Sudah Absen {!TEST_CONFIG.ENABLE_ONE_TIME_SCAN && "(Bisa Scan Lagi)"}
             </p>
           ) : (
             <p className="text-center text-xs text-muted-foreground">

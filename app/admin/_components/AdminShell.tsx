@@ -14,6 +14,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import {
   LayoutDashboard,
   Users,
   QrCode,
@@ -22,12 +30,14 @@ import {
   Bell,
   Menu,
   X,
+  LayoutGrid,
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
   { label: "Data Absen", icon: ClipboardList, href: "/admin/absen" },
+  { label: "Monitoring", icon: LayoutGrid, href: "/admin/monitoring" },
   { label: "Siswa", icon: Users, href: "/admin/siswa" },
   { label: "Panitia", icon: Users, href: "/admin/panitia" },
   { label: "Generate QR", icon: QrCode, href: "/admin/generate-qr" },
@@ -181,6 +191,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false)
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [admin, setAdmin] = useState<{ username: string } | null>(null)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -200,6 +211,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, [router])
 
   const handleLogout = () => {
+    setShowLogoutModal(true)
+  }
+
+  const confirmLogout = () => {
     localStorage.removeItem("admin_session")
     router.push("/admin")
   }
@@ -323,6 +338,42 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
+        <DialogContent className="max-w-[320px] rounded-3xl p-6">
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+              <LogOut className="h-8 w-8 text-red-600 dark:text-red-400" />
+            </div>
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-xl font-bold">
+                Konfirmasi Keluar
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Apakah Anda yakin ingin keluar dari panel admin? Sesi Anda akan
+                diakhiri.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-6 flex w-full gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowLogoutModal(false)}
+                className="rounded-2x flex-1 border-border py-6 font-semibold"
+              >
+                Batal
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmLogout}
+                className="rounded-2x flex-1 bg-red-500 py-6 font-semibold text-white hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600"
+              >
+                Keluar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

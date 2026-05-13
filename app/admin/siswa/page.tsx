@@ -10,6 +10,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import {
   Dialog,
@@ -18,6 +20,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import {
   Users,
   Search,
@@ -29,6 +32,7 @@ import {
   X,
   Plus,
   Pencil,
+  AlertTriangle,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -174,7 +178,6 @@ export default function DataSiswaPage() {
       }
       return next
     })
-
 
   // ── Delete single ───────────────────────────────────────────────────────────
   const openDeleteModal = (id: number) => {
@@ -555,6 +558,8 @@ export default function DataSiswaPage() {
                               align="end"
                               className="w-40 rounded-xl"
                             >
+                              <DropdownMenuLabel>Action</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() =>
                                   router.push(`/admin/editsiswa?id=${s.id}`)
@@ -568,7 +573,7 @@ export default function DataSiswaPage() {
                                 onClick={() => openDeleteModal(s.id)}
                                 className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="text-red h-3.5 w-3.5 hover:text-destructive" />
                                 Hapus Siswa
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -639,16 +644,16 @@ export default function DataSiswaPage() {
           if (!open) setDeletingId(null)
         }}
       >
-        <DialogContent className="overflow-hidden rounded-2xl p-0 sm:max-w-[400px]">
-          <div className="flex flex-col items-center p-6 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-              <Trash2 className="h-8 w-8 text-destructive" />
+        <DialogContent className="max-w-[320px] rounded-3xl p-6">
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+              <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
             </div>
-            <DialogHeader className="mb-2">
-              <DialogTitle className="text-center text-xl font-bold text-foreground">
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-xl font-bold">
                 Hapus Data {deletingId ? "Siswa" : "Terpilih"}?
               </DialogTitle>
-              <DialogDescription className="text-center text-sm text-muted-foreground">
+              <DialogDescription className="text-sm text-muted-foreground">
                 {deletingId ? (
                   <>
                     Apakah Anda yakin ingin menghapus data siswa{" "}
@@ -670,18 +675,20 @@ export default function DataSiswaPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="mt-6 flex w-full gap-3">
-              <button
+              <Button
+                variant="outline"
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted"
+                className="rounded-2x flex-1 border-border py-6 font-semibold"
               >
                 Batal
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="destructive"
                 onClick={confirmDelete}
-                className="flex-1 rounded-xl bg-destructive px-4 py-2.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                className="rounded-2x flex-1 bg-red-600 py-6 font-semibold text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
               >
-                Ya, Hapus
-              </button>
+                Hapus
+              </Button>
             </div>
           </div>
         </DialogContent>

@@ -14,6 +14,7 @@ import {
   Users,
   Timer,
   ShieldCheck,
+  PartyPopper,
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 
@@ -21,10 +22,16 @@ import { ModeToggle } from "@/components/mode-toggle"
 // import QRCode from "qrcode";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type QRStatus = "active" | "expired" | "generating"
+type QRStatus = "active" | "expired" | "generating" | "success"
 
 interface AbsenRecord {
   id: number
+  nama: string
+  kelas: string
+  waktu: string
+}
+
+interface ScanSuccessData {
   nama: string
   kelas: string
   waktu: string
@@ -87,10 +94,13 @@ export default function GenerateQRPage() {
   const [countdown, setCountdown] = useState(() => QR_LIFETIME_SECONDS)
   const [status, setStatus] = useState<QRStatus>("active")
   const [absenList, setAbsenList] = useState<AbsenRecord[]>([])
+  const [scanSuccess, setScanSuccess] = useState<ScanSuccessData | null>(null)
   const lastAbsenIdRef = useRef<number | null>(null)
+  const lastTokenRef = useRef<string>("")
   const progress = (countdown / QR_LIFETIME_SECONDS) * 100
   const isWarning = countdown <= 15
   const isExpired = status === "expired"
+  const isSuccess = status === "success"
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isMounted = useRef(true)
 
@@ -153,6 +163,7 @@ export default function GenerateQRPage() {
       const data = await res.json()
       if (isMounted.current) {
         setToken(data.token)
+        lastTokenRef.current = data.token
         startTimer()
       }
     } catch (err: unknown) {
@@ -177,12 +188,11 @@ export default function GenerateQRPage() {
 
       if (!isMounted.current) return
 
-      // Ambil 5 terbaru saja untuk tampilan live
       const latest = (data as AbsensiResponse[])
         .sort(
           (a, b) =>
             new Date(b.created_at || b.tanggal + " " + b.waktu).getTime() -
-            new Date(a.created_at || a.tanggal + " " + a.waktu).getTime()
+            new Date(a.created_at || a.tanggal + " " + b.waktu).getTime()
         )
         .slice(0, 5)
         .map((item) => ({
@@ -195,14 +205,33 @@ export default function GenerateQRPage() {
       if (isMounted.current) {
         setAbsenList(latest)
 
-        // Jika ada absen baru masuk, refresh QR otomatis
         if (latest.length > 0) {
           const newestId = latest[0].id
+
           if (
             lastAbsenIdRef.current !== null &&
             newestId !== lastAbsenIdRef.current
           ) {
-            handleGenerate()
+            setScanSuccess({
+              nama: latest[0].nama,
+              kelas: latest[0].kelas,
+              waktu: latest[0].waktu,
+            })
+            setStatus("success")
+            setCountdown(0)
+
+            setTimeout(() => {
+              if (isMounted.current) {
+                setScanSuccess(null)
+                handleGenerate()
+              }
+            }, 2500)
+
+            setTimeout(() => {
+              if (isMounted.current) {
+                router.push("/rohis/home")
+              }
+            }, 3000)
           }
           lastAbsenIdRef.current = newestId
         }
@@ -210,7 +239,7 @@ export default function GenerateQRPage() {
     } catch (err) {
       console.error("Live fetch error:", err)
     }
-  }, [handleGenerate])
+  }, [handleGenerate, router])
 
   useEffect(() => {
     const init = async () => {
@@ -289,14 +318,16 @@ export default function GenerateQRPage() {
             </div>
             <Badge
               className={`rounded-full border-0 px-3 py-1 text-xs font-bold ${
-                isExpired
-                  ? "bg-destructive/10 text-destructive"
-                  : isWarning
-                    ? "bg-amber-500/10 text-amber-600"
-                    : "bg-primary/10 text-primary"
+                isSuccess
+                  ? "bg-emerald-500/10 text-emerald-600"
+                  : isExpired
+                    ? "bg-destructive/10 text-destructive"
+                    : isWarning
+                      ? "bg-amber-500/10 text-amber-600"
+                      : "bg-primary/10 text-primary"
               }`}
             >
-              {isExpired ? "Expired" : "Aktif"}
+              {isSuccess ? "Berhasil!" : isExpired ? "Expired" : "Aktif"}
             </Badge>
           </div>
 
@@ -305,11 +336,13 @@ export default function GenerateQRPage() {
             <div
               className="relative rounded-2xl border-2 bg-white p-4 transition-all duration-300"
               style={{
-                borderColor: isExpired
-                  ? "var(--color-destructive)"
-                  : isWarning
-                    ? "#fcd34d"
-                    : "var(--color-primary)",
+                borderColor: isSuccess
+                  ? "#10b981"
+                  : isExpired
+                    ? "var(--color-destructive)"
+                    : isWarning
+                      ? "#fcd34d"
+                      : "var(--color-primary)",
                 filter: isExpired ? "grayscale(1) opacity(0.4)" : "none",
               }}
             >
@@ -336,48 +369,77 @@ export default function GenerateQRPage() {
                   </p>
                 </div>
               )}
+
+              {/* Success overlay */}
+              {isSuccess && scanSuccess && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-emerald-500/95 backdrop-blur-sm">
+                  <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
+                    <CheckCircle2 className="h-10 w-10 text-white" />
+                  </div>
+                  <p className="text-lg font-bold text-white">
+                    {scanSuccess.nama}
+                  </p>
+                  <p className="text-sm text-white/80">{scanSuccess.kelas}</p>
+                  <p className="mt-1 text-xs text-white/60">
+                    Absen pukul {scanSuccess.waktu}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Token label */}
-            <div className="flex w-full items-center justify-center gap-2 rounded-2xl bg-muted px-4 py-2">
-              <p className="truncate font-mono text-xs text-muted-foreground">
-                {status === "generating" ? "Generating QR..." : token || "-"}
-              </p>
-            </div>
+            {!isSuccess && (
+              <div className="flex w-full items-center justify-center gap-2 rounded-2xl bg-muted px-4 py-2">
+                <p className="truncate font-mono text-xs text-muted-foreground">
+                  {status === "generating" ? "Generating QR..." : token || "-"}
+                </p>
+              </div>
+            )}
 
             {/* Countdown bar */}
-            <div className="flex w-full flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Clock
-                    className={`h-3.5 w-3.5 ${isExpired ? "text-destructive" : isWarning ? "text-amber-500" : "text-primary"}`}
-                  />
-                  <span
-                    className={`text-xs font-semibold ${isExpired ? "text-destructive" : isWarning ? "text-amber-600" : "text-foreground/80"}`}
-                  >
-                    {isExpired
-                      ? "Expired"
-                      : `Berlaku ${formatCountdown(countdown)}`}
+            {!isSuccess && (
+              <div className="flex w-full flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Clock
+                      className={`h-3.5 w-3.5 ${isExpired ? "text-destructive" : isWarning ? "text-amber-500" : "text-primary"}`}
+                    />
+                    <span
+                      className={`text-xs font-semibold ${isExpired ? "text-destructive" : isWarning ? "text-amber-600" : "text-foreground/80"}`}
+                    >
+                      {isExpired
+                        ? "Expired"
+                        : `Berlaku ${formatCountdown(countdown)}`}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {QR_LIFETIME_SECONDS}s total
                   </span>
                 </div>
-                <span className="text-[10px] text-muted-foreground">
-                  {QR_LIFETIME_SECONDS}s total
-                </span>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000"
+                    style={{
+                      width: `${progress}%`,
+                      background: isExpired
+                        ? "var(--color-destructive)"
+                        : isWarning
+                          ? "linear-gradient(90deg, #fbbf24, #f59e0b)"
+                          : "var(--color-primary)",
+                    }}
+                  />
+                </div>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full transition-all duration-1000"
-                  style={{
-                    width: `${progress}%`,
-                    background: isExpired
-                      ? "var(--color-destructive)"
-                      : isWarning
-                        ? "linear-gradient(90deg, #fbbf24, #f59e0b)"
-                        : "var(--color-primary)",
-                  }}
-                />
+            )}
+
+            {isSuccess && (
+              <div className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-2">
+                <PartyPopper className="h-4 w-4 text-emerald-600" />
+                <p className="text-sm font-semibold text-emerald-600">
+                  QR Successfully Scanned!
+                </p>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Action buttons */}

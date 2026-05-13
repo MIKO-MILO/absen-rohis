@@ -1,5 +1,5 @@
 import { supabase } from "../../../../lib/supabaseClient"
-import { TEST_CONFIG, isPastAbsensiTime } from "@/lib/test-config"
+import { TEST_CONFIG,} from "@/lib/test-config"
 
 export async function POST() {
   try {
@@ -11,14 +11,18 @@ export async function POST() {
       )
     }
 
-    if (!isPastAbsensiTime()) {
+    const now = new Date()
+    const isFriday = now.getDay() === 5
+
+    // Jika bukan hari Jumat, jangan jalankan auto-mark
+    if (!isFriday && !TEST_CONFIG.ENABLE_SIMULATION) {
       return Response.json(
-        { error: "Waktu belum lewat 14:00 pada hari Jumat" },
+        { error: "Auto mark hanya berjalan pada hari Jumat" },
         { status: 400 }
       )
     }
 
-    const today = new Date().toISOString().split("T")[0]
+    const today = now.toISOString().split("T")[0]
 
     // 1. Ambil semua user
     const { data: allUsers, error: usersError } = await supabase
@@ -51,8 +55,8 @@ export async function POST() {
       return Response.json({ message: "Semua user sudah absen hari ini" })
     }
 
-    // 4. Insert absensi dengan status "tidak_hadir"
-    const absensiToInsert = usersBelumAbsen.map((user) => ({
+    // 4. Insert absensi dengan status "tidak_hadir" (UPSERT)
+    const absensiToUpsert = usersBelumAbsen.map((user) => ({
       user_id: user.id,
       tanggal: today,
       waktu: "14:00:00",
@@ -60,11 +64,11 @@ export async function POST() {
       panitia_id: null,
     }))
 
-    const { error: insertError } = await supabase
+    const { error: upsertError } = await supabase
       .from("absensi")
-      .insert(absensiToInsert)
+      .upsert(absensiToUpsert, { onConflict: "user_id,tanggal" })
 
-    if (insertError) throw insertError
+    if (upsertError) throw upsertError
 
     return Response.json({
       success: true,

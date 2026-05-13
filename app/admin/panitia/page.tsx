@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import {
   Users,
   Search,
@@ -31,6 +32,7 @@ import {
   X,
   Plus,
   Pencil,
+  AlertTriangle,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -625,16 +627,16 @@ export default function DataSiswaPage() {
           if (!open) setDeletingId(null)
         }}
       >
-        <DialogContent className="overflow-hidden rounded-2xl p-0 sm:max-w-[400px]">
-          <div className="flex flex-col items-center p-6 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-              <Trash2 className="h-8 w-8 text-destructive" />
+        <DialogContent className="max-w-[320px] rounded-3xl p-6">
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+              <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
             </div>
-            <DialogHeader className="mb-2">
-              <DialogTitle className="text-center text-xl font-bold text-foreground">
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-xl font-bold">
                 Hapus Data {deletingId ? "Panitia" : "Terpilih"}?
               </DialogTitle>
-              <DialogDescription className="text-center text-sm text-muted-foreground">
+              <DialogDescription className="text-sm text-muted-foreground">
                 {deletingId ? (
                   <>
                     Apakah Anda yakin ingin menghapus data panitia{" "}
@@ -656,18 +658,20 @@ export default function DataSiswaPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="mt-6 flex w-full gap-3">
-              <button
+              <Button
+                variant="outline"
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted"
+                className="flex-1 rounded-2xl border-border py-6 font-semibold"
               >
                 Batal
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="destructive"
                 onClick={confirmDelete}
-                className="flex-1 rounded-xl bg-destructive px-4 py-2.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                className="flex-1 rounded-2xl bg-red-600 font-semibold hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
               >
-                Ya, Hapus
-              </button>
+                Hapus
+              </Button>
             </div>
           </div>
         </DialogContent>

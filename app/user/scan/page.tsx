@@ -30,8 +30,8 @@ const PILIHAN_CONFIG = {
     inactive: "border-border/10 bg-muted/5",
     iconColor: "text-primary",
     badgeColor: "bg-primary",
-    successText: "Hadir sholat Dzuhur berhasil dicatat ✅",
     successColor: "text-primary",
+    ringTop: "rgba(13,148,136,0.4)",
     ringColor: "rgba(13,148,136,0.4)",
     ringBg: "rgba(13,148,136,0.15)",
     iconSuccess: CheckCircle2,
@@ -46,13 +46,13 @@ const PILIHAN_CONFIG = {
     inactive: "border-border/10 bg-muted/5",
     iconColor: "text-red-400",
     badgeColor: "bg-red-500",
-    successText: "Keterangan berhalangan berhasil dicatat 🌸",
     successColor: "text-red-300",
-    ringColor: "rgba(244,114,182,0.4)",
+    ringTop: "rgba(13,148,136,0.4)",
+    ringColor: "rgba(244,114,182,0.15)",
     ringBg: "rgba(244,114,182,0.15)",
     iconSuccess: XCircle,
     iconSuccessColor: "text-red-400",
-    btnClass: "bg-red-500 hover:bg-red-400 shadow-red-900/40",
+    btnClass: "bg-teal-600 hover:bg-teal-500 shadow-teal-900/40",
   },
 }
 
@@ -198,9 +198,9 @@ export default function ScanQRPage() {
       setScanState("success")
 
       // Otomatis pindah ke home setelah 3 detik
-      setTimeout(() => {
-        router.push("/user/home")
-      }, 3000)
+      // setTimeout(() => {
+      //   router.push("/user/home")
+      // }, 3000)
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Terjadi kesalahan saat absen"
@@ -465,7 +465,7 @@ export default function ScanQRPage() {
               {/* Decorative Background */}
               <div
                 className="absolute -top-24 -left-24 h-48 w-48 rounded-full blur-[80px]"
-                style={{ background: cfg.ringColor }}
+                style={{ background: cfg.ringTop }}
               />
 
               <div className="relative flex flex-col items-center gap-6">
@@ -483,19 +483,13 @@ export default function ScanQRPage() {
 
                 <div className="space-y-2">
                   <h2 className="text-3xl font-black tracking-tight text-white">
-                    Berhasil!
+                    Absen Berhasil
                   </h2>
                   <div className="flex flex-col items-center gap-1">
-                    <p className="text-lg font-medium text-white/60">
-                      Terima kasih,
-                    </p>
                     <p className="text-2xl font-bold text-teal-400">
                       {absenNama}
                     </p>
                   </div>
-                  <p className={`mt-2 text-sm font-medium ${cfg.successColor}`}>
-                    {cfg.successText}
-                  </p>
                 </div>
 
                 <div className="mt-2 w-full space-y-4">

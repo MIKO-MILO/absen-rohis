@@ -18,23 +18,41 @@ export async function POST(req: Request) {
     } | null
   }
 
+  interface AbsensiPayload {
+    user_id?: string | number
+    tanggal?: string
+    waktu: string
+    status: string
+    panitia_id?: string | number | null
+    admin_id?: string | number | null
+  }
+
   try {
     const body = await req.json()
-    const { token, status, user_id } = body // token, status (hadir/berhalangan), user_id dari session
+    const { token, status, user_id, qr_token, tanggal, admin_id } = body // token, status (hadir/berhalangan), user_id dari session
 
-    if (!token || !user_id) {
+    // Flag untuk update manual oleh admin
+    const isAdminUpdate = qr_token === "MANUAL_UPDATE"
+    const cleanToken = token?.replace("ROHIS-DZUHUR-", "") || ""
+
+    if (!isAdminUpdate && (!token || !user_id)) {
       return Response.json(
         { error: "Token atau User ID kosong" },
         { status: 400 }
       )
     }
 
-    // 🔍 ambil token murni (buang prefix ROHIS-DZUHUR-)
-    const cleanToken = token.replace("ROHIS-DZUHUR-", "")
-
     let qr: QRToken
 
-    if (cleanToken === "SIMULASI-TOKEN") {
+    if (isAdminUpdate) {
+      // 🛠️ Bypass untuk update manual oleh admin
+      qr = {
+        id: "admin-update",
+        aktif: true,
+        panitia_id: null,
+        is_simulation: true,
+      }
+    } else if (cleanToken === "SIMULASI-TOKEN") {
       if (!TEST_CONFIG.ENABLE_SIMULATION) {
         return Response.json(
           { error: "Mode simulasi sedang dinonaktifkan" },
@@ -89,7 +107,7 @@ export async function POST(req: Request) {
 
     // 🕒 Cek Batasan Waktu (Jumat 12:00 - 14:00)
     const now = new Date()
-    if (!isWithinTimeRestriction(now)) {
+    if (!isAdminUpdate && !isWithinTimeRestriction(now)) {
       const day = now.getDay()
       const hour = now.getHours()
 
@@ -108,22 +126,8 @@ export async function POST(req: Request) {
       }
     }
 
-    const today = now.toISOString().split("T")[0]
-
-    // 🔁 cek sudah absen (untuk tanggal hari ini)
-    const { data: existing } = await supabase
-      .from("absensi")
-      .select("*")
-      .eq("user_id", user_id)
-      .eq("tanggal", today)
-      .maybeSingle()
-
-    if (existing) {
-      return Response.json(
-        { error: "Anda sudah melakukan absensi hari ini" },
-        { status: 400 }
-      )
-    }
+    const targetDate =
+      isAdminUpdate && tanggal ? tanggal : now.toISOString().split("T")[0]
 
     // Format waktu ke HH:mm:ss (Postgres TIME format)
     const waktu = [
@@ -135,44 +139,94 @@ export async function POST(req: Request) {
     // Map "berhalangan" ke "haid" (sesuai ENUM database kita)
     const mappedStatus = status === "berhalangan" ? "haid" : "hadir"
 
-    // ✅ insert absensi
-    const { data, error: insertError } = await supabase
+    // 🔍 Cek apakah sudah ada data absensi untuk user ini di tanggal tersebut
+    const { data: existingAbsensi } = await supabase
       .from("absensi")
-      .insert([
-        {
-          user_id: user_id,
-          tanggal: today,
-          waktu,
-          status: mappedStatus,
-          panitia_id: qr.panitia_id,
-        },
-      ])
-      .select(
-        `
-        *,
-        users (
-          nama
-        )
-      `
-      )
-      .single()
+      .select("id")
+      .eq("user_id", user_id)
+      .eq("tanggal", targetDate)
+      .maybeSingle()
 
-    if (insertError) {
-      console.error("Insert Absensi Error:", insertError)
-      throw new Error("Gagal menyimpan data absensi")
+    let resultData, resultError
+
+    if (existingAbsensi) {
+      // 📝 Jika sudah ada, lakukan UPDATE
+      const updatePayload: AbsensiPayload = {
+        waktu,
+        status: mappedStatus,
+      }
+
+      // Jika admin yang merubah, tambahkan admin_id
+      if (isAdminUpdate) {
+        updatePayload.admin_id = admin_id
+        // Jangan merubah panitia_id jika sudah ada (sesuai request user)
+      } else {
+        // Jika scan normal, update panitia_id dari QR
+        updatePayload.panitia_id = qr.panitia_id
+      }
+
+      const { data: updateData, error: updateError } = await supabase
+        .from("absensi")
+        .update(updatePayload)
+        .eq("id", existingAbsensi.id)
+        .select(
+          `
+          *,
+          users (
+            nama
+          )
+        `
+        )
+        .single()
+      resultData = updateData
+      resultError = updateError
+    } else {
+      // ➕ Jika belum ada, lakukan INSERT
+      const insertPayload: AbsensiPayload = {
+        user_id: user_id,
+        tanggal: targetDate,
+        waktu,
+        status: mappedStatus,
+        panitia_id: qr.panitia_id,
+      }
+
+      // Jika admin yang merubah, tambahkan admin_id
+      if (isAdminUpdate) {
+        insertPayload.admin_id = admin_id
+      }
+
+      const { data: insertData, error: insertError } = await supabase
+        .from("absensi")
+        .insert([insertPayload])
+        .select(
+          `
+          *,
+          users (
+            nama
+          )
+        `
+        )
+        .single()
+      resultData = insertData
+      resultError = insertError
     }
 
-    const insertedData = data as AbsensiInsertResponse
+    if (resultError) {
+      console.error("Database Operation Error:", resultError)
+      throw new Error(`Gagal menyimpan data: ${resultError.message}`)
+    }
 
-    // 🔒 Nonaktifkan QR setelah digunakan (1 kali scan saja)
-    if (!qr.is_simulation && TEST_CONFIG.ENABLE_ONE_TIME_SCAN) {
+    const finalData = resultData as AbsensiInsertResponse
+
+    // 🔒 Nonaktifkan QR setelah digunakan (1 orang 1 QR)
+    if (!qr.is_simulation) {
       await supabase.from("qr_token").update({ aktif: false }).eq("id", qr.id)
     }
 
     return Response.json({
       success: true,
       message: "Absensi berhasil dicatat",
-      nama: insertedData?.users?.nama || "Siswa",
+      nama: finalData?.users?.nama || "Siswa",
     })
   } catch (err: unknown) {
     console.error("Scan QR Route Error:", err)

@@ -11,7 +11,8 @@ export async function GET(req: Request) {
       users (
         nama,
         nis,
-        kelas
+        kelas,
+        jenis_kelamin
       )
     `)
 
