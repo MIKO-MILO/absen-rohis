@@ -6,6 +6,7 @@ import { AdminShell } from "../_components/AdminShell"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { AbsensiExportButton } from "@/components/AbsensiExportButton"
 import {
   Users,
   Search,
@@ -16,7 +17,6 @@ import {
   HelpCircle,
   CalendarDays,
   LucideIcon,
-  FileSpreadsheet,
   Filter,
   Calendar,
   MoreHorizontal,
@@ -30,7 +30,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import XLSX from "xlsx-js-style"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AbsenStatus = "hadir" | "haid" | "tidak_hadir" | "belum_absen"
@@ -48,7 +47,6 @@ interface AbsensiRecord {
   nis: string
   nama: string
   jenis_kelamin: string
-
   waktu: string
   tanggal: string
 }
@@ -120,204 +118,6 @@ const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
   Haid: "haid",
   "Tidak Hadir": "tidak_hadir",
   "Belum Absen": "belum_absen",
-}
-
-// ─── Export to XLSX ───────────────────────────────────────────────────────────
-function exportToExcel(data: AbsensiRecord[], filename = "Absensi-Dzuhur") {
-  const wb = XLSX.utils.book_new()
-  const ws: XLSX.WorkSheet = {}
-
-  // ── Konfigurasi ──────────────────────────────────────────────────────────
-  const KELAS = "KELAS X REKAYASA PERANGKAT LUNAK (RPL) - A"
-  const TAHUN = "TAHUN PELAJARAN : 2025/2026"
-  const SEKOLAH = "SMK NEGERI 4 KOTA MALANG"
-  const INSTANSI = "PEMERINTAH PROVINSI JAWA TIMUR"
-  const DINAS = "DINAS PENDIDIKAN"
-  const ALAMAT =
-    "Jalan Tanimbar Nomor 22, Kasin, Klojen, Malang, Jawa Timur 65117"
-  const KONTAK =
-    "Telepon (0341) 353798, Faksimile (0341) 363099, Laman www.smkn4malang.sch.id"
-
-  // Tambahkan helper ini di luar fungsi exportToExcel
-  function getDayName(tanggal: string): string {
-    const days = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
-    return days[new Date(tanggal).getDay()]
-  }
-
-  // Lalu di dalam exportToExcel, ganti:
-  const dateEntries = [
-    ...new Map(
-      data.map((s) => [s.tanggal, getDayName(s.tanggal)]) // ← pakai helper
-    ).entries(),
-  ].sort((a, b) => a[0].localeCompare(b[0]))
-
-  const students = [...new Map(data.map((s) => [s.nis, s])).values()]
-
-  // Layout kolom:
-  // A=NO, B=NAMA, C=L/P, D=NIS1, E=/, F=NIS2, G=., H=NIS3
-  // I..? = tanggal kehadiran (dinamis)
-  // berikutnya = H, I, T, KET
-  const ATTEND_START = 8 // kolom I (0-index = 8)
-  const numDates = dateEntries.length
-  const H_COL = ATTEND_START + numDates // Hadir
-  const I_COL = H_COL + 1 // Izin
-  const T_COL = H_COL + 2 // Alfa
-  const KET_COL = H_COL + 3 // Keterangan
-  const LAST_COL = KET_COL
-
-  const enc = XLSX.utils.encode_cell
-  const S = (r: number, c: number) => enc({ r, c })
-
-  // Helper: set cell
-  function cell(r: number, c: number, v: string | number, t: "s" | "n" = "s") {
-    ws[S(r, c)] = { v, t }
-  }
-
-  // ── Baris 1–5: Kop Surat ──────────────────────────────────────────────────
-  cell(0, 0, INSTANSI)
-  cell(1, 0, DINAS)
-  cell(2, 0, SEKOLAH)
-  cell(3, 0, ALAMAT)
-  cell(4, 0, KONTAK)
-  // baris 6 kosong (spacer)
-  // ── Baris 8–10: Judul ────────────────────────────────────────────────────
-  cell(7, 0, "DAFTAR HADIR SISWA")
-  cell(8, 0, KELAS)
-  cell(9, 0, TAHUN)
-
-  // ── Baris 12: Header utama (row index 11) ────────────────────────────────
-  cell(11, 0, "NO")
-  cell(11, 1, "NAMA")
-  cell(11, 2, "L/P")
-  cell(11, 3, "No. INDUK SISWA")
-  cell(11, ATTEND_START, "KEHADIRAN")
-  cell(11, H_COL, "JUMLAH")
-  cell(11, KET_COL, "KET")
-
-  // ── Baris 13: Nama hari (row index 12) ───────────────────────────────────
-  dateEntries.forEach(([, hari], i) => {
-    cell(12, ATTEND_START + i, hari) // "Sen", "Sel", "Rab", dst
-  })
-  cell(12, H_COL, "H")
-  cell(12, I_COL, "I")
-  cell(12, T_COL, "T")
-
-  // ── Baris 14: Tanggal (row index 13) ─────────────────────────────────────
-  dateEntries.forEach(([tanggal], i) => {
-    // Kirim sebagai Date supaya Excel format d-mmm
-    ws[S(13, ATTEND_START + i)] = {
-      v: tanggal,
-      t: "s",
-      z: "d-mmm",
-    }
-  })
-
-  // ── Baris 15+: Data siswa (row index 14+) ────────────────────────────────
-  students.forEach((s, idx) => {
-    const r = 14 + idx
-    cell(r, 0, idx + 1, "n")
-    cell(r, 1, s.nama)
-    cell(r, 2, s.jenis_kelamin === "Laki-laki" ? "L" : "P")
-    cell(r, 3, s.nis)
-    cell(r, 4, "") // kosong (tidak ada format split NIS)
-    cell(r, 5, "")
-    cell(r, 6, "")
-    cell(r, 7, "")
-
-    let hCount = 0,
-      iCount = 0,
-      tCount = 0
-
-    dateEntries.forEach(([tanggal], i) => {
-      const rec = data.find((d) => d.nis === s.nis && d.tanggal === tanggal)
-      const status = rec ? STATUS_META[rec.status as AbsenStatus].label : ""
-      cell(r, ATTEND_START + i, status)
-      if (status === "H") hCount++
-      else if (status === "I") iCount++
-      else if (status === "T") tCount++
-    })
-
-    cell(r, H_COL, hCount, "n")
-    cell(r, I_COL, iCount, "n")
-    cell(r, T_COL, tCount, "n")
-  })
-
-  // ── Footer: ringkasan L/P ─────────────────────────────────────────────────
-  const footerRow = 14 + students.length + 2 // jarak 2 baris
-  const jumlahL = students.filter((s) => s.jenis_kelamin === "Laki-laki").length // ← s.jenis_kelamin
-  const jumlahP = students.filter((s) => s.jenis_kelamin === "Perempuan").length
-
-  cell(footerRow, 1, "Laki - Laki")
-  cell(footerRow, 2, jumlahL, "n")
-  cell(footerRow + 1, 1, "Perempuan")
-  cell(footerRow + 1, 2, jumlahP, "n")
-  cell(footerRow + 2, 1, "Jumlah")
-  cell(footerRow + 2, 2, jumlahL + jumlahP, "n")
-
-  // Tanda tangan
-  cell(footerRow, 10, `Malang, ___________________ ${new Date().getFullYear()}`)
-  cell(footerRow + 1, 10, "Wali Kelas")
-
-  // ── Sheet range ───────────────────────────────────────────────────────────
-  ws["!ref"] = XLSX.utils.encode_range({
-    s: { r: 0, c: 0 },
-    e: { r: footerRow + 5, c: LAST_COL },
-  })
-
-  // ── Merges ────────────────────────────────────────────────────────────────
-  const LC = LAST_COL
-  ws["!merges"] = [
-    // Kop surat (baris 1–5 span semua kolom)
-    { s: { r: 0, c: 0 }, e: { r: 0, c: LC } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: LC } },
-    { s: { r: 2, c: 0 }, e: { r: 2, c: LC } },
-    { s: { r: 3, c: 0 }, e: { r: 3, c: LC } },
-    { s: { r: 4, c: 0 }, e: { r: 4, c: LC } },
-    { s: { r: 5, c: 0 }, e: { r: 5, c: LC } }, // spacer
-    // Judul
-    { s: { r: 7, c: 0 }, e: { r: 7, c: LC } },
-    { s: { r: 8, c: 0 }, e: { r: 8, c: LC } },
-    { s: { r: 9, c: 0 }, e: { r: 9, c: LC } },
-    // Header tabel — NO, NAMA, L/P merge 3 baris vertikal
-    { s: { r: 11, c: 0 }, e: { r: 13, c: 0 } },
-    { s: { r: 11, c: 1 }, e: { r: 13, c: 1 } },
-    { s: { r: 11, c: 2 }, e: { r: 13, c: 2 } },
-    // No. INDUK SISWA merge D–H dan 3 baris
-    { s: { r: 11, c: 3 }, e: { r: 13, c: 7 } },
-    // KEHADIRAN merge horizontal baris 1
-    { s: { r: 11, c: ATTEND_START }, e: { r: 11, c: S_COL - 1 } },
-    // JUMLAH merge S/I/A baris 1–2
-    { s: { r: 11, c: S_COL }, e: { r: 12, c: A_COL } },
-    // KET merge 3 baris
-    { s: { r: 11, c: KET_COL }, e: { r: 13, c: KET_COL } },
-    // S, I, A merge baris 2–3
-    { s: { r: 12, c: S_COL }, e: { r: 13, c: S_COL } },
-    { s: { r: 12, c: I_COL }, e: { r: 13, c: I_COL } },
-    { s: { r: 12, c: A_COL }, e: { r: 13, c: A_COL } },
-  ]
-
-  // ── Lebar kolom (persis dari file asli) ───────────────────────────────────
-  ws["!cols"] = [
-    { wch: 4.0 }, // A  NO
-    { wch: 42.9 }, // B  NAMA
-    { wch: 4.1 }, // C  L/P
-    { wch: 6.7 }, // D  NIS1
-    { wch: 2.0 }, // E  /
-    { wch: 6.7 }, // F  NIS2
-    { wch: 1.4 }, // G  .
-    { wch: 5.7 }, // H  NIS3
-    ...dateEntries.map(() => ({ wch: 4.7 })), // I..? per tanggal
-    { wch: 4.3 }, // S
-    { wch: 4.3 }, // I
-    { wch: 4.3 }, // A
-    { wch: 8.7 }, // KET
-  ]
-
-  XLSX.utils.book_append_sheet(wb, ws, "Absensi Dzuhur")
-  XLSX.writeFile(
-    wb,
-    `${filename}-${new Date().toISOString().split("T")[0]}.xlsx`
-  )
 }
 
 export default function MonitoringPage() {
@@ -681,13 +481,10 @@ export default function MonitoringPage() {
                   </DropdownMenu>
 
                   {/* Export Excel per Kelas */}
-                  <button
-                    onClick={() => exportToExcel(filteredData, filterKelas)}
-                    className="flex h-9 items-center gap-1.5 rounded-xl border border-muted bg-muted/50 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted/75"
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
-                    Export Excel
-                  </button>
+                  <AbsensiExportButton
+                    kelas="X TEKNIK LOGISTIK (TL) - A"
+                    tahunPelajaran="2025/2026"
+                  />
                 </div>
               </div>
             </div>
