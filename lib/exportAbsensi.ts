@@ -5,13 +5,14 @@
  *
  * Struktur kolom (mengikuti file XLSX asli):
  *   A=NO  B=NAMA  C=L/P  D=NIS1  E="/"  F=NIS2  G="."  H=NIS3
- *   I..?=kehadiran (dinamis)  ?=S  ?=I  ?=A  ?=KET
+ *   I..?=kehadiran (dinamis)  ?=S  ?=I  ?=A
  *
  * NIS ditampilkan sebagai: 25335 / 00506 . 0242
  * Contoh NIS "2533500506.0242" → split dengan pemisah "/" dan "."
  */
 
 import ExcelJS from "exceljs"
+import { TEST_CONFIG } from "./test-config"
 
 // ─────────────────────────────────────────────
 // Types
@@ -22,6 +23,7 @@ export interface UserRecord {
   nama: string
   kelas: string
   nis: string
+  jenis_kelamin?: string
 }
 
 export interface AbsensiRecord {
@@ -45,7 +47,14 @@ export interface ExportConfig {
   waliKelas: string
   nipWaliKelas: string
   kota: string
-  logoBase64?: string
+  leftLogoBase64?: string
+  leftLogoWidth?: number
+  leftLogoHeight?: number
+  rightLogoBase64?: string
+  rightLogoWidth?: number
+  rightLogoHeight?: number
+  bulan?: number
+  tahunBulan?: number
 }
 
 // ─────────────────────────────────────────────
@@ -54,20 +63,23 @@ export interface ExportConfig {
 
 const STATUS_MAP: Record<string, string> = {
   hadir: "H",
+  Hadir: "H",
+  H: "H",
+  haid: "I",
+  Haid: "I",
   izin: "I",
-  sakit: "S",
+  Izin: "I",
+  I: "I",
+  tidak_hadir: "A",
+  "tidak hadir": "A",
+  "Tidak Hadir": "A",
+  sakit: "A",
+  Sakit: "A",
   alpha: "A",
+  Alpha: "A",
   alfa: "A",
-}
-
-const DAY_ABBR: Record<number, string> = {
-  0: "Min",
-  1: "Sen",
-  2: "Sel",
-  3: "Rab",
-  4: "Kam",
-  5: "Jum",
-  6: "Sab",
+  Alfa: "A",
+  A: "A",
 }
 
 /**
@@ -75,7 +87,7 @@ const DAY_ABBR: Record<number, string> = {
  *
  *  1=NO  2=NAMA  3=L/P  4=NIS1  5="/"  6=NIS2  7="."  8=NIS3
  *  9..9+n-1 = kehadiran per tanggal
- *  9+n = S, 9+n+1 = I, 9+n+2 = A, 9+n+3 = KET
+ *  9+n = S, 9+n+1 = I, 9+n+2 = A
  */
 const COL = {
   NO: 1,
@@ -103,20 +115,19 @@ const COL_W = {
   S: 4.3,
   I: 4.3,
   A: 4.3,
-  KET: 8.7,
 }
 
 const ROW_H = {
   KOP: 16,
   NAMA_SEKOLAH: 22,
   ALAMAT: 13,
-  BLANK: 6,
   JUDUL: 16,
   TH1: 20, // table header row 1
   TH2: 18, // table header row 2 (hari)
   TH3: 14, // table header row 3 (tanggal)
   DATA: 15,
   FOOTER: 14,
+  BLANK: 10,
 }
 
 // ─────────────────────────────────────────────
@@ -124,21 +135,26 @@ const ROW_H = {
 // ─────────────────────────────────────────────
 
 /** Split NIS "25335/00506.0242" atau "25335 00506 0242" menjadi 3 bagian */
-function splitNis(nis: string): [string, string, string] {
+function splitNis(
+  nis: string | number | null | undefined
+): [string, string, string] {
+  // Pastikan nis adalah string
+  const nisStr = String(nis || "")
+
   // Coba split pakai "/" dan "."
-  const bySlashDot = nis.match(/^(\d+)\s*[\/]\s*(\d+)\s*[.]\s*(\d+)$/)
+  const bySlashDot = nisStr.match(/^(\d+)\s*[\/]\s*(\d+)\s*[.]\s*(\d+)$/)
   if (bySlashDot) return [bySlashDot[1], bySlashDot[2], bySlashDot[3]]
 
   // Coba split pakai spasi saja
-  const parts = nis.trim().split(/\s+/)
+  const parts = nisStr.trim().split(/\s+/)
   if (parts.length === 3) return [parts[0], parts[1], parts[2]]
 
-  // Fallback: bagi rata
-  const third = Math.ceil(nis.length / 3)
+  // Fallback: bagi rata atau return kosong jika terlalu pendek
+  const third = Math.ceil(nisStr.length / 3)
   return [
-    nis.slice(0, third),
-    nis.slice(third, third * 2),
-    nis.slice(third * 2),
+    nisStr.slice(0, third) || "",
+    nisStr.slice(third, third * 2) || "",
+    nisStr.slice(third * 2) || "",
   ]
 }
 
@@ -230,16 +246,6 @@ function mc(
   }
 }
 
-/** Kolom number → huruf Excel (1=A, 28=AB, …) */
-function colLtr(n: number): string {
-  let s = ""
-  while (n > 0) {
-    s = String.fromCharCode(65 + ((n - 1) % 26)) + s
-    n = Math.floor((n - 1) / 26)
-  }
-  return s
-}
-
 // ─────────────────────────────────────────────
 // Data processor
 // ─────────────────────────────────────────────
@@ -258,20 +264,159 @@ interface SiswaRow {
   nis2: string
   nis3: string
   absen: Record<string, string>
-  jml: { S: number; I: number; A: number }
+  jml: { H: number; I: number; A: number }
 }
 
-function processData(users: UserRecord[], absensi: AbsensiRecord[]) {
-  // Tanggal unik, sorted
-  const dateSet = new Set(absensi.map((a) => a.tanggal))
-  const dates: DateInfo[] = [...dateSet].sort().map((d) => {
-    const dt = new Date(d + "T00:00:00")
-    return {
-      date: d,
-      abbr: DAY_ABBR[dt.getDay()] ?? "?",
-      dd: String(dt.getDate()).padStart(2, "0"),
+// Fungsi untuk mendapatkan semua tanggal dalam bulan dan tahun tertentu
+function getAllDatesInMonth(bulan: number, tahun: number): string[] {
+  const dates: string[] = []
+  const firstDay = new Date(tahun, bulan - 1, 1)
+  const lastDay = new Date(tahun, bulan, 0)
+
+  const currentDay = new Date(firstDay)
+  while (currentDay <= lastDay) {
+    dates.push(currentDay.toISOString().split("T")[0])
+    currentDay.setDate(currentDay.getDate() + 1)
+  }
+
+  return dates
+}
+
+// Fungsi untuk mendapatkan semua Jumat dalam bulan dan tahun tertentu
+function getFridaysInMonth(bulan: number, tahun: number): string[] {
+  const fridays: string[] = []
+  const firstDay = new Date(tahun, bulan - 1, 1)
+  const lastDay = new Date(tahun, bulan, 0)
+
+  // Cari Jumat pertama
+  const currentDay = new Date(firstDay)
+  while (currentDay.getDay() !== 5) {
+    // 5 = Jumat
+    currentDay.setDate(currentDay.getDate() + 1)
+  }
+
+  // Tambahkan semua Jumat sampai akhir bulan
+  while (currentDay <= lastDay) {
+    fridays.push(currentDay.toISOString().split("T")[0])
+    currentDay.setDate(currentDay.getDate() + 7)
+  }
+
+  return fridays
+}
+
+function processData(
+  users: UserRecord[],
+  absensi: AbsensiRecord[],
+  bulan?: number,
+  tahunBulan?: number
+) {
+  let dates: DateInfo[]
+
+  const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
+
+  // Jika EXPORT_ALL_DATES true, ambil semua tanggal di bulan tersebut (tidak hanya Jumat)
+  if (TEST_CONFIG.EXPORT_ALL_DATES && bulan && tahunBulan) {
+    const allDates = getAllDatesInMonth(bulan, tahunBulan)
+    dates = allDates.map((d) => {
+      const dt = new Date(d + "T00:00:00")
+      const day = dt.getDate()
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Agu",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ]
+      const month = monthNames[dt.getMonth()]
+      const dayName = dayNames[dt.getDay()]
+      return {
+        date: d,
+        abbr: dayName,
+        dd: `${day}-${month}`,
+      }
+    })
+  }
+  // Jika bulan dan tahun ditentukan, generate semua Jumat di bulan tersebut (default)
+  else if (bulan && tahunBulan) {
+    const fridays = getFridaysInMonth(bulan, tahunBulan)
+    dates = fridays.map((d) => {
+      const dt = new Date(d + "T00:00:00")
+      const day = dt.getDate()
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Agu",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ]
+      const month = monthNames[dt.getMonth()]
+      return {
+        date: d,
+        abbr: "Jum",
+        dd: `${day}-${month}`,
+      }
+    })
+  } else {
+    // Jika tidak, gunakan tanggal dari absensi
+    const dateSet = new Set(absensi.map((a) => a.tanggal))
+
+    // Jika tidak ada tanggal, tambahkan contoh tanggal Jumat
+    if (dateSet.size === 0) {
+      const today = new Date()
+      const dayOfWeek = today.getDay()
+      const diffToFriday = (5 - dayOfWeek + 7) % 7
+      const thisFriday = new Date(today)
+      thisFriday.setDate(today.getDate() + diffToFriday)
+
+      for (let i = 0; i < 4; i++) {
+        const d = new Date(thisFriday)
+        d.setDate(thisFriday.getDate() + i * 7)
+        dateSet.add(d.toISOString().split("T")[0])
+      }
     }
-  })
+
+    dates = [...dateSet].sort().map((d) => {
+      const dt = new Date(d + "T00:00:00")
+      const day = dt.getDate()
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Agu",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ]
+      const month = monthNames[dt.getMonth()]
+      const dayName = TEST_CONFIG.EXPORT_ALL_DATES
+        ? dayNames[dt.getDay()]
+        : "Jum"
+      return {
+        date: d,
+        abbr: dayName,
+        dd: `${day}-${month}`,
+      }
+    })
+  }
 
   // Absensi per user
   const byUser: Record<number, Record<string, string>> = {}
@@ -285,18 +430,30 @@ function processData(users: UserRecord[], absensi: AbsensiRecord[]) {
     perempuan = 0
 
   const rows: SiswaRow[] = users.map((u, i) => {
-    const absen = byUser[u.id] ?? {}
-    const jml = { S: 0, I: 0, A: 0 }
+    const absen: Record<string, string> = {}
+    const originalAbsen = byUser[u.id] ?? {}
+    for (const d of dates) {
+      let s = originalAbsen[d.date] ?? ""
+      if (s !== "H" && s !== "I") {
+        s = "A"
+      }
+      absen[d.date] = s
+    }
+    const jml = { H: 0, I: 0, A: 0 }
     for (const d of dates) {
       const s = absen[d.date]
-      if (s === "S") jml.S++
+      if (s === "H") jml.H++
       else if (s === "I") jml.I++
-      else if (s === "A") jml.A++
+      else jml.A++
     }
 
-    const recAbs = absensi.find((a) => a.user_id === u.id)
-    const lp = recAbs?.jenis_kelamin?.toLowerCase().startsWith("p") ? "P" : "L"
-    lp === "L" ? laki++ : perempuan++
+    // Ambil jenis_kelamin dari user record, bukan dari absensi
+    const lp = u.jenis_kelamin?.toLowerCase().startsWith("p") ? "P" : "L"
+    if (lp === "L") {
+      laki++
+    } else {
+      perempuan++
+    }
 
     const [nis1, nis2, nis3] = splitNis(u.nis)
     return {
@@ -315,19 +472,16 @@ function processData(users: UserRecord[], absensi: AbsensiRecord[]) {
 }
 
 // ─────────────────────────────────────────────
-// Main export
+// Main export functions
 // ─────────────────────────────────────────────
 
-export async function exportAbsensiExcel(
+function createWorksheet(
+  wb: ExcelJS.Workbook,
   users: UserRecord[],
   absensi: AbsensiRecord[],
   config: ExportConfig
-): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook()
-  wb.creator = "Sistem Absensi Sekolah"
-  wb.created = new Date()
-
-  const ws = wb.addWorksheet("Daftar Hadir", {
+) {
+  const ws = wb.addWorksheet(config.kelas, {
     pageSetup: {
       paperSize: 13, // F4
       orientation: "portrait",
@@ -345,7 +499,12 @@ export async function exportAbsensiExcel(
     },
   })
 
-  const { dates, rows, laki, perempuan } = processData(users, absensi)
+  const { dates, rows, laki, perempuan } = processData(
+    users,
+    absensi,
+    config.bulan,
+    config.tahunBulan
+  )
 
   // Kolom dinamis
   const ABS_START = COL.ABS // kolom pertama kehadiran
@@ -353,8 +512,7 @@ export async function exportAbsensiExcel(
   const S_COL = ABS_END + 1
   const I_COL = S_COL + 1
   const A_COL = I_COL + 1
-  const KET_COL = A_COL + 1
-  const LAST = KET_COL
+  const LAST = A_COL
 
   // ── Column widths ──────────────────────────────────────────────
   ws.getColumn(COL.NO).width = COL_W.NO
@@ -366,10 +524,10 @@ export async function exportAbsensiExcel(
   ws.getColumn(COL.SEP2).width = COL_W.SEP2
   ws.getColumn(COL.NIS3).width = COL_W.NIS3
   for (let c = ABS_START; c <= ABS_END; c++) ws.getColumn(c).width = COL_W.ABS
+  // Kembalikan lebar kolom jumlah ke normal
   ws.getColumn(S_COL).width = COL_W.S
   ws.getColumn(I_COL).width = COL_W.I
   ws.getColumn(A_COL).width = COL_W.A
-  ws.getColumn(KET_COL).width = COL_W.KET
 
   const thin = bdr("thin")
   const hFont = fnt(9, true)
@@ -390,30 +548,60 @@ export async function exportAbsensiExcel(
     [config.telepon, ROW_H.ALAMAT, 8, false],
   ]
 
-  const kopStart = R
-  for (const [text, height, size, bold] of kopRows) {
+  let lastKopRow: number | null = null
+  for (let i = 0; i < kopRows.length; i++) {
+    const [text, height, size, bold] = kopRows[i]
     ws.getRow(R).height = height
-    // Kolom 1 untuk logo; teks di kolom 2..LAST
-    mc(ws, R, 2, R, LAST, text, {
+    // Merge semua kolom dari A (1) sampai LAST
+    mc(ws, R, 1, R, LAST, text, {
       font: fnt(size, bold),
       align: aln("center", "middle"),
     })
+    if (i === kopRows.length - 1) {
+      lastKopRow = R
+    }
     R++
   }
-  const kopEnd = R - 1
 
-  // Outer border kop
-  applyOuterBorder(ws, kopStart, 2, kopEnd, LAST)
+  // Tambahkan border bawah pada baris terakhir kop surat
+  if (lastKopRow !== null) {
+    for (let c = 1; c <= LAST; c++) {
+      const cell = ws.getCell(lastKopRow, c)
+      cell.border = {
+        bottom: { style: "thin" },
+      }
+    }
+  }
 
-  // Logo opsional
-  if (config.logoBase64) {
+  // Logo opsional kiri dan kanan (antara baris 2-4)
+  if (config.leftLogoBase64) {
     try {
-      const imgId = wb.addImage({ base64: config.logoBase64, extension: "png" })
+      const imgId = wb.addImage({
+        base64: config.leftLogoBase64,
+        extension: "png",
+      })
+      // Portrait logo: taller than wide (1288w x 1600h)
+      // Use ext with even smaller pixel dimensions to fit within kop surat
       ws.addImage(imgId, {
-        tl: { col: 0.05, row: kopStart - 1 + 0.05 },
-        br: { col: 0.95, row: kopEnd },
-        editAs: "oneCell",
-      } as unknown as ExcelJS.ImageRange)
+        tl: { col: 1.3, row: 1.1 },
+        ext: { width: 53, height: 65 },
+      } as unknown as any) // eslint-disable-line
+    } catch {
+      /* logo optional */
+    }
+  }
+  if (config.rightLogoBase64) {
+    try {
+      const imgId = wb.addImage({
+        base64: config.rightLogoBase64,
+        extension: "png",
+      })
+      // Square logo (3375x3375)
+      // Use ext with exact square pixel dimensions
+      ws.addImage(imgId, {
+        tl: { col: LAST - 3, row: 0.9 },
+        ext: { width: 75, height: 75 },
+      } as unknown as any) // eslint-disable-line
     } catch {
       /* logo optional */
     }
@@ -423,6 +611,7 @@ export async function exportAbsensiExcel(
   // SECTION 2 — BLANK SEPARATOR
   // ════════════════════════════════════════════
   ws.getRow(R).height = ROW_H.BLANK
+  mc(ws, R, 1, R, LAST, "", {})
   R++
 
   // ════════════════════════════════════════════
@@ -441,7 +630,11 @@ export async function exportAbsensiExcel(
     R++
   }
 
+  // ════════════════════════════════════════════
+  // SECTION 3.1 — BLANK SEPARATOR
+  // ════════════════════════════════════════════
   ws.getRow(R).height = ROW_H.BLANK
+  mc(ws, R, 1, R, LAST, "", {})
   R++
 
   // ════════════════════════════════════════════
@@ -449,7 +642,7 @@ export async function exportAbsensiExcel(
   //
   // Merge mirip kode XLSX asli:
   //  TH1: NO(3baris) NAMA(3baris) LP(3baris) NIS(D-H, 3baris)
-  //       KEHADIRAN(1baris, span dates) JUMLAH(2baris, S..A) KET(3baris)
+  //       KEHADIRAN(1baris, span dates) JUMLAH(2baris, S..A)
   //  TH2: hari per tanggal | S(2baris) I(2baris) A(2baris)
   //  TH3: tanggal per tanggal
   // ════════════════════════════════════════════
@@ -505,15 +698,8 @@ export async function exportAbsensiExcel(
     })
   }
 
-  // JUMLAH — merge TH1:TH2, span S..A (sama kode asli: { r:11,c:S_COL } – { r:12,c:A_COL })
+  // JUMLAH — merge TH1:TH2, span S..A (pakai fungsi mc)
   mc(ws, TH1, S_COL, TH2, A_COL, "JUMLAH", {
-    font: hFont,
-    align: hAlign,
-    border: thin,
-  })
-
-  // KET — merge TH1:TH3
-  mc(ws, TH1, KET_COL, TH3, KET_COL, "KET", {
     font: hFont,
     align: hAlign,
     border: thin,
@@ -528,18 +714,18 @@ export async function exportAbsensiExcel(
     })
   }
 
-  // S I A — merge TH2:TH3 masing-masing (sama kode asli)
-  mc(ws, TH2, S_COL, TH3, S_COL, "S", {
+  // H I A — tulis di TH3 saja (tanpa merge)
+  setCell(ws, TH3, S_COL, "H", {
     font: hFont,
     align: hAlign,
     border: thin,
   })
-  mc(ws, TH2, I_COL, TH3, I_COL, "I", {
+  setCell(ws, TH3, I_COL, "I", {
     font: hFont,
     align: hAlign,
     border: thin,
   })
-  mc(ws, TH2, A_COL, TH3, A_COL, "A", {
+  setCell(ws, TH3, A_COL, "A", {
     font: hFont,
     align: hAlign,
     border: thin,
@@ -613,31 +799,29 @@ export async function exportAbsensiExcel(
 
     // Kehadiran per tanggal
     for (let i = 0; i < dates.length; i++) {
-      const code = s.absen[dates[i].date] ?? ""
-      setCell(ws, R, ABS_START + i, code || null, {
+      let code = s.absen[dates[i].date] ?? ""
+      if (code !== "H" && code !== "I") {
+        code = "A"
+      }
+      setCell(ws, R, ABS_START + i, code, {
         font: dFont,
         align: aln("center", "middle"),
         border: thin,
       })
     }
 
-    // Jumlah S I A
-    setCell(ws, R, S_COL, s.jml.S || null, {
+    // Jumlah H I A
+    setCell(ws, R, S_COL, s.jml.H.toString(), {
       font: dFont,
       align: aln("center", "middle"),
       border: thin,
     })
-    setCell(ws, R, I_COL, s.jml.I || null, {
+    setCell(ws, R, I_COL, s.jml.I.toString(), {
       font: dFont,
       align: aln("center", "middle"),
       border: thin,
     })
-    setCell(ws, R, A_COL, s.jml.A || null, {
-      font: dFont,
-      align: aln("center", "middle"),
-      border: thin,
-    })
-    setCell(ws, R, KET_COL, null, {
+    setCell(ws, R, A_COL, s.jml.A.toString(), {
       font: dFont,
       align: aln("center", "middle"),
       border: thin,
@@ -650,7 +834,7 @@ export async function exportAbsensiExcel(
   // SECTION 6 — FOOTER
   // ════════════════════════════════════════════
 
-  R += 2 // 2 baris gap (sama kode asli: footerRow = 14 + students.length + 2)
+  R += 2 // 2 baris gap
   const footerStartRow = R
 
   // Kiri: rekapitulasi L/P
@@ -662,7 +846,6 @@ export async function exportAbsensiExcel(
 
   for (const [label, val] of recap) {
     ws.getRow(R).height = ROW_H.FOOTER
-    // label di kolom B (NAMA), value di kolom C (LP)
     setCell(ws, R, COL.NAMA, label, {
       font: dFont,
       align: aln("left", "middle"),
@@ -676,14 +859,14 @@ export async function exportAbsensiExcel(
     R++
   }
 
-  // Kanan: tanda tangan (mulai dari kolom KET_COL - 3 ke kanan, sama kode asli col 10)
-  const sigCol = Math.max(S_COL, KET_COL - 3)
+  // Kanan: tanda tangan
+  const sigCol = Math.max(S_COL, A_COL)
   const sigLines = [
     `${config.kota}, ___________________ ${new Date().getFullYear()}`,
     "Wali Kelas",
     "",
     "",
-    "", // ruang TTD
+    "",
     config.waliKelas,
     `NIP ${config.nipWaliKelas}`,
   ]
@@ -697,34 +880,44 @@ export async function exportAbsensiExcel(
     })
     sigRow++
   }
+}
+
+// Export untuk satu kelas saja
+export async function exportAbsensiExcel(
+  users: UserRecord[],
+  absensi: AbsensiRecord[],
+  config: ExportConfig
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook()
+  wb.creator = "Sistem Absensi Sekolah"
+  wb.created = new Date()
+
+  createWorksheet(wb, users, absensi, config)
 
   const buf = await wb.xlsx.writeBuffer()
   return Buffer.from(buf)
 }
 
-// ─────────────────────────────────────────────
-// Internal helper: outer border on a range
-// ─────────────────────────────────────────────
+// Export untuk semua kelas di sheet yang berbeda
+export async function exportAllClassesExcel(
+  allData: {
+    kelas: string
+    users: UserRecord[]
+    absensi: AbsensiRecord[]
+  }[],
+  baseConfig: Omit<ExportConfig, "kelas">
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook()
+  wb.creator = "Sistem Absensi Sekolah"
+  wb.created = new Date()
 
-function applyOuterBorder(
-  ws: ExcelJS.Worksheet,
-  r1: number,
-  c1: number,
-  r2: number,
-  c2: number
-) {
-  const med: Partial<ExcelJS.Border> = { style: "medium" }
-  const thn: Partial<ExcelJS.Border> = { style: "thin" }
-
-  for (let r = r1; r <= r2; r++) {
-    for (let c = c1; c <= c2; c++) {
-      const b: Partial<ExcelJS.Borders> = {}
-      b.top = r === r1 ? med : thn
-      b.bottom = r === r2 ? med : undefined
-      b.left = c === c1 ? med : undefined
-      b.right = c === c2 ? med : undefined
-      const ex = ws.getCell(r, c).border ?? {}
-      ws.getCell(r, c).border = { ...ex, ...b } as ExcelJS.Borders
-    }
+  for (const data of allData) {
+    createWorksheet(wb, data.users, data.absensi, {
+      ...baseConfig,
+      kelas: data.kelas,
+    })
   }
+
+  const buf = await wb.xlsx.writeBuffer()
+  return Buffer.from(buf)
 }

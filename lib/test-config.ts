@@ -14,6 +14,9 @@ export const TEST_CONFIG = {
 
   // 4. Auto mark tidak hadir (Jika true, user yang belum absen setelah 14:00 Jumat otomatis tidak hadir)
   ENABLE_FORGOT_SIGN_IN: false,
+
+  // 5. Export semua tanggal (Jika true, export akan menampilkan semua tanggal absensi, tidak hanya Jumat)
+  EXPORT_ALL_DATES: true,
 }
 
 /**
