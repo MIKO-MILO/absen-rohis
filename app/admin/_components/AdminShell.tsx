@@ -31,6 +31,7 @@ import {
   Menu,
   X,
   LayoutGrid,
+  ShieldCheck,
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 
@@ -41,6 +42,7 @@ const NAV_ITEMS = [
   { label: "Siswa", icon: Users, href: "/admin/siswa" },
   { label: "Panitia", icon: Users, href: "/admin/panitia" },
   { label: "Generate QR", icon: QrCode, href: "/admin/generate-qr" },
+  { label: "Config", icon: ShieldCheck, href: "/admin/config" },
 ]
 
 interface SidebarContentProps {
