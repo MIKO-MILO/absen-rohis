@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
@@ -57,7 +57,7 @@ const PILIHAN_CONFIG = {
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
-export default function ScanQRPage() {
+function ScanQRContent() {
   const router = useRouter()
   const config = getActiveConfig()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -352,9 +352,7 @@ export default function ScanQRPage() {
                   />
                   <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">
                     Time Restriction:{" "}
-                    {config.ENABLE_TIME_RESTRICTION
-                      ? "ON (Fri 12-14)"
-                      : "OFF"}
+                    {config.ENABLE_TIME_RESTRICTION ? "ON (Fri 12-14)" : "OFF"}
                   </span>
                 </div>
                 <p className="text-center text-[9px] text-white/20">
@@ -564,5 +562,19 @@ export default function ScanQRPage() {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function ScanQRPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-black text-white">
+          <Loader2 className="h-10 w-10 animate-spin" />
+        </div>
+      }
+    >
+      <ScanQRContent />
+    </Suspense>
   )
 }

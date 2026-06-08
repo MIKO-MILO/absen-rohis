@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AdminShell } from "../_components/AdminShell"
 import { Button } from "@/components/ui/button"
@@ -64,7 +64,7 @@ function Field({
 // ═══════════════════════════════════════════════════════════════════
 // ── MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════
-export default function EditPanitiaPage() {
+function EditPanitiaContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = searchParams.get("id")
@@ -356,5 +356,26 @@ export default function EditPanitiaPage() {
         </div>
       </div>
     </AdminShell>
+  )
+}
+
+export default function EditPanitiaPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminShell>
+          <div className="flex h-[60vh] items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <p className="text-sm font-medium text-muted-foreground">
+                Memuat...
+              </p>
+            </div>
+          </div>
+        </AdminShell>
+      }
+    >
+      <EditPanitiaContent />
+    </Suspense>
   )
 }
