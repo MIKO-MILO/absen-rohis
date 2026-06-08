@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { getActiveConfig } from "@/lib/test-config"
 
 const MONTHS = [
   "Januari",
@@ -26,11 +27,13 @@ const MONTHS = [
 interface AbsensiExportButtonProps {
   kelas: string
   tahunPelajaran: string
+  className?: string
 }
 
 export function AbsensiExportButton({
   kelas: initialKelas,
   tahunPelajaran,
+  className,
 }: AbsensiExportButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -63,12 +66,14 @@ export function AbsensiExportButton({
     setError(null)
 
     try {
+      const config = getActiveConfig()
       const params = new URLSearchParams({
         kelas: selectedKelas,
         tahun: tahunPelajaran,
         bulan: String(selectedMonth + 1),
         tahun_bulan: String(selectedYear),
         ...(semuaKelas && { semua_kelas: "true" }),
+        ...(config.EXPORT_ALL_DATES && { export_all_dates: "true" }),
       })
       const res = await fetch(`/api/absensi/export?${params}`)
 
@@ -100,7 +105,9 @@ export function AbsensiExportButton({
   const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i)
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-4">
+    <div
+      className={`flex flex-wrap items-center justify-center gap-4 ${className || ""}`}
+    >
       {classes.length > 0 && (
         <div className="relative">
           <select

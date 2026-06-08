@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient"
-import { TEST_CONFIG, isWithinTimeRestriction } from "@/lib/test-config"
+import { getGlobalConfig, isWithinTimeRestriction } from "@/lib/test-config"
 
 export async function POST(req: Request) {
   interface QRToken {
@@ -31,6 +31,9 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { token, status, user_id, qr_token, tanggal, admin_id } = body // token, status (hadir/berhalangan), user_id dari session
 
+    // Ambil config global dari DB
+    const config = await getGlobalConfig()
+
     // Flag untuk update manual oleh admin
     const isAdminUpdate = qr_token === "MANUAL_UPDATE"
     const cleanToken = token?.replace("ROHIS-DZUHUR-", "") || ""
@@ -53,7 +56,7 @@ export async function POST(req: Request) {
         is_simulation: true,
       }
     } else if (cleanToken === "SIMULASI-TOKEN") {
-      if (!TEST_CONFIG.ENABLE_SIMULATION) {
+      if (!config.ENABLE_SIMULATION) {
         return Response.json(
           { error: "Mode simulasi sedang dinonaktifkan" },
           { status: 403 }
@@ -107,18 +110,18 @@ export async function POST(req: Request) {
 
     // 🕒 Cek Batasan Waktu (Jumat 12:00 - 14:00)
     const now = new Date()
-    if (!isAdminUpdate && !isWithinTimeRestriction(now)) {
+    if (!isAdminUpdate && !isWithinTimeRestriction(now, config)) {
       const day = now.getDay()
       const hour = now.getHours()
 
-      if (day !== 5) {
+      if (!config.ALLOW_ANY_DAY && day !== 5) {
         return Response.json(
           { error: "Absensi hanya tersedia di hari Jumat" },
           { status: 403 }
         )
       }
 
-      if (hour < 12 || hour >= 14) {
+      if (!config.ALLOW_ANY_TIME && (hour < 12 || hour >= 14)) {
         return Response.json(
           { error: "Absensi hanya tersedia pukul 12:00 - 14:00 WIB" },
           { status: 403 }

@@ -12,7 +12,9 @@
  */
 
 import ExcelJS from "exceljs"
-import { TEST_CONFIG } from "./test-config"
+// import {
+//   getActiveConfig,
+// } from "@/lib/test-config"
 
 // ─────────────────────────────────────────────
 // Types
@@ -55,6 +57,7 @@ export interface ExportConfig {
   rightLogoHeight?: number
   bulan?: number
   tahunBulan?: number
+  exportAllDates?: boolean
 }
 
 // ─────────────────────────────────────────────
@@ -308,14 +311,17 @@ function processData(
   users: UserRecord[],
   absensi: AbsensiRecord[],
   bulan?: number,
-  tahunBulan?: number
+  tahunBulan?: number,
+  exportAllDates?: boolean
 ) {
   let dates: DateInfo[]
 
   const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
+  // Gunakan exportAllDates dari parameter, jika undefined baru cek config (fallback)
+  const isExportAll = exportAllDates
 
   // Jika EXPORT_ALL_DATES true, ambil semua tanggal di bulan tersebut (tidak hanya Jumat)
-  if (TEST_CONFIG.EXPORT_ALL_DATES && bulan && tahunBulan) {
+  if (isExportAll && bulan && tahunBulan) {
     const allDates = getAllDatesInMonth(bulan, tahunBulan)
     dates = allDates.map((d) => {
       const dt = new Date(d + "T00:00:00")
@@ -407,9 +413,7 @@ function processData(
         "Des",
       ]
       const month = monthNames[dt.getMonth()]
-      const dayName = TEST_CONFIG.EXPORT_ALL_DATES
-        ? dayNames[dt.getDay()]
-        : "Jum"
+      const dayName = isExportAll ? dayNames[dt.getDay()] : "Jum"
       return {
         date: d,
         abbr: dayName,
@@ -503,7 +507,8 @@ function createWorksheet(
     users,
     absensi,
     config.bulan,
-    config.tahunBulan
+    config.tahunBulan,
+    config.exportAllDates
   )
 
   // Kolom dinamis

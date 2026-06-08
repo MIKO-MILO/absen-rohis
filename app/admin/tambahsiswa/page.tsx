@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AdminShell } from "../_components/AdminShell"
 import * as XLSX from "xlsx"
@@ -203,11 +203,10 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
           </div>
           <div>
             <p className="text-sm font-bold text-foreground">
-              Import Excel / CSV
+              Import Excel/CSV
             </p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Upload file spreadsheet untuk menambah banyak siswa sekaligus
-              secara efisien.
+              Tambah banyak siswa sekaligus dengan mengunggah file spreadsheet.
             </p>
           </div>
           <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-blue-500">
@@ -225,9 +224,11 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
 function ManualForm({
   onBack,
   onSuccess,
+  classes,
 }: {
   onBack: () => void
   onSuccess: () => void
+  classes: string[]
 }) {
   const [form, setForm] = useState<ManualFormType>({
     nama: "",
@@ -340,7 +341,7 @@ function ManualForm({
                 <option value="" disabled>
                   Pilih kelas...
                 </option>
-                {KELAS_OPTIONS.map((k) => (
+                {classes.map((k) => (
                   <option key={k} value={k}>
                     {k}
                   </option>
@@ -410,6 +411,7 @@ function ImportForm({
 }: {
   onBack: () => void
   onSuccess: (count: number) => void
+  classes: string[]
 }) {
   const [kelas, setKelas] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
@@ -1115,15 +1117,29 @@ function SuccessScreen({
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// ── PAGE
-// ═══════════════════════════════════════════════════════════════════
+// ─── MAIN PAGE ───────────────────────────────────────────────────────────────
 export default function TambahSiswaPage() {
   const [mode, setMode] = useState<Mode>("pilih")
+  const [classes, setClasses] = useState<string[]>([])
+  const [] = useState(false)
   const [success, setSuccess] = useState<{ show: boolean; count: number }>({
     show: false,
     count: 0,
   })
+
+  // Fetch classes for dropdowns
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const res = await fetch("/api/classes")
+        const data = await res.json()
+        if (data.classes) setClasses(data.classes)
+      } catch (err) {
+        console.error("Gagal memuat kelas:", err)
+      }
+    }
+    fetchClasses()
+  }, [])
 
   const handleReset = () => {
     setMode("pilih")
@@ -1148,11 +1164,13 @@ export default function TambahSiswaPage() {
           <ManualForm
             onBack={() => setMode("pilih")}
             onSuccess={() => setSuccess({ show: true, count: 1 })}
+            classes={classes}
           />
         ) : (
           <ImportForm
             onBack={() => setMode("pilih")}
             onSuccess={(count) => setSuccess({ show: true, count })}
+            classes={classes}
           />
         )}
       </div>

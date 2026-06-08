@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     if (adminData) {
       return Response.json({
         user: adminData,
-        role: "admin",
+        role: adminData.role || "admin",
         redirect: "/admin/dashboard",
       })
     }

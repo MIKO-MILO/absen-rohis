@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import ClockWIB from "@/components/mycomponent/clock"
-import { Clock, AlignLeft } from "lucide-react"
+import { Clock, AlignLeft, QrCode } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -20,6 +20,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LogOut } from "lucide-react"
 import { ModeButton } from "@/components/mode-button"
+import {
+  getActiveConfig,
+  isOutsideAbsensiTime,
+  type TestConfig,
+} from "@/lib/test-config"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -87,14 +92,103 @@ const getHari = (tanggal: string) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AbsenSholatPage() {
   const router = useRouter()
+  const [config, setConfig] = useState<TestConfig>(getActiveConfig())
   const [data, setData] = useState<RiwayatItem[]>([])
   const [loading, setLoading] = useState(true)
   const [panitia, setPanitia] = useState<PanitiaSession | null>(null)
+  const [now, setNow] = useState<Date | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   function handleLogout(): void {
     localStorage.removeItem("panitia_session")
     router.push("/")
   }
+
+  useEffect(() => {
+    setMounted(true)
+    setNow(new Date())
+
+    // Ambil config awal dari DB
+    const initConfig = async () => {
+      try {
+        const res = await fetch("/api/config")
+        if (res.ok) {
+          const dbConfig = await res.json()
+          setConfig(dbConfig)
+          localStorage.setItem(
+            "test_config_superadmin",
+            JSON.stringify(dbConfig)
+          )
+        }
+      } catch {
+        // silent error
+      }
+    }
+    initConfig()
+
+    // Sinkronisasi waktu (lokal)
+    const timeInterval = setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+
+    // Sinkronisasi config dari DB secara periodik (setiap 5 detik)
+    const configInterval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/config")
+        if (res.ok) {
+          const dbConfig = await res.json()
+          setConfig(dbConfig)
+          localStorage.setItem(
+            "test_config_superadmin",
+            JSON.stringify(dbConfig)
+          )
+        }
+      } catch {
+        // silent error
+      }
+    }, 5000)
+
+    return () => {
+      clearInterval(timeInterval)
+      clearInterval(configInterval)
+    }
+  }, [])
+
+  const fetchAbsensi = useCallback(async (panitiaId: string | number) => {
+    try {
+      const res = await fetch(`/api/absensi?panitia_id=${panitiaId}`)
+      if (!res.ok) throw new Error("Gagal mengambil data")
+      const result = await res.json()
+
+      const formatted: RiwayatItem[] = (result as AbsensiResponse[]).map(
+        (e): RiwayatItem => {
+          let rawStatus = (e.status || "").trim().toLowerCase()
+          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+
+          const tanggal = e.tanggal ?? "—"
+
+          return {
+            id: e.id,
+            nama: e.users?.nama || "Tidak diketahui",
+            nis: e.users?.nis || "—",
+            kelas: e.users?.kelas || "—",
+            tanggal,
+            hari: getHari(tanggal),
+            waktu: e.waktu ?? "—",
+            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+              ? rawStatus
+              : "tidak_hadir") as Status,
+          }
+        }
+      )
+
+      setData(formatted)
+    } catch (err: unknown) {
+      console.error("Error fetching absensi:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -114,56 +208,19 @@ export default function AbsenSholatPage() {
 
     if (isMounted) {
       setPanitia(session)
+      fetchAbsensi(session.id)
     }
-
-    const fetchAbsensi = async (panitiaId: string | number) => {
-      try {
-        const res = await fetch(`/api/absensi?panitia_id=${panitiaId}`)
-        if (!res.ok) throw new Error("Gagal mengambil data")
-        const result = await res.json()
-
-        if (!isMounted) return
-
-        const formatted: RiwayatItem[] = (result as AbsensiResponse[]).map(
-          (e): RiwayatItem => {
-            let rawStatus = (e.status || "").trim().toLowerCase()
-            if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
-
-            const tanggal = e.tanggal ?? "—"
-
-            return {
-              id: e.id,
-              nama: e.users?.nama || "Tidak diketahui",
-              nis: e.users?.nis || "—",
-              kelas: e.users?.kelas || "—",
-              tanggal,
-              hari: getHari(tanggal),
-              waktu: e.waktu ?? "—",
-              status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
-                ? rawStatus
-                : "tidak_hadir") as Status,
-            }
-          }
-        )
-
-        if (isMounted) {
-          setData(formatted)
-        }
-      } catch (err: unknown) {
-        console.error("Error fetching absensi:", err)
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    fetchAbsensi(session.id)
 
     return () => {
       isMounted = false
     }
-  }, [router])
+  }, [router, fetchAbsensi])
+
+  const isTimeAllowed =
+    mounted && now ? !isOutsideAbsensiTime(now, config) : true
+  const isRestrictionEnabled = config.ENABLE_TIME_RESTRICTION
+
+  const shouldDisableButton = mounted && isRestrictionEnabled && !isTimeAllowed
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">
@@ -202,7 +259,6 @@ export default function AbsenSholatPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-xl bg-white/15 p-2 transition-colors outline-none hover:bg-white/25">
@@ -270,14 +326,48 @@ export default function AbsenSholatPage() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => router.push("/rohis/pageqr")}
-            className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-primary text-base font-bold text-white shadow-lg shadow-primary/20 transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-            style={{
-              background: "linear-gradient(135deg, #0d9488 0%, #0891b2 100%)",
-            }}
+            disabled={mounted ? shouldDisableButton : false}
+            className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-base font-bold transition-all duration-200 ${
+              mounted && shouldDisableButton
+                ? "cursor-not-allowed bg-muted text-muted-foreground"
+                : "bg-[linear-gradient(135deg,#0d9488_0%,#0891b2_100%)] text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98]"
+            }`}
           >
-            {" "}
-            {"Generate QR Code"}
+            <QrCode
+              className={`h-6 w-6 ${mounted && shouldDisableButton ? "text-muted-foreground" : "text-white"}`}
+            />
+            {!mounted ? (
+              <span className="text-sm font-semibold">Generate QR Code</span>
+            ) : isRestrictionEnabled && !isTimeAllowed ? (
+              <span className="px-2 text-center text-xs font-semibold">
+                {config.ALLOW_ANY_DAY && !config.ALLOW_ANY_TIME
+                  ? "Generate Hanya Pukul 12:00-14:00"
+                  : !config.ALLOW_ANY_DAY && config.ALLOW_ANY_TIME
+                    ? "Generate Hanya Hari Jumat"
+                    : "Generate Hanya Jumat 12:00-14:00"}
+              </span>
+            ) : (
+              <span className="font-semibold">Generate QR Code</span>
+            )}
           </Button>
+
+          {!mounted ? (
+            <p className="text-center text-xs text-muted-foreground">
+              Klik untuk membuat QR Code absensi siswa
+            </p>
+          ) : isRestrictionEnabled && !isTimeAllowed ? (
+            <p className="text-center text-xs font-semibold text-destructive">
+              {config.ALLOW_ANY_DAY && !config.ALLOW_ANY_TIME
+                ? "Generate QR hanya tersedia setiap hari pukul 12:00 - 14:00 WIB"
+                : !config.ALLOW_ANY_DAY && config.ALLOW_ANY_TIME
+                  ? "Generate QR hanya tersedia pada hari Jumat (Kapan saja)"
+                  : "Generate QR hanya tersedia pada hari Jumat pukul 12:00 - 14:00 WIB"}
+            </p>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">
+              Klik untuk membuat QR Code absensi siswa
+            </p>
+          )}
         </div>
 
         <Separator className="bg-border" />

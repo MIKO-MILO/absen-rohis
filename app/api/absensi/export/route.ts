@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       ? Number(searchParams.get("tahun_bulan"))
       : undefined
     const semuaKelas = searchParams.get("semua_kelas") === "true"
+    const exportAllDates = searchParams.get("export_all_dates") === "true"
 
     console.log(
       "[export-absensi] Starting export for kelas:",
@@ -37,7 +38,9 @@ export async function GET(req: NextRequest) {
       "tahun:",
       tahunBulan,
       "semua_kelas:",
-      semuaKelas
+      semuaKelas,
+      "export_all_dates:",
+      exportAllDates
     )
 
     // ── Optional: load logos from public folder ──
@@ -98,6 +101,7 @@ export async function GET(req: NextRequest) {
       rightLogoHeight,
       bulan,
       tahunBulan,
+      exportAllDates,
     }
 
     let buffer: Buffer

@@ -18,20 +18,6 @@ interface ManualFormType {
   password: string
 }
 
-const KELAS_OPTIONS = [
-  "X RPL A",
-  "X RPL B",
-  "X RPL C",
-  "XI IPA 1",
-  "XI IPA 2",
-  "XI IPS 1",
-  "XI IPS 2",
-  "XI RPL A",
-  "XII IPA 1",
-  "XII IPS 2",
-  "XII RPL B",
-]
-
 // ═══════════════════════════════════════════════════════════════════
 // ── FIELD Component
 // ═══════════════════════════════════════════════════════════════════
@@ -76,14 +62,12 @@ function Field({
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// ── MAIN PAGE
-// ═══════════════════════════════════════════════════════════════════
 export default function EditSiswaPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = searchParams.get("id")
   const [loading, setLoading] = useState(true)
+  const [classes, setClasses] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<ManualFormType>>({})
   const [success, setSuccess] = useState(false)
@@ -148,30 +132,30 @@ export default function EditSiswaPage() {
       return
     }
 
-    const fetchSiswa = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`/api/users/${id}`)
-        const text = await res.text()
-        console.log("Response status:", res.status)
-        console.log("Response body:", text)
+        const [userRes, classesRes] = await Promise.all([
+          fetch(`/api/users/${id}`),
+          fetch("/api/classes"),
+        ])
 
-        if (!res.ok) throw new Error(`Gagal mengambil data: ${text}`)
+        const userData = await userRes.json()
+        const classesData = await classesRes.json()
 
-        let data
-        try {
-          data = JSON.parse(text)
-        } catch {
-          throw new Error("Format response tidak valid")
-        }
+        if (!userRes.ok) throw new Error("Gagal mengambil data siswa")
 
         setForm({
-          nama: data.nama || "",
-          nis: String(data.nis) || "",
-          kelas: data.kelas || "",
-          jenisKelamin: data.jenis_kelamin || "",
-          email: data.email || "",
-          password: data.password || "",
+          nama: userData.nama || "",
+          nis: String(userData.nis) || "",
+          kelas: userData.kelas || "",
+          jenisKelamin: userData.jenis_kelamin || "",
+          email: userData.email || "",
+          password: userData.password || "",
         })
+
+        if (classesData.classes) {
+          setClasses(classesData.classes)
+        }
       } catch (err) {
         console.error("Fetch error:", err)
         alert("Siswa tidak ditemukan")
@@ -181,7 +165,7 @@ export default function EditSiswaPage() {
       }
     }
 
-    fetchSiswa()
+    fetchData()
   }, [id, router])
 
   if (loading) {
@@ -295,7 +279,7 @@ export default function EditSiswaPage() {
                   <option value="" disabled>
                     Pilih kelas...
                   </option>
-                  {KELAS_OPTIONS.map((k) => (
+                  {classes.map((k) => (
                     <option key={k} value={k}>
                       {k}
                     </option>
@@ -337,20 +321,20 @@ export default function EditSiswaPage() {
                   </p>
                 )}
               </div>
-              
-                <Field
-                  label="Email"
-                  placeholder="email@sekolah.id"
-                  value={form.email}
-                  onChange={(v) => setForm((p) => ({ ...p, email: v }))}
-                />
 
-                <Field
-                  label="Password"
-                  placeholder="cth. 123456"
-                  value={form.password}
-                  onChange={(v) => setForm((p) => ({ ...p, password: v }))}
-                />
+              <Field
+                label="Email"
+                placeholder="email@sekolah.id"
+                value={form.email}
+                onChange={(v) => setForm((p) => ({ ...p, email: v }))}
+              />
+
+              <Field
+                label="Password"
+                placeholder="cth. 123456"
+                value={form.password}
+                onChange={(v) => setForm((p) => ({ ...p, password: v }))}
+              />
             </div>
 
             <div className="mt-10 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

@@ -4,15 +4,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Dialog,
   DialogContent,
@@ -24,7 +16,6 @@ import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard,
   Users,
-  QrCode,
   ClipboardList,
   LogOut,
   Bell,
@@ -41,7 +32,9 @@ const NAV_ITEMS = [
   { label: "Monitoring", icon: LayoutGrid, href: "/admin/monitoring" },
   { label: "Siswa", icon: Users, href: "/admin/siswa" },
   { label: "Panitia", icon: Users, href: "/admin/panitia" },
-  { label: "Generate QR", icon: QrCode, href: "/admin/generate-qr" },
+  { label: "Admin", icon: Users, href: "/admin/admin" },
+  { label: "Kelas", icon: LayoutGrid, href: "/admin/classes" },
+  // { label: "Generate QR", icon: QrCode, href: "/admin/generate-qr" },
   { label: "Config", icon: ShieldCheck, href: "/admin/config" },
 ]
 
@@ -52,6 +45,7 @@ interface SidebarContentProps {
   setSidebarOpen: (open: boolean) => void
   handleLogout: () => void
   adminName?: string
+  adminRole?: string
 }
 
 const SidebarContent = ({
@@ -61,6 +55,7 @@ const SidebarContent = ({
   setSidebarOpen,
   handleLogout,
   adminName,
+  adminRole,
 }: SidebarContentProps) => (
   <aside className="flex h-full w-60 flex-col border-r border-border bg-card">
     {/* Brand */}
@@ -132,6 +127,11 @@ const SidebarContent = ({
     {/* Nav */}
     <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
       {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
+        // Cek apakah item membutuhkan superadmin
+        const isRestricted =
+          label === "Admin" || label === "Config" || label === "Kelas"
+        if (isRestricted && adminRole !== "superadmin") return null
+
         const active =
           pathname === href || (href !== "/admin" && pathname.startsWith(href))
         return (
@@ -163,16 +163,17 @@ const SidebarContent = ({
     <div className="border-t border-border/50 px-3 py-4">
       <div className="flex items-center gap-3 px-2">
         <Avatar className="h-8 w-8">
-          <AvatarImage src="https://i.pravatar.cc/100?img=5" />
-          <AvatarFallback className="bg-primary text-xs text-primary-foreground">
-            AD
+          <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
+            {adminName?.slice(0, 2).toUpperCase() || "AD"}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold text-foreground">
-            {adminName || "Ustadz Hasan"}
+            {adminName || "Administrator"}
           </p>
-          <p className="text-[10px] text-muted-foreground">Administrator</p>
+          <p className="text-[10px] text-muted-foreground capitalize">
+            {adminRole || "Admin"}
+          </p>
         </div>
         <button
           onClick={handleLogout}
@@ -185,14 +186,24 @@ const SidebarContent = ({
   </aside>
 )
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  children,
+  requireSuperadmin = false,
+}: {
+  children: React.ReactNode
+  requireSuperadmin?: boolean
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const redirecting = useRef(false)
   const [mounted, setMounted] = useState(false)
   const [isAuthorized, setIsAuthorized] = useState(false)
-  const [admin, setAdmin] = useState<{ username: string } | null>(null)
+  const [admin, setAdmin] = useState<{
+    username: string
+    nama?: string
+    role?: string
+  } | null>(null)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   useEffect(() => {
@@ -202,15 +213,23 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       try {
         const session = JSON.parse(sessionStr)
         setAdmin(session)
+
+        // Validasi superadmin jika diperlukan
+        if (requireSuperadmin && session.role !== "superadmin") {
+          router.replace("/admin/dashboard")
+          return
+        }
+
+        setIsAuthorized(true)
       } catch {
         // Fallback for non-JSON session format
+        router.replace("/admin")
       }
-      setIsAuthorized(true)
     } else if (!redirecting.current) {
       redirecting.current = true
       router.replace("/admin")
     }
-  }, [router])
+  }, [router, requireSuperadmin])
 
   const handleLogout = () => {
     setShowLogoutModal(true)
@@ -247,28 +266,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           router={router}
           setSidebarOpen={setSidebarOpen}
           handleLogout={handleLogout}
-          adminName={admin?.username}
+          adminName={admin?.nama || admin?.username}
+          adminRole={admin?.role}
         />
       </div>
 
       {/* Mobile sidebar */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        >
-          <div className="h-full w-60" onClick={(e) => e.stopPropagation()}>
-            <SidebarContent
-              mobile
-              pathname={pathname}
-              router={router}
-              setSidebarOpen={setSidebarOpen}
-              handleLogout={handleLogout}
-              adminName={admin?.username}
-            />
-          </div>
-        </div>
-      )}
+      <Dialog open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <DialogContent className="h-full w-60 border-none p-0 focus:outline-none">
+          <SidebarContent
+            mobile
+            pathname={pathname}
+            router={router}
+            setSidebarOpen={setSidebarOpen}
+            handleLogout={handleLogout}
+            adminName={admin?.nama || admin?.username}
+            adminRole={admin?.role}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Main */}
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -307,33 +323,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <Bell className="h-4 w-4" />
               <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />
             </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted">
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage src="https://i.pravatar.cc/100?img=5" />
-                    <AvatarFallback className="bg-primary text-xs text-primary-foreground">
-                      AD
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="hidden text-xs font-semibold text-foreground sm:block">
-                    {admin?.username || "Ustadz Hasan"}
-                  </span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44 rounded-2xl">
-                <DropdownMenuLabel className="text-xs text-muted-foreground">
-                  Akun Admin
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="cursor-pointer rounded-xl text-destructive focus:bg-destructive/10 focus:text-destructive"
-                >
-                  <LogOut className="mr-2 h-4 w-4" /> Keluar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <Avatar className="h-7 w-7">
+                <AvatarFallback className="bg-primary text-[10px] font-bold text-primary-foreground">
+                  {(admin?.nama || admin?.username || "AD")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden text-xs font-semibold text-foreground sm:block">
+                {admin?.nama || admin?.username || "Admin"}
+              </span>
+            </div>
           </div>
         </header>
 

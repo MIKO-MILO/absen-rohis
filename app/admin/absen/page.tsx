@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   Users,
-  QrCode,
   Search,
   Clock,
   XCircle,
@@ -38,7 +37,6 @@ import {
   Filter,
   AlertTriangle,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type AbsenStatus = "hadir" | "haid" | "tidak_hadir"
@@ -95,18 +93,6 @@ const STATUS_META: Record<
   },
 }
 
-const KELAS_LIST = [
-  "X RPL A",
-  "X RPL B",
-  "X RPL C",
-  "XI IPA 1",
-  "XI IPA 2",
-  "XI IPS 1",
-  "XII RPL B",
-  "XII IPS 2",
-  "XI RPL A",
-]
-
 const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir"] as const
 type Tab = (typeof TABS)[number]
 
@@ -117,23 +103,25 @@ const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
   "Tidak Hadir": "tidak_hadir",
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DataAbsenPage() {
   const [data, setData] = useState<SiswaRecord[]>([])
+  const [classes, setClasses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let isMounted = true
     const fetchAbsensi = async () => {
       try {
-        const res = await fetch("/api/absensi")
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`)
-        }
-        const text = await res.text()
-        if (!text) {
-          throw new Error("Empty response from server")
-        }
-        const result = JSON.parse(text)
+        const [absensiRes, classesRes] = await Promise.all([
+          fetch("/api/absensi"),
+          fetch("/api/classes"),
+        ])
+
+        if (!absensiRes.ok) throw new Error("Gagal mengambil data absensi")
+
+        const result = await absensiRes.json()
+        const classesData = await classesRes.json()
 
         if (!isMounted) return
 
@@ -157,8 +145,11 @@ export default function DataAbsenPage() {
           }
         )
         setData(formatted)
+        if (classesData.classes) {
+          setClasses(classesData.classes)
+        }
       } catch (err) {
-        console.error("Error fetching absensi:", err)
+        console.error("Error fetching data:", err)
       } finally {
         if (isMounted) setLoading(false)
       }
@@ -170,7 +161,6 @@ export default function DataAbsenPage() {
     }
   }, [])
 
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>("Semua")
   const [search, setSearch] = useState("")
   const [filterKelas, setFilterKelas] = useState("Semua Kelas")
@@ -181,7 +171,23 @@ export default function DataAbsenPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
-  const PER_PAGE = 8
+  const [perPage, setPerPage] = useState(8)
+
+  // ── Dynamic Row Calculation ────────────────────────────────────────────────
+  useEffect(() => {
+    const calculateRows = () => {
+      // Tinggi layar - (Header + Banner + Summary + Toolbar + Tabs + Footer + Padding)
+      // Estimasi non-tabel: ~530px
+      const availableHeight = window.innerHeight - 530
+      const rowHeight = 62 // Baris absen lebih tinggi sedikit karena avatar
+      const estimatedRows = Math.max(5, Math.floor(availableHeight / rowHeight))
+      setPerPage(estimatedRows)
+    }
+
+    calculateRows()
+    window.addEventListener("resize", calculateRows)
+    return () => window.removeEventListener("resize", calculateRows)
+  }, [])
 
   const todayStr = !loading
     ? new Date().toLocaleDateString("id-ID", {
@@ -210,8 +216,8 @@ export default function DataAbsenPage() {
     })
   }, [data, activeTab, search, filterKelas, filterTanggal])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage)
   const paginatedIds = paginated.map((s) => s.id)
 
   const allPageSelected =
@@ -387,7 +393,7 @@ export default function DataAbsenPage() {
           <div className="relative z-10">
             <p className="text-xs text-teal-100">Rekap Kehadiran</p>
             <h2 className="mt-0.5 text-xl font-black text-white">
-              Sholat Dzuhur — Hari Ini
+              Sholat Dzuhur Hari Ini
             </h2>
             <p className="mt-1 text-xs text-teal-200">{todayStr}</p>
           </div>
@@ -399,12 +405,6 @@ export default function DataAbsenPage() {
               </span>
               <span className="text-[10px] text-teal-200">Tingkat Hadir</span>
             </div>
-            <button
-              onClick={() => router.push("/admin/generate-qr")}
-              className="flex h-9 items-center gap-2 rounded-xl border border-white/20 bg-white/15 px-4 text-xs font-bold text-white backdrop-blur-sm transition-all hover:bg-white/25"
-            >
-              <QrCode className="h-3.5 w-3.5" /> Generate QR
-            </button>
           </div>
         </div>
 
@@ -530,7 +530,11 @@ export default function DataAbsenPage() {
 
                 {/* Export Excel */}
                 <AbsensiExportButton
-                  kelas="X REKAYASA PERANGKAT LUNAK (RPL) - A"
+                  kelas={
+                    filterKelas === "Semua Kelas"
+                      ? classes[0] || ""
+                      : filterKelas
+                  }
                   tahunPelajaran="2025/2026"
                 />
               </div>
@@ -553,7 +557,7 @@ export default function DataAbsenPage() {
                     className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 pr-8 pl-3 text-xs text-foreground outline-none focus:border-primary"
                   >
                     <option>Semua Kelas</option>
-                    {KELAS_LIST.map((k) => (
+                    {classes.map((k) => (
                       <option key={k}>{k}</option>
                     ))}
                   </select>
@@ -603,7 +607,7 @@ export default function DataAbsenPage() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-muted/30 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
-                  <th className="w-10 py-3 pr-2 pl-5">
+                  <th className="w-12 py-3 pr-2 pl-5">
                     <input
                       type="checkbox"
                       checked={allPageSelected}
@@ -616,10 +620,19 @@ export default function DataAbsenPage() {
                       className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
                     />
                   </th>
-                  <th className="px-5 py-3">Siswa</th>
-                  <th className="px-5 py-3">Waktu & Tanggal</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Action</th>
+                  {[
+                    { label: "Siswa", width: "" },
+                    { label: "Waktu & Tanggal", width: "w-60" },
+                    { label: "Status", width: "w-40" },
+                    { label: "Action", width: "w-16" },
+                  ].map((h) => (
+                    <th
+                      key={h.label}
+                      className={`px-5 py-3 ${h.label === "Action" ? "text-right" : ""} ${h.width}`}
+                    >
+                      {h.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">

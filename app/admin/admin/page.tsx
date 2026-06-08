@@ -9,9 +9,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
   Dialog,
@@ -28,7 +28,6 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Filter,
   X,
   Plus,
   Pencil,
@@ -37,40 +36,33 @@ import {
 import { useRouter } from "next/navigation"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface UserRecord {
+interface AdminRecord {
   id: number
   nama: string
-  kelas: string
-  jenis_kelamin: string
-  nis: number
-  email: string
-  password: string
+  username: string
+  role: string
+  password?: string
   created_at: string
-  avatar: string
-  divisi: string
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function DataSiswaPage() {
+export default function DataAdminPage() {
   const router = useRouter()
 
-  const [data, setData] = useState<UserRecord[]>([])
-  const [classes, setClasses] = useState<string[]>([])
+  const [data, setData] = useState<AdminRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [filterKelas, setFilterKelas] = useState("Semua Kelas")
-  const [filterTanggal, setFilterTanggal] = useState("")
   const [page, setPage] = useState(1)
-  const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [perPage, setPerPage] = useState(10)
+  const clearSelected = () => setSelected(new Set())
 
   // ── Dynamic Row Calculation ────────────────────────────────────────────────
   useEffect(() => {
     const calculateRows = () => {
-      const availableHeight = window.innerHeight - 430
+      const availableHeight = window.innerHeight - 380 // Banner admin lebih pendek sedikit
       const rowHeight = 53
       const estimatedRows = Math.max(5, Math.floor(availableHeight / rowHeight))
       setPerPage(estimatedRows)
@@ -83,39 +75,29 @@ export default function DataSiswaPage() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   useEffect(() => {
+    let isMounted = true
     ;(async () => {
       try {
-        const [panitiaRes, classesRes] = await Promise.all([
-          fetch("/api/panitia"),
-          fetch("/api/classes"),
-        ])
+        const res = await fetch("/api/admin")
+        const result = await res.json()
 
-        const result = await panitiaRes.json()
-        const classesData = await classesRes.json()
+        if (!isMounted) return
 
-        setData(
-          result.map((u: UserRecord) => ({
-            id: u.id,
-            nama: u.nama,
-            divisi: u.divisi,
-            jenis_kelamin: u.jenis_kelamin,
-            nis: u.nis,
-            email: u.email,
-            password: u.password,
-            created_at: u.created_at,
-            avatar: String(Math.floor(Math.random() * 70)),
-          }))
-        )
-
-        if (classesData.classes) {
-          setClasses(classesData.classes)
+        if (isMounted) {
+          setData(result)
         }
       } catch (err) {
         console.error(err)
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     })()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   // ── Filter ──────────────────────────────────────────────────────────────────
@@ -125,14 +107,10 @@ export default function DataSiswaPage() {
         const matchSearch =
           !search ||
           s.nama.toLowerCase().includes(search.toLowerCase()) ||
-          String(s.nis).includes(search) ||
-          s.kelas.toLowerCase().includes(search.toLowerCase()) ||
-          s.email.toLowerCase().includes(search.toLowerCase())
-        const matchKelas =
-          filterKelas === "Semua Kelas" || s.kelas === filterKelas
-        return matchSearch && matchKelas
+          s.username.toLowerCase().includes(search.toLowerCase())
+        return matchSearch
       }),
-    [data, search, filterKelas]
+    [data, search]
   )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
@@ -143,15 +121,9 @@ export default function DataSiswaPage() {
     paginatedIds.length > 0 && paginatedIds.every((id) => selected.has(id))
   const somePageSelected = paginatedIds.some((id) => selected.has(id))
 
-  const activeFilterCount = [
-    filterKelas !== "Semua Kelas",
-    filterTanggal !== "",
-    search !== "",
-  ].filter(Boolean).length
+  const activeFilterCount = [search !== ""].filter(Boolean).length
   const resetFilters = () => {
     setSearch("")
-    setFilterKelas("Semua Kelas")
-    setFilterTanggal("")
     setPage(1)
   }
 
@@ -179,8 +151,6 @@ export default function DataSiswaPage() {
       return next
     })
 
-  const clearSelected = () => setSelected(new Set())
-
   // ── Delete single ───────────────────────────────────────────────────────────
   const openDeleteModal = (id: number) => {
     setDeletingId(id)
@@ -190,11 +160,8 @@ export default function DataSiswaPage() {
   const handleDelete = async () => {
     if (!deletingId) return
     try {
-      const res = await fetch(`/api/panitia/${deletingId}`, {
-        method: "DELETE",
-      })
+      const res = await fetch(`/api/admin/${deletingId}`, { method: "DELETE" })
       const result = await res.json()
-
       if (!res.ok) throw new Error(result.error || "Gagal hapus data")
       setData((prev) => prev.filter((s) => s.id !== deletingId))
       setSelected((prev) => {
@@ -215,7 +182,7 @@ export default function DataSiswaPage() {
     try {
       await Promise.all(
         Array.from(selected).map((id) =>
-          fetch(`/api/panitia/${id}`, { method: "DELETE" })
+          fetch(`/api/admin/${id}`, { method: "DELETE" })
         )
       )
       setData((prev) => prev.filter((s) => !selected.has(s.id)))
@@ -251,12 +218,12 @@ export default function DataSiswaPage() {
 
   if (loading)
     return (
-      <AdminShell>
+      <AdminShell requireSuperadmin>
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             <p className="text-sm text-muted-foreground">
-              Memuat data panitia...
+              Memuat data admin...
             </p>
           </div>
         </div>
@@ -264,7 +231,7 @@ export default function DataSiswaPage() {
     )
 
   return (
-    <AdminShell>
+    <AdminShell requireSuperadmin>
       <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
         {/* Banner */}
         <div
@@ -298,9 +265,9 @@ export default function DataSiswaPage() {
             }}
           />
           <div className="relative z-10">
-            <p className="text-xs text-teal-100">Data Panitia</p>
+            <p className="text-xs text-teal-100">Data Admin</p>
             <h2 className="mt-0.5 text-xl font-black text-white">
-              Manajemen Panitia Rohis
+              Manajemen Admin Rohis
             </h2>
             <p className="mt-1 text-xs text-teal-200">{todayStr}</p>
           </div>
@@ -309,7 +276,7 @@ export default function DataSiswaPage() {
               {data.length}
             </span>
             <span className="mt-0.5 text-[10px] text-white/80">
-              Total Panitia
+              Total Admin
             </span>
           </div>
         </div>
@@ -321,10 +288,10 @@ export default function DataSiswaPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-foreground">
-                  Daftar Panitia
+                  Daftar Admin
                 </h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {filtered.length} dari {data.length} panitia
+                  {filtered.length} dari {data.length} admin
                   {activeFilterCount > 0 && (
                     <button
                       onClick={resetFilters}
@@ -339,7 +306,7 @@ export default function DataSiswaPage() {
                 <div className="relative">
                   <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Cari nama, NIS, email..."
+                    placeholder="Cari nama, username..."
                     value={search}
                     onChange={(e) => {
                       setSearch(e.target.value)
@@ -349,81 +316,18 @@ export default function DataSiswaPage() {
                   />
                 </div>
                 <button
-                  onClick={() => setShowFilterPanel((v) => !v)}
-                  className="relative flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-all"
-                  style={{
-                    background:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary-transparent)"
-                        : "transparent",
-                    borderColor:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary)"
-                        : "var(--color-border)",
-                    color:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary)"
-                        : "var(--color-muted-foreground)",
-                  }}
-                >
-                  <Filter className="h-3.5 w-3.5" />
-                  Filter
-                  {activeFilterCount > 0 && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => router.push("/admin/tambahpanitia")}
+                  onClick={() => router.push("/admin/tambahadmin")}
                   className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-foreground/80 transition-all hover:bg-muted"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Tambah Panitia
+                  <Plus className="h-3.5 w-3.5" /> Tambah Admin
                 </button>
               </div>
             </div>
-
-            {showFilterPanel && (
-              <div className="flex flex-wrap gap-3 border-t border-border/50 pt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Kelas
-                  </label>
-                  <select
-                    value={filterKelas}
-                    onChange={(e) => {
-                      setFilterKelas(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
-                  >
-                    <option>Semua Kelas</option>
-                    {classes.map((k) => (
-                      <option key={k}>{k}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Tanggal Daftar
-                  </label>
-                  <input
-                    type="date"
-                    value={filterTanggal}
-                    onChange={(e) => {
-                      setFilterTanggal(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/30">
                   {/* Checkbox all */}
@@ -443,14 +347,13 @@ export default function DataSiswaPage() {
                   {[
                     { label: "No", width: "w-16" },
                     { label: "Nama", width: "" },
-                    { label: "Jenis Kelamin", width: "w-40" },
-                    { label: "Email", width: "w-48" },
-                    { label: "Password", width: "w-40" },
+                    { label: "Username", width: "w-48" },
+                    { label: "Role", width: "w-32" },
                     { label: "Action", width: "w-16" },
                   ].map((h) => (
                     <th
                       key={h.label}
-                      className={`px-4 py-3 text-[11px] font-bold tracking-wider text-muted-foreground uppercase ${h.width}`}
+                      className={`px-4 py-3 text-left text-[11px] font-bold tracking-wider text-muted-foreground uppercase ${h.width}`}
                     >
                       {h.label}
                     </th>
@@ -460,7 +363,7 @@ export default function DataSiswaPage() {
               <tbody className="divide-y divide-border/50">
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center">
+                    <td colSpan={5} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <Users className="h-8 w-8 text-muted/50" />
                         <p className="text-sm text-muted-foreground">
@@ -514,35 +417,27 @@ export default function DataSiswaPage() {
                           </div>
                         </td>
 
-                        {/* Jenis Kelamin */}
+                        {/* Username */}
+                        <td className="px-4 py-3">
+                          <p className="text-xs text-muted-foreground">
+                            {s.username}
+                          </p>
+                        </td>
+
+                        {/* Role */}
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-block rounded-lg px-2 py-0.5 text-xs font-semibold ${
-                              s.jenis_kelamin === "Perempuan"
-                                ? "bg-pink-500/10 text-pink-600"
+                            className={`inline-block rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase ${
+                              s.role === "superadmin"
+                                ? "bg-amber-500/10 text-amber-600"
                                 : "bg-blue-500/10 text-blue-600"
                             }`}
                           >
-                            {s.jenis_kelamin === "Perempuan"
-                              ? "♀ Perempuan"
-                              : "♂ Laki-laki"}
+                            {s.role}
                           </span>
                         </td>
 
-                        {/* Email */}
-                        <td className="px-4 py-3">
-                          <p className="text-xs text-muted-foreground">
-                            {s.email}
-                          </p>
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <p className="text-xs text-muted-foreground">
-                            {s.password}
-                          </p>
-                        </td>
-
-                        {/* Actions */}
+                        {/* Action */}
                         <td className="px-4 py-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -558,18 +453,19 @@ export default function DataSiswaPage() {
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() =>
-                                  router.push(`/admin/editpanitia?id=${s.id}`)
+                                  router.push(`/admin/editadmin?id=${s.id}`)
                                 }
                                 className="cursor-pointer gap-2 rounded-lg text-xs"
                               >
                                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                Edit Panitia
+                                Edit Admin
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => openDeleteModal(s.id)}
                                 className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                               >
-                                <Trash2 className="h-3.5 w-3.5" /> Hapus Panitia
+                                <Trash2 className="text-red h-3.5 w-3.5 hover:text-destructive" />
+                                Hapus Admin
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -646,12 +542,12 @@ export default function DataSiswaPage() {
             </div>
             <DialogHeader className="space-y-2">
               <DialogTitle className="text-xl font-bold">
-                Hapus Data {deletingId ? "Panitia" : "Terpilih"}?
+                Hapus Data {deletingId ? "Siswa" : "Terpilih"}?
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
                 {deletingId ? (
                   <>
-                    Apakah Anda yakin ingin menghapus data panitia{" "}
+                    Apakah Anda yakin ingin menghapus data siswa{" "}
                     <span className="font-bold text-foreground">
                       {data.find((s) => s.id === deletingId)?.nama}
                     </span>
@@ -663,7 +559,7 @@ export default function DataSiswaPage() {
                     <span className="font-bold text-foreground">
                       {selected.size}
                     </span>{" "}
-                    data panitia secara permanen. Tindakan ini tidak dapat
+                    data siswa secara permanen. Tindakan ini tidak dapat
                     dibatalkan.
                   </>
                 )}
@@ -673,14 +569,14 @@ export default function DataSiswaPage() {
               <Button
                 variant="outline"
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 rounded-2xl border-border py-6 font-semibold"
+                className="rounded-2x flex-1 border-border py-6 font-semibold"
               >
                 Batal
               </Button>
               <Button
                 variant="destructive"
                 onClick={confirmDelete}
-                className="flex-1 rounded-2xl bg-red-600 font-semibold hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                className="rounded-2x flex-1 bg-red-600 py-6 font-semibold text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
               >
                 Hapus
               </Button>

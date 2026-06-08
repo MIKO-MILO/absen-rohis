@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -49,25 +48,12 @@ interface UserRecord {
   avatar: string
 }
 
-const KELAS_LIST = [
-  "X RPL A",
-  "X RPL B",
-  "X RPL C",
-  "XI IPA 1",
-  "XI IPA 2",
-  "XI IPS 1",
-  "XII RPL B",
-  "XII IPS 2",
-  "XI RPL A",
-]
-
-const PER_PAGE = 11
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DataSiswaPage() {
   const router = useRouter()
 
   const [data, setData] = useState<UserRecord[]>([])
+  const [classes, setClasses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [filterKelas, setFilterKelas] = useState("Semua Kelas")
@@ -77,15 +63,43 @@ export default function DataSiswaPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [perPage, setPerPage] = useState(10) // Nilai default awal
   const clearSelected = () => setSelected(new Set())
+
+  // ── Dynamic Row Calculation ────────────────────────────────────────────────
+  useEffect(() => {
+    const calculateRows = () => {
+      // Tinggi layar - (Header + Banner + Toolbar + Footer + Padding)
+      // Estimasi:
+      // Header/Nav: 64px
+      // Banner: 120px
+      // Toolbar: 80px
+      // Pagination Footer: 64px
+      // Padding & Spacing: 100px
+      // Total estimasi non-tabel: ~430px
+      const availableHeight = window.innerHeight - 430
+      const rowHeight = 53 // Tinggi rata-rata satu baris tabel
+      const estimatedRows = Math.max(5, Math.floor(availableHeight / rowHeight))
+      setPerPage(estimatedRows)
+    }
+
+    calculateRows()
+    window.addEventListener("resize", calculateRows)
+    return () => window.removeEventListener("resize", calculateRows)
+  }, [])
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     let isMounted = true
-    ;(async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("/api/users")
-        const result = await res.json()
+        const [usersRes, classesRes] = await Promise.all([
+          fetch("/api/users"),
+          fetch("/api/classes"),
+        ])
+
+        const result = await usersRes.json()
+        const classesData = await classesRes.json()
 
         if (!isMounted) return
 
@@ -101,8 +115,9 @@ export default function DataSiswaPage() {
           avatar: String(Math.floor(Math.random() * 70)),
         }))
 
-        if (isMounted) {
-          setData(mappedData)
+        setData(mappedData)
+        if (classesData.classes) {
+          setClasses(classesData.classes)
         }
       } catch (err) {
         console.error(err)
@@ -111,7 +126,9 @@ export default function DataSiswaPage() {
           setLoading(false)
         }
       }
-    })()
+    }
+
+    fetchData()
 
     return () => {
       isMounted = false
@@ -135,8 +152,8 @@ export default function DataSiswaPage() {
     [data, search, filterKelas]
   )
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage)
   const paginatedIds = paginated.map((s) => s.id)
 
   const allPageSelected =
@@ -230,19 +247,15 @@ export default function DataSiswaPage() {
     }
   }
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
+  const todayStr = useMemo(() => {
+    if (typeof window === "undefined") return ""
+    return new Date().toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
   }, [])
-
-  const todayStr = mounted
-    ? new Date().toLocaleDateString("id-ID", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : ""
 
   if (loading)
     return (
@@ -393,7 +406,7 @@ export default function DataSiswaPage() {
                     className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
                   >
                     <option>Semua Kelas</option>
-                    {KELAS_LIST.map((k) => (
+                    {classes.map((k) => (
                       <option key={k}>{k}</option>
                     ))}
                   </select>
@@ -418,11 +431,11 @@ export default function DataSiswaPage() {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/30">
                   {/* Checkbox all */}
-                  <th className="w-10 py-3 pr-2 pl-5">
+                  <th className="w-12 py-3 pr-2 pl-5">
                     <input
                       type="checkbox"
                       checked={allPageSelected}
@@ -436,19 +449,19 @@ export default function DataSiswaPage() {
                     />
                   </th>
                   {[
-                    "No",
-                    "Nama",
-                    "NIS",
-                    "Kelas",
-                    "Jenis Kelamin",
-                    "Email",
-                    "Action",
+                    { label: "No", width: "w-16" },
+                    { label: "Nama", width: "" },
+                    { label: "NIS", width: "w-32" },
+                    { label: "Kelas", width: "w-32" },
+                    { label: "Jenis Kelamin", width: "w-40" },
+                    { label: "Email", width: "w-48" },
+                    { label: "Action", width: "w-16" },
                   ].map((h) => (
                     <th
-                      key={h}
-                      className="px-4 py-3 text-left text-[11px] font-bold tracking-wider text-muted-foreground uppercase last:w-10"
+                      key={h.label}
+                      className={`px-4 py-3 text-left text-[11px] font-bold tracking-wider text-muted-foreground uppercase ${h.width}`}
                     >
-                      {h}
+                      {h.label}
                     </th>
                   ))}
                 </tr>
@@ -493,7 +506,7 @@ export default function DataSiswaPage() {
 
                         {/* No */}
                         <td className="px-4 py-3 text-xs font-medium text-muted-foreground">
-                          {(page - 1) * PER_PAGE + i + 1}
+                          {(page - 1) * perPage + i + 1}
                         </td>
 
                         {/* Nama */}

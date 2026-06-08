@@ -3,18 +3,14 @@
 import { AdminShell } from "../_components/AdminShell"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
-  Users,
   UserCheck,
   HeartPulse,
   XCircle,
-  QrCode,
-  TrendingUp,
-  TrendingDown,
   ArrowRight,
+  GraduationCap,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 
 interface SiswaRecord {
   id: number
@@ -39,151 +35,114 @@ interface AbsensiResponse {
   } | null
 }
 
+interface UserRecord {
+  id: number
+  nama: string
+  nis: string
+  kelas: string
+  role?: string
+}
+
+interface ClassStat {
+  kelas: string
+  total: number
+  hadir: number
+  pct: number
+}
+
 type Status = "hadir" | "haid" | "tidak_hadir"
 
-// ─── Dummy data ───────────────────────────────────────────────────────────────
-const WEEKLY = [
-  { hari: "Sen", hadir: 28, Haid: 4, tidak: 3 },
-  { hari: "Sel", hadir: 31, Haid: 2, tidak: 2 },
-  { hari: "Rab", hadir: 25, Haid: 6, tidak: 4 },
-  { hari: "Kam", hadir: 33, Haid: 1, tidak: 1 },
-  { hari: "Jum", hadir: 29, Haid: 3, tidak: 3 },
-]
+// ─── Bar Chart ───────────────────────────────────────────────────────────────
+function BarChart({
+  data,
+}: {
+  data: {
+    hari: string
+    hadir: number
+    haid: number
+    tidak: number
+    label: string
+  }[]
+}) {
+  const CHART_W = 400
+  const CHART_H = 100
+  const PAD_X = 30
+  const PAD_Y = 15
+  const BAR_GAP = 12
 
-const KELAS_DATA = [
-  { kelas: "X RPL A", total: 32, hadir: 28, pct: 88 },
-  { kelas: "X RPL C", total: 30, hadir: 27, pct: 90 },
-  { kelas: "XI IPA 1", total: 34, hadir: 25, pct: 74 },
-  { kelas: "XI IPS 2", total: 28, hadir: 20, pct: 71 },
-  { kelas: "XII RPL B", total: 30, hadir: 29, pct: 97 },
-]
+  const allVals = data.flatMap((d) => [d.hadir, d.haid, d.tidak])
+  const max = Math.max(...allVals, 1) + 2
 
-// ─── Line Chart ───────────────────────────────────────────────────────────────
-const CHART_W = 400
-const CHART_H = 120
-const PAD_X = 10
-const PAD_Y = 10
-
-function toPoints(values: number[], max: number): string {
-  return values
-    .map((v, i) => {
-      const x = PAD_X + (i / (values.length - 1)) * (CHART_W - PAD_X * 2)
-      const y = PAD_Y + (1 - v / max) * (CHART_H - PAD_Y * 2)
-      return `${x},${y}`
-    })
-    .join(" ")
-}
-
-function toAreaPath(values: number[], max: number): string {
-  const pts = values.map((v, i) => {
-    const x = PAD_X + (i / (values.length - 1)) * (CHART_W - PAD_X * 2)
-    const y = PAD_Y + (1 - v / max) * (CHART_H - PAD_Y * 2)
-    return `${x},${y}`
-  })
-  const bottom = CHART_H - PAD_Y
-  return `M ${pts[0]} L ${pts.join(" L ")} L ${PAD_X + CHART_W - PAD_X * 2},${bottom} L ${PAD_X},${bottom} Z`
-}
-
-function LineChart() {
-  const allVals = WEEKLY.flatMap((d) => [d.hadir, d.Haid, d.tidak])
-  const max = Math.max(...allVals) + 4
-
-  const hadirPts = WEEKLY.map((d) => d.hadir)
-  const HaidPts = WEEKLY.map((d) => d.Haid)
-  const tidakPts = WEEKLY.map((d) => d.tidak)
-
-  const lines = [
-    {
-      values: hadirPts,
-      stroke: "#0d9488",
-      fill: "url(#fillHadir)",
-      id: "fillHadir",
-      c1: "#2dd4bf",
-      c2: "#0d9488",
-    },
-    {
-      values: HaidPts,
-      stroke: "#3b82f6",
-      fill: "url(#fillHaid)",
-      id: "fillHaid",
-      c1: "#d97706",
-      c2: "#3b82f6",
-    },
-    {
-      values: tidakPts,
-      stroke: "#f87171",
-      fill: "url(#fillTidak)",
-      id: "fillTidak",
-      c1: "#fca5a5",
-      c2: "#f87171",
-    },
-  ]
+  const groupWidth = (CHART_W - PAD_X * 2) / Math.max(data.length, 1)
+  const barWidth = Math.min((groupWidth - BAR_GAP) / 3.5, 12)
 
   return (
     <svg
       viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-      className="w-full"
-      style={{ height: 120 }}
+      className="h-auto w-full"
       preserveAspectRatio="none"
     >
-      <defs>
-        {lines.map(({ id, c1, c2 }) => (
-          <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={c1} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={c2} stopOpacity="0.02" />
-          </linearGradient>
-        ))}
-      </defs>
-
-      {/* Horizontal grid lines */}
-      {[0.25, 0.5, 0.75].map((r) => (
+      {/* Grid lines */}
+      {[0, 0.5, 1].map((r) => (
         <line
           key={r}
           x1={PAD_X}
-          y1={PAD_Y + (1 - r) * (CHART_H - PAD_Y * 2)}
+          y1={CHART_H - PAD_Y - r * (CHART_H - PAD_Y * 2)}
           x2={CHART_W - PAD_X}
-          y2={PAD_Y + (1 - r) * (CHART_H - PAD_Y * 2)}
+          y2={CHART_H - PAD_Y - r * (CHART_H - PAD_Y * 2)}
           className="stroke-border"
-          strokeWidth="1"
+          strokeWidth="0.5"
+          strokeDasharray="4 4"
         />
       ))}
 
-      {/* Area fills */}
-      {lines.map(({ values, fill, id }) => (
-        <path key={`area-${id}`} d={toAreaPath(values, max)} fill={fill} />
-      ))}
+      {data.map((d, i) => {
+        const xBase = PAD_X + i * groupWidth + (groupWidth - barWidth * 3.5) / 2
+        const hHadir = (d.hadir / max) * (CHART_H - PAD_Y * 2)
+        const hHaid = (d.haid / max) * (CHART_H - PAD_Y * 2)
+        const hTidak = (d.tidak / max) * (CHART_H - PAD_Y * 2)
 
-      {/* Lines */}
-      {lines.map(({ values, stroke, id }) => (
-        <polyline
-          key={`line-${id}`}
-          points={toPoints(values, max)}
-          fill="none"
-          stroke={stroke}
-          strokeWidth="2"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-      ))}
-
-      {/* Dots */}
-      {lines.map(({ values, stroke, id }) =>
-        values.map((v, i) => {
-          const x = PAD_X + (i / (values.length - 1)) * (CHART_W - PAD_X * 2)
-          const y = PAD_Y + (1 - v / max) * (CHART_H - PAD_Y * 2)
-          return (
-            <circle
-              key={`dot-${id}-${i}`}
-              cx={x}
-              cy={y}
-              r="3"
-              fill="white"
-              stroke={stroke}
-              strokeWidth="2"
+        return (
+          <g key={d.label}>
+            {/* Hadir Bar */}
+            <rect
+              x={xBase}
+              y={CHART_H - PAD_Y - hHadir}
+              width={barWidth}
+              height={hHadir}
+              className="fill-primary"
+              rx="1"
             />
-          )
-        })
-      )}
+            {/* Haid Bar */}
+            <rect
+              x={xBase + barWidth + 2}
+              y={CHART_H - PAD_Y - hHaid}
+              width={barWidth}
+              height={hHaid}
+              className="fill-blue-400"
+              rx="1"
+            />
+            {/* Tidak Hadir Bar */}
+            <rect
+              x={xBase + (barWidth + 2) * 2}
+              y={CHART_H - PAD_Y - hTidak}
+              width={barWidth}
+              height={hTidak}
+              className="fill-destructive"
+              rx="1"
+            />
+            {/* Label */}
+            <text
+              x={xBase + (barWidth * 3.5) / 2}
+              y={CHART_H - 2}
+              textAnchor="middle"
+              className="fill-muted-foreground text-[7px] font-bold"
+            >
+              {d.label}
+            </text>
+          </g>
+        )
+      })}
     </svg>
   )
 }
@@ -192,42 +151,133 @@ function LineChart() {
 export default function DashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
+  const [allUsers, setAllUsers] = useState<UserRecord[]>([])
+  const [classesList, setClassesList] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
-  const today = WEEKLY[WEEKLY.length - 1]
-  const yesterday = WEEKLY[WEEKLY.length - 2]
-  const totalToday = today.hadir + today.Haid + today.tidak
-  const hadirPct = Math.round((today.hadir / totalToday) * 100)
-  const trendUp = today.hadir >= yesterday.hadir
+  // ─── Stats ───
+  const todayStr = new Date().toISOString().split("T")[0]
+
+  const statsToday = useMemo(() => {
+    const todayRecords = data.filter((r) => r.tanggal === todayStr)
+    const hadir = todayRecords.filter((r) => r.status === "hadir").length
+    const haid = todayRecords.filter((r) => r.status === "haid").length
+
+    // Total students from allUsers
+    const total = allUsers.length
+    const tidak = total - (hadir + haid)
+
+    // Presence percentage: (Hadir + Haid) / Total Students
+    const hadirPct = total > 0 ? Math.round(((hadir + haid) / total) * 100) : 0
+
+    return { hadir, haid, tidak, total, hadirPct }
+  }, [data, allUsers, todayStr])
+
+  // ─── Class Stats ───
+  const classStats = useMemo<ClassStat[]>(() => {
+    // Use explicit classesList from API or fallback to users' classes
+    const classes =
+      classesList.length > 0
+        ? classesList
+        : Array.from(new Set(allUsers.map((u) => u.kelas)))
+            .filter((k) => k && k !== "—")
+            .sort()
+
+    return classes
+      .map((c) => {
+        const usersInClass = allUsers.filter((u) => u.kelas === c)
+        const total = usersInClass.length
+
+        // Find attendance for these users today
+        const userNises = new Set(usersInClass.map((u) => u.nis))
+        const todayRecordsInClass = data.filter(
+          (r) => r.tanggal === todayStr && userNises.has(r.nis)
+        )
+
+        const hadirCount = todayRecordsInClass.filter(
+          (r) => r.status === "hadir" || r.status === "haid"
+        ).length
+
+        return {
+          kelas: c,
+          total,
+          hadir: hadirCount,
+          pct: total > 0 ? Math.round((hadirCount / total) * 100) : 0,
+        }
+      })
+      .sort((a, b) => b.pct - a.pct)
+  }, [classesList, allUsers, data, todayStr])
+
+  // ─── Chart Data (Fridays of Current Month) ───
+  const chartData = useMemo(() => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+
+    // Find all Fridays in current month
+    const fridays = []
+    const d = new Date(year, month, 1)
+    while (d.getMonth() === month) {
+      if (d.getDay() === 5) {
+        fridays.push(new Date(d))
+      }
+      d.setDate(d.getDate() + 1)
+    }
+
+    return fridays.map((f) => {
+      const dateStr = f.toISOString().split("T")[0]
+      const label = f.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+      })
+      return {
+        hari: "Jum",
+        label,
+        hadir: data.filter((r) => r.tanggal === dateStr && r.status === "hadir")
+          .length,
+        haid: data.filter((r) => r.tanggal === dateStr && r.status === "haid")
+          .length,
+        tidak: data.filter(
+          (r) => r.tanggal === dateStr && r.status === "tidak_hadir"
+        ).length,
+      }
+    })
+  }, [data])
 
   const getHari = (tanggal: string) => {
     if (!tanggal || tanggal === "—") return "—"
-
     const [y, m, d] = tanggal.split("-").map(Number)
     const date = new Date(y, m - 1, d)
-
-    return date.toLocaleDateString("id-ID", {
-      weekday: "long",
-    })
+    return date.toLocaleDateString("id-ID", { weekday: "long" })
   }
 
   useEffect(() => {
     let isMounted = true
 
-    const fetchAbsensi = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("/api/absensi")
-        const result = await res.json()
+        const [resAbsensi, resUsers, resClasses] = await Promise.all([
+          fetch("/api/absensi"),
+          fetch("/api/users"),
+          fetch("/api/classes"),
+        ])
+
+        const absensiJson = await resAbsensi.json()
+        const usersJson = await resUsers.json()
+        const classesJson = await resClasses.json()
 
         if (!isMounted) return
 
-        const formatted = (result as AbsensiResponse[]).map(
+        setAllUsers(Array.isArray(usersJson) ? usersJson : [])
+        if (classesJson.classes) {
+          setClassesList(classesJson.classes)
+        }
+
+        const formatted = (absensiJson as AbsensiResponse[]).map(
           (r): SiswaRecord => {
             let rawStatus = (r.status || "").trim().toLowerCase()
             if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
-
             const tanggal = r.tanggal ?? "—"
-
             return {
               id: r.id,
               nama: r.users?.nama || "Tidak diketahui",
@@ -242,9 +292,7 @@ export default function DashboardPage() {
             }
           }
         )
-        if (isMounted) {
-          setData(formatted)
-        }
+        setData(formatted)
       } catch (err: unknown) {
         console.error(err)
       } finally {
@@ -252,12 +300,11 @@ export default function DashboardPage() {
       }
     }
 
-    fetchAbsensi()
-
+    fetchData()
     return () => {
       isMounted = false
     }
-  }, [router])
+  }, [])
 
   return (
     <AdminShell>
@@ -294,7 +341,7 @@ export default function DashboardPage() {
             }}
           />
           <div className="relative z-10">
-            <p className="text-xs text-teal-100">Selamat datang kembali 👋</p>
+            <p className="text-xs text-teal-100">Selamat datang kembali</p>
             <h2 className="mt-0.5 text-xl font-black text-white">
               Ustadz Hasan
             </h2>
@@ -309,112 +356,90 @@ export default function DashboardPage() {
                 : ""}
             </p>
           </div>
-          <Button
-            onClick={() => router.push("/admin/generate-qr")}
-            className="relative z-10 h-9 shrink-0 rounded-xl border border-white/30 bg-white/20 text-xs font-semibold text-white backdrop-blur-sm hover:bg-white/30"
-          >
-            <QrCode className="mr-1.5 h-3.5 w-3.5" />
-            Generate QR
-          </Button>
         </div>
 
         {/* ── Summary cards ── */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
             {
               label: "Total Siswa",
-              value: 35,
-              sub: "+2 bulan ini",
-              icon: Users,
-              color: "text-muted-foreground",
-              bg: "bg-card border-border",
-              iconBg: "bg-muted",
-              trend: null,
+              value: statsToday.total,
+              sub: "Siswa terdaftar",
+              icon: GraduationCap,
+              color: "text-slate-600 dark:text-slate-400",
+              bg: "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800",
+              iconBg: "bg-slate-100 dark:bg-slate-800",
             },
             {
-              label: "Hadir Hari Ini",
-              value: today.hadir,
-              sub: `${hadirPct}% kehadiran`,
+              label: "Hadir",
+              value: statsToday.hadir,
+              sub: `${statsToday.hadirPct}% kehadiran`,
               icon: UserCheck,
-              color: "text-primary",
-              bg: "bg-card border-primary/20",
-              iconBg: "bg-primary/10",
-              trend: trendUp,
+              color: "text-teal-600 dark:text-teal-400",
+              bg: "bg-white dark:bg-slate-900 border-teal-100 dark:border-teal-900/30",
+              iconBg: "bg-teal-50 dark:bg-teal-900/20",
             },
             {
               label: "Haid",
-              value: today.Haid,
-              sub: "hari ini",
+              value: statsToday.haid,
+              sub: "Siswa berhalangan",
               icon: HeartPulse,
-              color: "text-blue-500",
-              bg: "bg-card border-blue-500/20",
-              iconBg: "bg-blue-500/10",
-              trend: null,
+              color: "text-blue-600 dark:text-blue-400",
+              bg: "bg-white dark:bg-slate-900 border-blue-100 dark:border-blue-900/30",
+              iconBg: "bg-blue-50 dark:bg-blue-900/20",
             },
             {
               label: "Tidak Hadir",
-              value: today.tidak,
-              sub: "hari ini",
+              value: statsToday.tidak,
+              sub: "Belum absen hari ini",
               icon: XCircle,
-              color: "text-destructive",
-              bg: "bg-card border-destructive/20",
-              iconBg: "bg-destructive/10",
-              trend: null,
+              color: "text-rose-600 dark:text-rose-400",
+              bg: "bg-white dark:bg-slate-900 border-rose-100 dark:border-rose-900/30",
+              iconBg: "bg-rose-50 dark:bg-rose-900/20",
             },
-          ].map(
-            ({ label, value, sub, icon: Icon, color, bg, iconBg, trend }) => (
-              <div
-                key={label}
-                className={`flex flex-col gap-2 rounded-2xl border px-4 py-4 shadow-sm ${bg}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
-                  >
-                    <Icon className={`h-4 w-4 ${color}`} />
-                  </div>
-                  {trend !== null &&
-                    (trend ? (
-                      <TrendingUp className="h-3.5 w-3.5 text-teal-500" />
-                    ) : (
-                      <TrendingDown className="h-3.5 w-3.5 text-red-400" />
-                    ))}
-                </div>
-                <div>
-                  <p className={`text-2xl leading-none font-black ${color}`}>
-                    {value}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {label}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground/80">
-                    {sub}
-                  </p>
-                </div>
+          ].map(({ label, value, sub, color, bg }) => (
+            <div
+              key={label}
+              className={`relative flex flex-col gap-3 overflow-hidden rounded-3xl border p-5 shadow-sm transition-all hover:shadow-md ${bg}`}
+            >
+              <div className="flex items-center justify-between"></div>
+              <div>
+                <p className={`text-3xl leading-none font-black ${color}`}>
+                  {loading ? "..." : value}
+                </p>
+                <p className="mt-2 text-xs font-bold text-foreground">
+                  {label}
+                </p>
+                <p className="mt-0.5 text-[10px] font-medium text-muted-foreground/80">
+                  {sub}
+                </p>
               </div>
-            )
-          )}
+            </div>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {/* ── Line chart mingguan ── */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between">
+          {/* ── Bar chart mingguan ── */}
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
+            <div className="mb-6 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-foreground">
-                  Kehadiran Minggu Ini
+                  Tren Kehadiran (Jumat)
                 </h3>
-                <p className="text-xs text-muted-foreground">Sholat Dzuhur</p>
+                <p className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                  Bulan{" "}
+                  {new Date().toLocaleDateString("id-ID", { month: "long" })}
+                </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {[
                   { label: "Hadir", color: "bg-primary" },
                   { label: "Haid", color: "bg-blue-400" },
-                  { label: "Tidak Hadir", color: "bg-destructive" },
+                  { label: "Tidak", color: "bg-destructive" },
                 ].map(({ label, color }) => (
                   <div
                     key={label}
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                    className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase"
                   >
                     <div className={`h-2 w-2 rounded-full ${color}`} />
                     {label}
@@ -425,60 +450,65 @@ export default function DashboardPage() {
 
             {/* Chart area */}
             <div className="w-full">
-              <LineChart />
-            </div>
-
-            {/* X-axis labels */}
-            <div className="mt-1 flex justify-between px-2">
-              {WEEKLY.map((d) => (
-                <span
-                  key={d.hari}
-                  className="flex-1 text-center text-[10px] font-medium text-muted-foreground"
-                >
-                  {d.hari}
-                </span>
-              ))}
+              {loading ? (
+                <div className="flex h-24 items-center justify-center">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : (
+                <BarChart data={chartData} />
+              )}
             </div>
           </div>
 
           {/* ── Per kelas ── */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6 shadow-sm">
             <div>
               <h3 className="text-sm font-bold text-foreground">Per Kelas</h3>
-              <p className="text-xs text-muted-foreground">Tingkat kehadiran</p>
+              <p className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                Tingkat Kehadiran
+              </p>
             </div>
             <div className="flex flex-col gap-3.5">
-              {KELAS_DATA.map((k) => (
-                <div key={k.kelas}>
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground/90">
-                      {k.kelas}
-                    </span>
-                    <span
-                      className={`text-xs font-bold ${k.pct >= 85 ? "text-primary" : k.pct >= 70 ? "text-amber-500" : "text-destructive"}`}
-                    >
-                      {k.pct}%
-                    </span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${k.pct}%`,
-                        background:
-                          k.pct >= 85
-                            ? "linear-gradient(90deg,var(--color-primary),var(--color-primary))"
-                            : k.pct >= 70
-                              ? "linear-gradient(90deg,#fbbf24,#f59e0b)"
-                              : "linear-gradient(90deg,#f87171,#ef4444)",
-                      }}
-                    />
-                  </div>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">
-                    {k.hadir}/{k.total} hadir
+              {classStats.length === 0 ? (
+                <div className="flex h-32 flex-col items-center justify-center gap-2">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <p className="text-[10px] text-muted-foreground">
+                    Memuat data kelas...
                   </p>
                 </div>
-              ))}
+              ) : (
+                classStats.map((k) => (
+                  <div key={k.kelas}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-foreground/90">
+                        {k.kelas}
+                      </span>
+                      <span
+                        className={`text-xs font-bold ${k.pct >= 85 ? "text-primary" : k.pct >= 70 ? "text-amber-500" : "text-destructive"}`}
+                      >
+                        {k.pct}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${k.pct}%`,
+                          background:
+                            k.pct >= 85
+                              ? "linear-gradient(90deg,var(--color-primary),var(--color-primary))"
+                              : k.pct >= 70
+                                ? "linear-gradient(90deg,#fbbf24,#f59e0b)"
+                                : "linear-gradient(90deg,#f87171,#ef4444)",
+                        }}
+                      />
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      {k.hadir}/{k.total} hadir
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -528,7 +558,11 @@ export default function DashboardPage() {
                           : "border-destructive/20 bg-destructive/10 text-destructive"
                     }`}
                   >
-                    {r.status === "hadir" ? "Hadir" : "Haid"}
+                    {r.status === "hadir"
+                      ? "Hadir"
+                      : r.status === "haid"
+                        ? "Haid"
+                        : "Tidak Hadir"}
                   </Badge>
                 </div>
               </div>

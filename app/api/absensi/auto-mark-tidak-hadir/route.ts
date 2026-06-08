@@ -1,10 +1,11 @@
 import { supabase } from "../../../../lib/supabaseClient"
-import { TEST_CONFIG,} from "@/lib/test-config"
+import { getGlobalConfig } from "@/lib/test-config"
 
 export async function POST() {
   try {
+    const config = await getGlobalConfig()
     // Cek apakah fitur ini diaktifkan dan waktu sudah lewat
-    if (!TEST_CONFIG.ENABLE_FORGOT_SIGN_IN) {
+    if (!config.ENABLE_FORGOT_SIGN_IN) {
       return Response.json(
         { error: "Fitur auto mark tidak hadir dinonaktifkan" },
         { status: 400 }
@@ -15,7 +16,7 @@ export async function POST() {
     const isFriday = now.getDay() === 5
 
     // Jika bukan hari Jumat, jangan jalankan auto-mark
-    if (!isFriday && !TEST_CONFIG.ENABLE_SIMULATION) {
+    if (!isFriday && !config.ENABLE_SIMULATION) {
       return Response.json(
         { error: "Auto mark hanya berjalan pada hari Jumat" },
         { status: 400 }

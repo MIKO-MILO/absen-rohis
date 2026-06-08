@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, LogIn, Loader2, ShieldCheck } from "lucide-react"
+import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 
 export default function AdminLoginPage() {
@@ -45,7 +45,8 @@ export default function AdminLoginPage() {
         JSON.stringify({
           id: result.user.id,
           username: result.user.username || result.user.nama,
-          role: "admin"
+          nama: result.user.nama,
+          role: result.role || "admin",
         })
       )
 
@@ -147,22 +148,7 @@ export default function AdminLoginPage() {
                 <h1 className="text-lg leading-tight font-black text-foreground">
                   Absen Rohis
                 </h1>
-                <div className="mt-1 flex items-center justify-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                  <p className="text-xs font-semibold text-primary">
-                    Admin Panel
-                  </p>
-                </div>
               </div>
-            </div>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-[10px] font-medium tracking-widest text-muted-foreground uppercase">
-                Login
-              </span>
-              <div className="h-px flex-1 bg-border" />
             </div>
 
             <div className="flex flex-col gap-4">

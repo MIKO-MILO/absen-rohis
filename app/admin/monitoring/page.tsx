@@ -6,21 +6,30 @@ import { AdminShell } from "../_components/AdminShell"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { AbsensiExportButton } from "@/components/AbsensiExportButton"
 import {
   Users,
   Search,
   Clock,
   XCircle,
   UserCheck,
-  RefreshCw,
   HelpCircle,
   CalendarDays,
   LucideIcon,
   Filter,
   Calendar,
   MoreHorizontal,
+  FileSpreadsheet,
+  Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
+import { AbsensiExportButton } from "@/components/AbsensiExportButton"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AbsenStatus = "hadir" | "haid" | "tidak_hadir" | "belum_absen"
@@ -97,18 +107,6 @@ const STATUS_META: Record<
   },
 }
 
-const KELAS_LIST = [
-  "X RPL A",
-  "X RPL B",
-  "X RPL C",
-  "XI IPA 1",
-  "XI IPA 2",
-  "XI IPS 1",
-  "XI RPL A",
-  "XII RPL B",
-  "XII IPS 2",
-]
-
 const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir", "Belum Absen"] as const
 type Tab = (typeof TABS)[number]
 
@@ -123,15 +121,33 @@ const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
 export default function MonitoringPage() {
   const [users, setUsers] = useState<UserRecord[]>([])
   const [absensi, setAbsensi] = useState<AbsensiRecord[]>([])
+  const [classes, setClasses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [filterKelas, setFilterKelas] = useState("X RPL A")
+  const [filterKelas, setFilterKelas] = useState("")
   const [activeTab, setActiveTab] = useState<Tab>("Semua")
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   )
-  const [refreshing, setRefreshing] = useState(false)
+  const [, setRefreshing] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [perPage, setPerPage] = useState(10)
+  const [page, setPage] = useState(1)
   const isMounted = useRef(true)
+
+  // ── Dynamic Row Calculation ────────────────────────────────────────────────
+  useEffect(() => {
+    const calculateRows = () => {
+      // Estimasi non-tabel: ~530px
+      const availableHeight = window.innerHeight - 530
+      const rowHeight = 62
+      const estimatedRows = Math.max(5, Math.floor(availableHeight / rowHeight))
+      setPerPage(estimatedRows)
+    }
+    calculateRows()
+    window.addEventListener("resize", calculateRows)
+    return () => window.removeEventListener("resize", calculateRows)
+  }, [])
 
   useEffect(() => {
     isMounted.current = true
@@ -143,11 +159,15 @@ export default function MonitoringPage() {
   const fetchData = useCallback(async () => {
     setRefreshing(true)
     try {
-      const usersRes = await fetch("/api/users")
-      const usersData = (await usersRes.json()) as UserRecord[]
+      const [usersRes, absensiRes, classesRes] = await Promise.all([
+        fetch("/api/users"),
+        fetch("/api/absensi"),
+        fetch("/api/classes"),
+      ])
 
-      const absensiRes = await fetch("/api/absensi")
+      const usersData = (await usersRes.json()) as UserRecord[]
       const allAbsensi = (await absensiRes.json()) as AbsensiRecord[]
+      const classesData = await classesRes.json()
 
       const dateAbsensi = allAbsensi.filter(
         (a: AbsensiRecord) => a.tanggal === selectedDate
@@ -156,6 +176,12 @@ export default function MonitoringPage() {
       if (isMounted.current) {
         setUsers(usersData)
         setAbsensi(dateAbsensi)
+        if (classesData.classes) {
+          setClasses(classesData.classes)
+          if (!filterKelas && classesData.classes.length > 0) {
+            setFilterKelas(classesData.classes[0])
+          }
+        }
       }
     } catch (error) {
       console.error("Error fetching data:", error)
@@ -165,10 +191,17 @@ export default function MonitoringPage() {
         setRefreshing(false)
       }
     }
-  }, [selectedDate])
+  }, [selectedDate, filterKelas])
 
   useEffect(() => {
     fetchData()
+
+    // Auto refresh setiap 30 detik
+    const interval = setInterval(() => {
+      fetchData()
+    }, 10000)
+
+    return () => clearInterval(interval)
   }, [fetchData])
 
   const monitoringData = useMemo(() => {
@@ -214,6 +247,9 @@ export default function MonitoringPage() {
     })
   }, [monitoringData, search, filterKelas, activeTab])
 
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / perPage))
+  const paginated = filteredData.slice((page - 1) * perPage, page * perPage)
+
   const summary = useMemo(() => {
     const total = filteredData.length
     const hadir = filteredData.filter((d) => d.status === "hadir").length
@@ -240,8 +276,11 @@ export default function MonitoringPage() {
 
   const resetFilters = () => {
     setSearch("")
-    setFilterKelas("X RPL A")
+    if (classes.length > 0) {
+      setFilterKelas(classes[0])
+    }
     setActiveTab("Semua")
+    setPage(1)
     setSelectedDate(new Date().toISOString().split("T")[0])
   }
 
@@ -317,7 +356,7 @@ export default function MonitoringPage() {
           <div className="relative z-10">
             <p className="text-xs text-teal-100">Monitoring Kelas</p>
             <h2 className="mt-0.5 text-xl font-black text-white">
-              Kehadiran Siswa —{" "}
+              Kehadiran Siswa {" "}
               {selectedDate === new Date().toISOString().split("T")[0]
                 ? "Hari Ini"
                 : "Arsip"}
@@ -325,32 +364,11 @@ export default function MonitoringPage() {
             <p className="mt-1 text-xs text-teal-200">{displayDateStr}</p>
           </div>
           <div className="relative z-10 flex items-center gap-3">
-            <div className="hidden flex-col items-center gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-5 py-3 backdrop-blur-sm sm:flex">
+            <div className="flex flex-col items-center gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-5 py-3 backdrop-blur-sm">
               <span className="text-2xl leading-none font-black text-white">
                 {hadirPct}%
               </span>
               <span className="text-[10px] text-teal-200">Tingkat Hadir</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Calendar className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-teal-100" />
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="h-9 cursor-pointer rounded-xl border border-white/20 bg-white/15 pr-3 pl-8 text-xs font-bold text-white backdrop-blur-sm transition-all outline-none hover:bg-white/25"
-                />
-              </div>
-              <button
-                onClick={fetchData}
-                disabled={refreshing}
-                className="flex h-9 items-center gap-2 rounded-xl border border-white/20 bg-white/15 px-4 text-xs font-bold text-white backdrop-blur-sm transition-all hover:bg-white/25 disabled:opacity-50"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
             </div>
           </div>
         </div>
@@ -431,7 +449,7 @@ export default function MonitoringPage() {
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     Menampilkan {filteredData.length} siswa
                     {(search ||
-                      filterKelas !== "X RPL A" ||
+                      (classes.length > 0 && filterKelas !== classes[0]) ||
                       activeTab !== "Semua") && (
                       <button
                         onClick={resetFilters}
@@ -451,6 +469,16 @@ export default function MonitoringPage() {
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="h-9 w-52 rounded-xl border-border bg-muted/50 pl-8 text-xs focus-visible:ring-primary"
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <Calendar className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="h-9 w-full cursor-pointer rounded-xl border border-border bg-muted/50 pr-3 pl-7.5 text-xs font-semibold text-muted-foreground outline-none transition-all hover:bg-muted focus:ring-2 focus:ring-primary/20 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
                     />
                   </div>
 
@@ -480,22 +508,27 @@ export default function MonitoringPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {/* Export Excel per Kelas */}
-                  <AbsensiExportButton
-                    kelas="X TEKNIK LOGISTIK (TL) - A"
-                    tahunPelajaran="2025/2026"
-                  />
+                  {/* Export Button */}
+                  <Button
+                    onClick={() => setShowExportModal(true)}
+                    className="h-9 gap-2 rounded-xl bg-teal-600 text-xs font-bold text-white shadow-sm shadow-teal-500/20 hover:bg-teal-700"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Export Data
+                  </Button>
                 </div>
               </div>
             </div>
 
-            {/* ─ Tabs (Kelas Filter) ─ */}
             <div className="no-scrollbar flex items-center overflow-x-auto border-t border-border/50 bg-muted/5 px-5">
               <div className="flex items-center">
-                {KELAS_LIST.map((kelas) => (
+                {classes.map((kelas) => (
                   <button
                     key={kelas}
-                    onClick={() => setFilterKelas(kelas)}
+                    onClick={() => {
+                      setFilterKelas(kelas)
+                      setPage(1)
+                    }}
                     className={`relative px-4 py-3 text-[11px] font-bold tracking-wider whitespace-nowrap uppercase transition-colors ${
                       filterKelas === kelas
                         ? "text-primary"
@@ -547,8 +580,8 @@ export default function MonitoringPage() {
                       </td>
                     </tr>
                   ))
-                ) : filteredData.length > 0 ? (
-                  filteredData.map((item) => (
+                ) : paginated.length > 0 ? (
+                  paginated.map((item) => (
                     <tr
                       key={item.id}
                       className="group transition-colors hover:bg-muted/40"
@@ -650,8 +683,87 @@ export default function MonitoringPage() {
               </tbody>
             </table>
           </div>
+
+          {/* ─ Pagination ─ */}
+          <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-5 py-4">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+              Halaman {page} dari {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Export Modal */}
+      <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader className="mb-4">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">
+              <FileSpreadsheet className="h-8 w-8" />
+            </div>
+            <DialogTitle className="text-xl font-bold">
+              Export Laporan Absensi
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Pilih format dan lingkup data yang ingin Anda ekspor ke Excel.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-border bg-muted/30 p-4">
+              <p className="mb-3 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                Opsi Ekspor Saat Ini
+              </p>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-foreground/80">
+                    Kelas terpilih
+                  </span>
+                  <span className="text-xs font-bold text-teal-600">
+                    {filterKelas}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-foreground/80">Tanggal</span>
+                  <span className="text-xs font-bold text-teal-600">
+                    {displayDateStr}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <AbsensiExportButton
+                kelas={filterKelas}
+                tahunPelajaran="2025/2026"
+                className="w-full"
+              />
+              <Button
+                variant="outline"
+                onClick={() => setShowExportModal(false)}
+                className="h-12 w-full rounded-2xl border-border text-sm font-bold"
+              >
+                Batal
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   )
 }

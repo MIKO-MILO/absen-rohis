@@ -15,7 +15,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { BrowserQRCodeReader } from "@zxing/library"
-import { TEST_CONFIG } from "@/lib/test-config"
+import { getActiveConfig } from "@/lib/test-config"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type ScanState = "idle" | "scanning" | "pilih" | "success" | "error"
@@ -59,6 +59,7 @@ const PILIHAN_CONFIG = {
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function ScanQRPage() {
   const router = useRouter()
+  const config = getActiveConfig()
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const codeReaderRef = useRef<BrowserQRCodeReader | null>(null)
@@ -333,7 +334,7 @@ export default function ScanQRPage() {
             </p>
 
             {/* Dev: simulate */}
-            {TEST_CONFIG.ENABLE_SIMULATION && (
+            {config.ENABLE_SIMULATION && (
               <div className="flex flex-col gap-2">
                 <Button
                   onClick={() => {
@@ -347,11 +348,11 @@ export default function ScanQRPage() {
                 </Button>
                 <div className="flex items-center justify-center gap-2">
                   <div
-                    className={`h-2 w-2 rounded-full ${TEST_CONFIG.ENABLE_TIME_RESTRICTION ? "bg-yellow-500" : "bg-gray-500"}`}
+                    className={`h-2 w-2 rounded-full ${config.ENABLE_TIME_RESTRICTION ? "bg-yellow-500" : "bg-gray-500"}`}
                   />
                   <span className="text-[10px] font-bold tracking-widest text-white/40 uppercase">
                     Time Restriction:{" "}
-                    {TEST_CONFIG.ENABLE_TIME_RESTRICTION
+                    {config.ENABLE_TIME_RESTRICTION
                       ? "ON (Fri 12-14)"
                       : "OFF"}
                   </span>
@@ -521,9 +522,7 @@ export default function ScanQRPage() {
               <XCircle className="h-14 w-14 text-red-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">
-                {errorMsg}
-              </h2>
+              <h2 className="text-xl font-bold text-white">{errorMsg}</h2>
               <p className="mt-2 max-w-xs text-sm leading-relaxed text-red-300">
                 {errorMsg}
               </p>

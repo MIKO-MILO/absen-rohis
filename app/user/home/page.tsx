@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeButton } from "@/components/mode-button"
-import { TEST_CONFIG, isPastAbsensiTime } from "@/lib/test-config"
+import { getActiveConfig, isOutsideAbsensiTime } from "@/lib/test-config"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -101,6 +101,7 @@ function getSummary(data: RiwayatItem[]) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function UserHomePage() {
   const router = useRouter()
+  const [config, setConfig] = useState(getActiveConfig())
   const [data, setData] = useState<RiwayatItem[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<UserSession | null>(null)
@@ -111,14 +112,60 @@ export default function UserHomePage() {
   useEffect(() => {
     setMounted(true)
     setNow(new Date())
-    const timer = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(timer)
+
+    // Ambil config awal dari DB
+    const initConfig = async () => {
+      try {
+        const res = await fetch("/api/config")
+        if (res.ok) {
+          const dbConfig = await res.json()
+          setConfig(dbConfig)
+          localStorage.setItem(
+            "test_config_superadmin",
+            JSON.stringify(dbConfig)
+          )
+        }
+      } catch (err) {
+        console.error("Gagal load config dari DB:", err)
+      }
+    }
+    initConfig()
+
+    // Sinkronisasi status absen dan waktu (lokal)
+    const timeInterval = setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+
+    // Sinkronisasi config dari DB secara periodik (setiap 5 detik)
+    const configInterval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/config")
+        if (res.ok) {
+          const dbConfig = await res.json()
+          setConfig(dbConfig)
+          localStorage.setItem(
+            "test_config_superadmin",
+            JSON.stringify(dbConfig)
+          )
+        }
+      } catch {
+        // silent error
+      }
+    }, 5000)
+
+    return () => {
+      clearInterval(timeInterval)
+      clearInterval(configInterval)
+    }
   }, [])
 
-  const isTimeAllowed = mounted && now ? !isPastAbsensiTime(now) : true
+  const isTimeAllowed =
+    mounted && now ? !isOutsideAbsensiTime(now, config) : true
+  const isRestrictionEnabled = config.ENABLE_TIME_RESTRICTION
+
   const shouldDisableButton =
-    (sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN) ||
-    (mounted && !isTimeAllowed)
+    (sudahAbsen && config.ENABLE_ONE_TIME_SCAN) ||
+    (mounted && isRestrictionEnabled && !isTimeAllowed)
 
   const summary = getSummary(data)
 
@@ -156,15 +203,16 @@ export default function UserHomePage() {
           return b.waktu.localeCompare(a.waktu)
         })
 
-      setData(formatted)
-
       // 🔥 2. cek ke DB
       const resToday = await fetch(`/api/absensi/today?user_id=${userId}`)
       const todayResult = await resToday.json()
 
+      // Pengecekan mounted dilakukan di useEffect yang memanggil fetchData
+      // Namun untuk keamanan ekstra kita bisa menggunakan ref atau check state
+      setData(formatted)
       setSudahAbsen(todayResult.sudahAbsen)
-    } catch (err) {
-      console.error("Error fetching data:", err)
+    } catch {
+      // console.error("Error fetching data:", err)
     } finally {
       setLoading(false)
     }
@@ -284,7 +332,7 @@ export default function UserHomePage() {
             </p>
             <div className="mt-1.5 flex items-center gap-1">
               <Clock className="h-3 w-3 text-teal-100" />
-              <p className="text-xs text-teal-50">12:00 - 13:00 WIB</p>
+              <p className="text-xs text-teal-50">12:00 - 14:00 WIB</p>
             </div>
           </div>
           <div className="flex flex-col items-center gap-1">
@@ -379,11 +427,15 @@ export default function UserHomePage() {
             />
             {!mounted ? (
               <span className="font-semibold">Scan QR untuk Absen</span>
-            ) : !isTimeAllowed ? (
-              <span className="font-semibold">
-                Absensi Hanya Jumat 12:00-14:00
+            ) : isRestrictionEnabled && !isTimeAllowed ? (
+              <span className="text-xs font-semibold">
+                {config.ALLOW_ANY_DAY && !config.ALLOW_ANY_TIME
+                  ? "Absensi Hanya Pukul 12:00-14:00"
+                  : !config.ALLOW_ANY_DAY && config.ALLOW_ANY_TIME
+                    ? "Absensi Hanya Hari Jumat"
+                    : "Absensi Hanya Jumat 12:00-14:00"}
               </span>
-            ) : sudahAbsen && TEST_CONFIG.ENABLE_ONE_TIME_SCAN ? (
+            ) : sudahAbsen && config.ENABLE_ONE_TIME_SCAN ? (
               <span className="font-semibold">Sudah Absen Hari Ini</span>
             ) : (
               <span className="font-semibold">Scan QR untuk Absen</span>
@@ -394,13 +446,18 @@ export default function UserHomePage() {
             <p className="text-center text-xs text-muted-foreground">
               Arahkan kamera ke QR Code yang tersedia di masjid
             </p>
-          ) : !isTimeAllowed ? (
+          ) : isRestrictionEnabled && !isTimeAllowed ? (
             <p className="text-center text-xs font-semibold text-destructive">
-              Absensi hanya tersedia pada hari Jumat pukul 12:00 - 14:00 WIB
+              {config.ALLOW_ANY_DAY && !config.ALLOW_ANY_TIME
+                ? "Absensi hanya tersedia setiap hari pukul 12:00 - 14:00 WIB"
+                : !config.ALLOW_ANY_DAY && config.ALLOW_ANY_TIME
+                  ? "Absensi hanya tersedia pada hari Jumat (Kapan saja)"
+                  : "Absensi hanya tersedia pada hari Jumat pukul 12:00 - 14:00 WIB"}
             </p>
           ) : sudahAbsen ? (
             <p className="text-center text-xs font-semibold text-primary">
-              Anda Sudah Absen {!TEST_CONFIG.ENABLE_ONE_TIME_SCAN && "(Bisa Scan Lagi)"}
+              Anda Sudah Absen{" "}
+              {!config.ENABLE_ONE_TIME_SCAN && "(Bisa Scan Lagi)"}
             </p>
           ) : (
             <p className="text-center text-xs text-muted-foreground">
