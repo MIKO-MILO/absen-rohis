@@ -60,8 +60,12 @@ export default function LoginPage() {
 
       // If normal session, redirect accordingly
       if (effectiveSession) {
-        if (isAdmin(effectiveSession.role)) {
+        if (effectiveSession.role === "superadmin") {
           // Stay on development hub
+        } else if (effectiveSession.role === "admin") {
+          // Redirect regular admin directly to dashboard
+          router.push("/admin/dashboard")
+          return
         } else if (effectiveSession.role === "panitia") {
           router.push("/rohis/home")
           return
@@ -176,8 +180,8 @@ export default function LoginPage() {
   return (
     <>
       <ImpersonationBanner />
-      {/* Show Development Hub if admin/superadmin */}
-      {session && isAdmin(session.role) ? (
+      {/* Show Development Hub if superadmin only */}
+      {session && session.role === "superadmin" ? (
         <div className="flex min-h-screen flex-col items-center justify-between overflow-hidden bg-background">
           {/* ── Top illustration area ── */}
           <div
