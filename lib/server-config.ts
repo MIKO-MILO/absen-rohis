@@ -1,27 +1,14 @@
+/**
+ * ⚙️ KONFIGURASI SERVER-SIDE
+ * Hanya untuk dipanggil di server-side!
+ */
+
 import { createClient } from "./supabaseServer"
+import { DEFAULT_CONFIG, type TestConfig } from "./client-config"
 
-export interface TestConfig {
-  ENABLE_SIMULATION: boolean
-  ENABLE_ONE_TIME_SCAN: boolean
-  ENABLE_TIME_RESTRICTION: boolean
-  ENABLE_FORGOT_SIGN_IN: boolean
-  EXPORT_ALL_DATES: boolean
-  ALLOW_ANY_DAY: boolean
-  ALLOW_ANY_TIME: boolean
-  MAINTENANCE_MODE: boolean
-}
-
-export const DEFAULT_CONFIG: TestConfig = {
-  ENABLE_SIMULATION: false,
-  ENABLE_ONE_TIME_SCAN: true,
-  ENABLE_TIME_RESTRICTION: true,
-  ENABLE_FORGOT_SIGN_IN: true,
-  EXPORT_ALL_DATES: false,
-  ALLOW_ANY_DAY: false,
-  ALLOW_ANY_TIME: false,
-  MAINTENANCE_MODE: false,
-}
-
+/**
+ * Mendapatkan konfigurasi dari Database (Server-side safe)
+ */
 export async function getGlobalConfig(): Promise<TestConfig> {
   try {
     const supabaseServer = await createClient()

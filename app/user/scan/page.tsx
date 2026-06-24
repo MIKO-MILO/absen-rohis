@@ -15,7 +15,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { BrowserQRCodeReader } from "@zxing/library"
-import { getActiveConfig } from "@/lib/test-config"
+import { getActiveConfig } from "@/lib/client-config"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type ScanState = "idle" | "scanning" | "pilih" | "success" | "error"

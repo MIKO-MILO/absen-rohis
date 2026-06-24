@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabaseServer"
 import { requireAdminSession } from "@/lib/auth-server"
-import { getGlobalConfig } from "@/lib/test-config"
+import { getGlobalConfig } from "@/lib/server-config"
 import type { Database } from "@/lib/supabase-types"
 
 export async function POST() {

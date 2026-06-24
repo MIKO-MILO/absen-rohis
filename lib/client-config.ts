@@ -1,3 +1,8 @@
+/**
+ * ⚙️ KONFIGURASI TESTING TERPUSAT (CLIENT-SIDE)
+ * Membaca dari localStorage jika di sisi client, atau menggunakan default.
+ */
+
 export const STORAGE_KEY = "test_config_superadmin"
 
 export interface TestConfig {
@@ -22,6 +27,9 @@ export const DEFAULT_CONFIG: TestConfig = {
   MAINTENANCE_MODE: false,
 }
 
+/**
+ * Mendapatkan konfigurasi aktif (Client-side aware)
+ */
 export function getActiveConfig(): TestConfig {
   if (typeof window === "undefined") return DEFAULT_CONFIG
 
@@ -35,6 +43,10 @@ export function getActiveConfig(): TestConfig {
   }
 }
 
+/**
+ * 🕒 Fungsi untuk memeriksa apakah waktu saat ini dalam jendela absensi yang diizinkan
+ * (Jumat 12:00 - 14:00 WIB)
+ */
 export function isWithinTimeRestriction(
   now?: Date,
   customConfig?: TestConfig
@@ -46,26 +58,38 @@ export function isWithinTimeRestriction(
   const day = checkTime.getDay()
   const hour = checkTime.getHours()
 
+  // Jika ALLOW_ANY_TIME aktif, jam tidak dicek
   const isTimeOk = config.ALLOW_ANY_TIME || (hour >= 12 && hour < 14)
 
+  // Jika ALLOW_ANY_DAY aktif, hari tidak dicek
   if (config.ALLOW_ANY_DAY) {
     return isTimeOk
   }
 
+  // Jika ALLOW_ANY_DAY tidak aktif, cek hari Jumat DAN jam
   return day === 5 && isTimeOk
 }
 
+/**
+ * 🕒 Fungsi untuk memeriksa apakah waktu absensi belum dimulai atau sudah berakhir
+ * (Selain Jumat 12:00 - 14:00 WIB)
+ */
 export function isOutsideAbsensiTime(
   now?: Date,
   customConfig?: TestConfig
 ): boolean {
   const config = customConfig || getActiveConfig()
 
+  // Jika batasan waktu dimatikan secara global, maka tidak ada waktu yang "di luar" (selalu boleh)
   if (!config.ENABLE_TIME_RESTRICTION) return false
 
   return !isWithinTimeRestriction(now, config)
 }
 
+/**
+ * 🕒 Fungsi untuk memeriksa apakah waktu sudah melewati batas absensi
+ * (Lebih dari 14:00)
+ */
 export function isPastAbsensiTime(
   now?: Date,
   customConfig?: TestConfig
@@ -77,8 +101,10 @@ export function isPastAbsensiTime(
   const day = checkTime.getDay()
   const hour = checkTime.getHours()
 
+  // Jika ALLOW_ANY_TIME aktif, tidak pernah dianggap "past"
   if (config.ALLOW_ANY_TIME) return false
 
+  // Jika ALLOW_ANY_DAY aktif, hanya cek jam
   if (config.ALLOW_ANY_DAY) {
     return hour >= 14
   }
@@ -86,6 +112,10 @@ export function isPastAbsensiTime(
   return day === 5 && hour >= 14
 }
 
+/**
+ * 📋 Fungsi untuk menentukan apakah user dianggap tidak hadir
+ * (Jika waktu sudah lewat dan user belum absen)
+ */
 export function shouldMarkAsTidakHadir(
   sudahAbsen: boolean,
   now?: Date

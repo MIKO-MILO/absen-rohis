@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient"
-import { getGlobalConfig, isWithinTimeRestriction } from "@/lib/test-config"
+import { getGlobalConfig } from "@/lib/server-config"
+import { isWithinTimeRestriction } from "@/lib/client-config"
 
 export async function POST(req: Request) {
   interface QRToken {
