@@ -1,9 +1,3 @@
-/**
- * app/api/absensi/export/route.ts
- * Next.js 13+ App Router API Route
- * GET /api/absensi/export?kelas=X-TL-A&tahun=2025/2026&semua_kelas=true
- */
-
 import { NextRequest, NextResponse } from "next/server"
 import { exportAbsensiExcel, exportAllClassesExcel } from "@/lib/exportAbsensi"
 import type {
@@ -14,10 +8,13 @@ import type {
 import fs from "fs"
 import path from "path"
 import sharp from "sharp"
-import { supabase } from "../../../../lib/supabaseClient"
+import { createClient } from "@/lib/supabaseServer"
+import { requireAdminSession } from "@/lib/auth-server"
+import type { AbsensiWithUserSummary } from "@/lib/supabase-types"
 
 export async function GET(req: NextRequest) {
   try {
+    await requireAdminSession()
     const { searchParams } = new URL(req.url)
     const kelas = searchParams.get("kelas") ?? "X TEKNIK LOGISTIK (TL) - A"
     const tahun = searchParams.get("tahun") ?? "2025/2026"
@@ -30,20 +27,8 @@ export async function GET(req: NextRequest) {
     const semuaKelas = searchParams.get("semua_kelas") === "true"
     const exportAllDates = searchParams.get("export_all_dates") === "true"
 
-    console.log(
-      "[export-absensi] Starting export for kelas:",
-      kelas,
-      "bulan:",
-      bulan,
-      "tahun:",
-      tahunBulan,
-      "semua_kelas:",
-      semuaKelas,
-      "export_all_dates:",
-      exportAllDates
-    )
+    const supabase = await createClient()
 
-    // ── Optional: load logos from public folder ──
     let leftLogoBase64: string | undefined
     let leftLogoWidth: number | undefined
     let leftLogoHeight: number | undefined
@@ -106,37 +91,23 @@ export async function GET(req: NextRequest) {
 
     let buffer: Buffer
 
-    // Cek semua kelas yang ada di database
-    const { data: allUsersTest } = await supabase
-      .from("users")
-      .select("id, nama, kelas, nis")
-    const uniqueClassesTest = [
-      ...new Set((allUsersTest || []).map((u: any) => u.kelas)), // eslint-disable-line
-    ]
-    console.log("[export-absensi] All classes in DB:", uniqueClassesTest)
-    console.log("[export-absensi] Searching for class:", kelas)
-
     if (semuaKelas) {
-      // Export semua kelas di sheet yang berbeda
-      const allClassesData = await fetchAllClassesData(bulan, tahunBulan)
+      const allClassesData = await fetchAllClassesData(
+        bulan,
+        tahunBulan,
+        supabase
+      )
       buffer = await exportAllClassesExcel(allClassesData, baseConfig)
     } else {
-      // Export satu kelas saja
       const [usersData, absensiData] = await Promise.all([
-        fetchUsersByClass(kelas),
-        fetchAbsensiByClass(kelas, bulan, tahunBulan),
+        fetchUsersByClass(kelas, supabase),
+        fetchAbsensiByClass(kelas, bulan, tahunBulan, supabase),
       ])
-
-      console.log("[export-absensi] Users fetched:", usersData.length)
-      console.log("[export-absensi] Absensi fetched:", absensiData.length)
-
       buffer = await exportAbsensiExcel(usersData, absensiData, {
         ...baseConfig,
         kelas,
       })
     }
-
-    console.log("[export-absensi] Excel generated successfully")
 
     const filename = semuaKelas
       ? `Daftar_Hadir_Semua_Kelas_${tahun.replace("/", "-")}.xlsx`
@@ -151,21 +122,28 @@ export async function GET(req: NextRequest) {
         "Content-Length": buffer.length.toString(),
       },
     })
-  } catch (err) {
-    console.error("[export-absensi] Error:", err)
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    console.error("[export-absensi] Error:", error)
     return NextResponse.json(
       {
         error: "Export gagal",
-        details: err instanceof Error ? err.message : String(err),
+        details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     )
   }
 }
 
-// ── Fetch functions ──
-async function fetchUsersByClass(kelas: string): Promise<UserRecord[]> {
-  console.log("[export-absensi] Fetching users for class:", kelas)
+async function fetchUsersByClass(
+  kelas: string,
+  supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never
+): Promise<UserRecord[]> {
   const { data, error } = await supabase
     .from("users")
     .select("id, nama, kelas, nis, jenis_kelamin")
@@ -175,15 +153,22 @@ async function fetchUsersByClass(kelas: string): Promise<UserRecord[]> {
     console.error("[export-absensi] Error fetching users:", error)
     throw error
   }
-  console.log("[export-absensi] Users found:", data?.length || 0)
-  return data || []
+
+  const typedData = data as Array<UserRecord>
+
+  return typedData ?? []
 }
 
 async function fetchAbsensiByClass(
   kelas: string,
   bulan?: number,
-  tahunBulan?: number
+  tahunBulan?: number,
+  supabase?: ReturnType<typeof createClient> extends Promise<infer T>
+    ? T
+    : never
 ): Promise<AbsensiRecord[]> {
+  if (!supabase) return []
+
   let query = supabase
     .from("absensi")
     .select(
@@ -203,7 +188,6 @@ async function fetchAbsensiByClass(
     )
     .eq("users.kelas", kelas)
 
-  // Filter absensi sesuai bulan dan tahun jika ditentukan
   if (bulan && tahunBulan) {
     const firstDay = `${tahunBulan}-${String(bulan).padStart(2, "0")}-01`
     const lastDay = new Date(tahunBulan, bulan, 0).toISOString().split("T")[0]
@@ -217,39 +201,42 @@ async function fetchAbsensiByClass(
     return []
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data || ([] as any[])).map((item: any) => ({
+  const typedData = data as unknown as Array<AbsensiWithUserSummary>
+
+  return typedData.map((item) => ({
     user_id: item.user_id,
     status: item.status,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    nis: (item.users as any)?.nis || "",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    nama: (item.users as any)?.nama || "",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    jenis_kelamin: (item.users as any)?.jenis_kelamin || "L",
-    waktu: item.waktu || "",
-    tanggal: item.tanggal || "",
+    nis: item.users[0]?.nis ?? "",
+    nama: item.users[0]?.nama ?? "",
+    jenis_kelamin: item.users[0]?.jenis_kelamin ?? "L",
+    waktu: item.waktu ?? "",
+    tanggal: item.tanggal ?? "",
   }))
 }
 
 async function fetchAllClassesData(
   bulan?: number,
-  tahunBulan?: number
+  tahunBulan?: number,
+  supabase?: ReturnType<typeof createClient> extends Promise<infer T>
+    ? T
+    : never
 ): Promise<{ kelas: string; users: UserRecord[]; absensi: AbsensiRecord[] }[]> {
-  // Dapatkan semua kelas unik
+  if (!supabase) return []
+
   const { data: allUsers, error: usersError } = await supabase
     .from("users")
     .select("id, nama, kelas, nis, jenis_kelamin")
 
   if (usersError) throw usersError
 
-  // Dapatkan semua kelas unik
+  const typedAllUsers = allUsers as unknown as Array<UserRecord>
+
   const uniqueClasses = [
-    ...new Set((allUsers || []).map((u: UserRecord) => u.kelas)),
+    ...new Set(typedAllUsers.map((u) => u.kelas as string)),
   ].sort()
 
-  // Ambil semua absensi
-  let absensiQuery = supabase.from("absensi").select(`
+  let absensiQuery = supabase.from("absensi").select(
+    `
       id,
       user_id,
       status,
@@ -261,9 +248,9 @@ async function fetchAllClassesData(
         kelas,
         jenis_kelamin
       )
-    `)
+    `
+  )
 
-  // Filter absensi sesuai bulan dan tahun jika ditentukan
   if (bulan && tahunBulan) {
     const firstDay = `${tahunBulan}-${String(bulan).padStart(2, "0")}-01`
     const lastDay = new Date(tahunBulan, bulan, 0).toISOString().split("T")[0]
@@ -276,40 +263,29 @@ async function fetchAllClassesData(
     console.error("Supabase absensi error:", absensiError)
   }
 
-  // Kelompokkan users dan absensi per kelas
+  const typedAllAbsensi = allAbsensi as unknown as Array<AbsensiWithUserSummary>
+
   const result: {
     kelas: string
     users: UserRecord[]
     absensi: AbsensiRecord[]
   }[] = []
 
-  for (const kelas of uniqueClasses) {
-    const classUsers = (allUsers || []).filter(
-      (u: UserRecord) => u.kelas === kelas
-    )
-    // eslint-disable-next-line
-    const classAbsensi = (allAbsensi || ([] as any[]))
-      // eslint-disable-next-line
-      .filter((item: any) => item.users?.kelas === kelas)
-      // eslint-disable-next-line
-      .map((item: any) => ({
+  for (const k of uniqueClasses) {
+    const classUsers = typedAllUsers.filter((u) => u.kelas === k)
+    const classAbsensi = typedAllAbsensi
+      .filter((item) => item.users[0]?.kelas === k)
+      .map((item) => ({
         user_id: item.user_id,
         status: item.status,
-        // eslint-disable-next-line
-        nis: (item.users as any)?.nis || "",
-        // eslint-disable-next-line
-        nama: (item.users as any)?.nama || "",
-        // eslint-disable-next-line
-        jenis_kelamin: (item.users as any)?.jenis_kelamin || "L",
-        waktu: item.waktu || "",
-        tanggal: item.tanggal || "",
+        nis: item.users[0]?.nis ?? "",
+        nama: item.users[0]?.nama ?? "",
+        jenis_kelamin: item.users[0]?.jenis_kelamin ?? "L",
+        waktu: item.waktu ?? "",
+        tanggal: item.tanggal ?? "",
       }))
 
-    result.push({
-      kelas,
-      users: classUsers,
-      absensi: classAbsensi,
-    })
+    result.push({ kelas: k, users: classUsers, absensi: classAbsensi })
   }
 
   return result

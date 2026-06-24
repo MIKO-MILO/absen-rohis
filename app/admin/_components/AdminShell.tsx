@@ -25,6 +25,7 @@ import {
   ShieldCheck,
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
+import type { SessionData } from "@/lib/auth-client"
 
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
@@ -34,7 +35,6 @@ const NAV_ITEMS = [
   { label: "Panitia", icon: Users, href: "/admin/panitia" },
   { label: "Admin", icon: Users, href: "/admin/admin" },
   { label: "Kelas", icon: LayoutGrid, href: "/admin/classes" },
-  // { label: "Generate QR", icon: QrCode, href: "/admin/generate-qr" },
   { label: "Config", icon: ShieldCheck, href: "/admin/config" },
 ]
 
@@ -127,7 +127,6 @@ const SidebarContent = ({
     {/* Nav */}
     <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
       {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
-        // Cek apakah item membutuhkan superadmin
         const isRestricted =
           label === "Admin" || label === "Config" || label === "Kelas"
         if (isRestricted && adminRole !== "superadmin") return null
@@ -199,48 +198,48 @@ export function AdminShell({
   const redirecting = useRef(false)
   const [mounted, setMounted] = useState(false)
   const [isAuthorized, setIsAuthorized] = useState(false)
-  const [admin, setAdmin] = useState<{
-    username: string
-    nama?: string
-    role?: string
-  } | null>(null)
+  const [admin, setAdmin] = useState<SessionData | null>(null)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    const sessionStr = localStorage.getItem("admin_session")
-    if (sessionStr) {
+    const fetchSession = async () => {
       try {
-        const session = JSON.parse(sessionStr)
-        setAdmin(session)
-
-        // Validasi superadmin jika diperlukan
-        if (requireSuperadmin && session.role !== "superadmin") {
-          router.replace("/admin/dashboard")
-          return
+        const res = await fetch("/api/auth/session")
+        if (!res.ok) throw new Error("Not authorized")
+        const data = await res.json()
+        if (data.user) {
+          setAdmin(data.user)
+          if (requireSuperadmin && data.user.role !== "superadmin") {
+            router.replace("/admin/dashboard")
+            return
+          }
+          setIsAuthorized(true)
+        } else {
+          throw new Error("No user")
         }
-
-        setIsAuthorized(true)
       } catch {
-        // Fallback for non-JSON session format
-        router.replace("/admin")
+        if (!redirecting.current) {
+          redirecting.current = true
+          router.replace("/admin")
+        }
       }
-    } else if (!redirecting.current) {
-      redirecting.current = true
-      router.replace("/admin")
     }
+    fetchSession()
   }, [router, requireSuperadmin])
 
   const handleLogout = () => {
     setShowLogoutModal(true)
   }
 
-  const confirmLogout = () => {
+  const confirmLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
     localStorage.removeItem("admin_session")
-    router.push("/admin")
+    localStorage.removeItem("panitia_session")
+    localStorage.removeItem("siswa_session")
+    window.location.href = "/admin"
   }
 
-  // Hindari rendering apapun sampai mounted untuk mencegah hydration mismatch
   if (!mounted) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -259,36 +258,41 @@ export function AdminShell({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Desktop sidebar */}
       <div className="hidden shrink-0 md:flex">
         <SidebarContent
           pathname={pathname}
           router={router}
           setSidebarOpen={setSidebarOpen}
           handleLogout={handleLogout}
-          adminName={admin?.nama || admin?.username}
+          adminName={admin?.nama}
           adminRole={admin?.role}
         />
       </div>
 
-      {/* Mobile sidebar */}
-      <Dialog open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <DialogContent className="h-full w-60 border-none p-0 focus:outline-none">
-          <SidebarContent
-            mobile
-            pathname={pathname}
-            router={router}
-            setSidebarOpen={setSidebarOpen}
-            handleLogout={handleLogout}
-            adminName={admin?.nama || admin?.username}
-            adminRole={admin?.role}
-          />
-        </DialogContent>
-      </Dialog>
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      {/* Main */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-60 bg-card shadow-xl transition-transform duration-300 ease-out md:hidden ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <SidebarContent
+          mobile
+          pathname={pathname}
+          router={router}
+          setSidebarOpen={setSidebarOpen}
+          handleLogout={handleLogout}
+          adminName={admin?.nama}
+          adminRole={admin?.role}
+        />
+      </div>
+
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Topbar */}
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4 md:px-6">
           <div className="flex items-center gap-3">
             <button
@@ -326,23 +330,19 @@ export function AdminShell({
             <div className="flex items-center gap-2 px-2 py-1.5">
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-primary text-[10px] font-bold text-primary-foreground">
-                  {(admin?.nama || admin?.username || "AD")
-                    .slice(0, 2)
-                    .toUpperCase()}
+                  {(admin?.nama || "AD").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <span className="hidden text-xs font-semibold text-foreground sm:block">
-                {admin?.nama || admin?.username || "Admin"}
+                {admin?.nama}
               </span>
             </div>
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
 
-      {/* Logout Confirmation Modal */}
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
         <DialogContent className="max-w-[320px] rounded-3xl p-6">
           <div className="flex flex-col items-center justify-center text-center">
@@ -369,7 +369,7 @@ export function AdminShell({
               <Button
                 variant="destructive"
                 onClick={confirmLogout}
-                className="rounded-2x flex-1 bg-red-500 py-6 font-semibold text-white hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600"
+                className="rounded-2x flex-1 bg-red-600 py-6 font-semibold text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
               >
                 Keluar
               </Button>

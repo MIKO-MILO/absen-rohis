@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { getActiveConfig } from "@/lib/test-config"
+import { getActiveConfig } from "@/lib/client-config"
 
 const MONTHS = [
   "Januari",

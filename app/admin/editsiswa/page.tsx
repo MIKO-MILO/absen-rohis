@@ -66,6 +66,7 @@ function EditSiswaContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = searchParams.get("id")
+  const [checkingSession, setCheckingSession] = useState(true)
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -126,6 +127,22 @@ function EditSiswaContent() {
     password: "",
   })
 
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      const panitiaSession = localStorage.getItem("panitia_session")
+
+      if (!adminSession && !panitiaSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
+
   useEffect(() => {
     if (!id) {
       router.push("/admin/siswa")
@@ -167,6 +184,21 @@ function EditSiswaContent() {
 
     fetchData()
   }, [id, router])
+
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex h-[60vh] items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Memeriksa sesi...
+            </p>
+          </div>
+        </div>
+      </AdminShell>
+    )
+  }
 
   if (loading) {
     return (

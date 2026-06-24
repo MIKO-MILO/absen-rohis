@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { AdminShell } from "../_components/AdminShell"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -105,9 +106,27 @@ const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DataAbsenPage() {
+  const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
   const [classes, setClasses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [checkingSession, setCheckingSession] = useState(true)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      const panitiaSession = localStorage.getItem("panitia_session")
+
+      if (!adminSession && !panitiaSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   useEffect(() => {
     let isMounted = true
@@ -354,6 +373,19 @@ export default function DataAbsenPage() {
       alert(err instanceof Error ? err.message : "Terjadi kesalahan")
       setData(oldData)
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
   }
 
   return (

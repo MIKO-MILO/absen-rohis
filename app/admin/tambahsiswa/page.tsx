@@ -1119,13 +1119,30 @@ function SuccessScreen({
 
 // ─── MAIN PAGE ───────────────────────────────────────────────────────────────
 export default function TambahSiswaPage() {
+  const router = useRouter()
+  const [checkingSession, setCheckingSession] = useState(true)
   const [mode, setMode] = useState<Mode>("pilih")
   const [classes, setClasses] = useState<string[]>([])
-  const [] = useState(false)
   const [success, setSuccess] = useState<{ show: boolean; count: number }>({
     show: false,
     count: 0,
   })
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      const panitiaSession = localStorage.getItem("panitia_session")
+
+      if (!adminSession && !panitiaSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   // Fetch classes for dropdowns
   useEffect(() => {
@@ -1144,6 +1161,19 @@ export default function TambahSiswaPage() {
   const handleReset = () => {
     setMode("pilih")
     setSuccess({ show: false, count: 0 })
+  }
+
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
   }
 
   return (

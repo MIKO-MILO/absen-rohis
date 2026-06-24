@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,18 +10,63 @@ import { ModeToggle } from "@/components/mode-toggle"
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  // const [identifier] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [checkingSession, setCheckingSession] = useState(true)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      console.log("[ADMIN LOGIN PAGE] Starting session check")
+
+      // Check admin session first
+      const adminSession = localStorage.getItem("admin_session")
+      console.log("[ADMIN LOGIN PAGE] admin_session exists:", !!adminSession)
+
+      if (adminSession) {
+        console.log("[ADMIN LOGIN PAGE] Redirecting to /admin/dashboard")
+        router.push("/admin/dashboard")
+        return
+      }
+
+      // Check if user or panitia is already logged in - redirect them to their respective homes
+      const panitiaSession = localStorage.getItem("panitia_session")
+      console.log(
+        "[ADMIN LOGIN PAGE] panitia_session exists:",
+        !!panitiaSession
+      )
+
+      if (panitiaSession) {
+        console.log("[ADMIN LOGIN PAGE] Redirecting to /rohis/home")
+        router.push("/rohis/home")
+        return
+      }
+
+      const siswaSession = localStorage.getItem("siswa_session")
+      console.log("[ADMIN LOGIN PAGE] siswa_session exists:", !!siswaSession)
+
+      if (siswaSession) {
+        console.log("[ADMIN LOGIN PAGE] Redirecting to /user/home")
+        router.push("/user/home")
+        return
+      }
+
+      // No session, stay on admin login
+      console.log("[ADMIN LOGIN PAGE] No session found, staying on /admin")
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   const handleLogin = async () => {
     setError("")
 
     if (!username || !password) {
-      setError("Username/Email/NIS dan password wajib diisi.")
+      setError("Username dan password wajib diisi.")
       return
     }
 
@@ -39,17 +84,25 @@ export default function AdminLoginPage() {
         throw new Error(result.error || "Login gagal")
       }
 
-      // Simpan session admin
-      localStorage.setItem(
-        "admin_session",
-        JSON.stringify({
-          id: result.user.id,
-          username: result.user.username || result.user.nama,
-          nama: result.user.nama,
-          role: result.role || "admin",
-        })
-      )
+      // Save session to localStorage
+      const sessionKey =
+        result.role === "admin" || result.role === "superadmin"
+          ? "admin_session"
+          : result.role === "panitia"
+            ? "panitia_session"
+            : "siswa_session"
 
+      const sessionToSave = {
+        id: result.user.id,
+        role: result.user.role,
+        nama: result.user.nama,
+        kelas: result.user.kelas,
+        divisi: result.user.divisi,
+      }
+
+      localStorage.setItem(sessionKey, JSON.stringify(sessionToSave))
+
+      // Redirect
       router.push(result.redirect)
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -60,6 +113,17 @@ export default function AdminLoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Memuat...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

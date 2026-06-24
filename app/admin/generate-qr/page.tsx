@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { AdminShell } from "../_components/AdminShell"
 import {
   QrCode,
@@ -57,6 +58,8 @@ function QRCanvas({ value, size = 220 }: { value: string; size?: number }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function GenerateQRPage() {
+  const router = useRouter()
+  const [checkingSession, setCheckingSession] = useState(true)
   const [durasi, setDurasi] = useState(10)
   const [session, setSession] = useState<QRSession | null>(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
@@ -72,6 +75,22 @@ export default function GenerateQRPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession =
+        localStorage.getItem("admin_session") ||
+        localStorage.getItem("panitia_session")
+      if (!adminSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   const todayStr = mounted
     ? new Date().toLocaleDateString("id-ID", {
@@ -159,6 +178,19 @@ export default function GenerateQRPage() {
     link.download = `QR-Dzuhur-${session.tanggal}.png`
     link.href = canvas.toDataURL()
     link.click()
+  }
+
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
   }
 
   return (

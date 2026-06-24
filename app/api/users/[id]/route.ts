@@ -1,14 +1,20 @@
-import { supabase } from "../../../../lib/supabaseClient"
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabaseServer"
+import {
+  requireAdminSession,
+  requireAdminOrPanitiaSession,
+} from "@/lib/auth-server"
+import type { Database } from "@/lib/supabase-types"
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdminOrPanitiaSession()
     const { id } = await params
-    console.log("GET /api/users/[id] called with id:", id)
-
     const targetId = isNaN(Number(id)) ? id : Number(id)
+    const supabase = await createClient()
 
     const { data, error } = await supabase
       .from("users")
@@ -16,20 +22,30 @@ export async function GET(
       .eq("id", targetId)
       .maybeSingle()
 
-    console.log("Supabase response - data:", data, "error:", error)
-
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     if (!data) {
-      return Response.json({ error: "User tidak ditemukan" }, { status: 404 })
+      return NextResponse.json(
+        { error: "User tidak ditemukan" },
+        { status: 404 }
+      )
     }
 
-    return Response.json(data)
-  } catch (err) {
-    console.error("GET error:", err)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(data)
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    console.error("GET error:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
   }
 }
 
@@ -38,60 +54,73 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdminSession()
     const { id } = await params
     const body = await req.json()
-    const { nama, kelas, jenis_kelamin, nis, email, password } = body
-
+    const { nama, kelas, jenis_kelamin, nis, email, password } =
+      body as Partial<Database["public"]["Tables"]["users"]["Update"]>
     const targetId = isNaN(Number(id)) ? id : Number(id)
+    const supabase = await createClient()
 
     const { data, error } = await supabase
       .from("users")
-      .update({
-        nama,
-        kelas,
-        jenis_kelamin,
-        nis,
-        email,
-        password,
-      })
+      .update({ nama, kelas, jenis_kelamin, nis, email, password })
       .eq("id", targetId)
       .select()
+      .single()
 
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    if (!data || data.length === 0) {
-      return Response.json({ error: "User tidak ditemukan" }, { status: 404 })
+    if (!data) {
+      return NextResponse.json(
+        { error: "User tidak ditemukan" },
+        { status: 404 }
+      )
     }
 
-    return Response.json(data)
-  } catch (err) {
-    return Response.json({ error: "Invalid request" }, { status: 400 })
+    return NextResponse.json(data)
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    console.error("PUT error:", error)
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdminSession()
     const { id } = await params
-    console.log("DELETE /api/users/[id] called with id:", id)
-
-    // Cek apakah id adalah angka, jika ya konversi ke number
     const targetId = isNaN(Number(id)) ? id : Number(id)
-
+    const supabase = await createClient()
     const { error } = await supabase.from("users").delete().eq("id", targetId)
 
     if (error) {
       console.error("Supabase delete error:", error)
-      return Response.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return Response.json({ message: "User deleted successfully" })
-  } catch (err) {
-    console.error("DELETE error:", err)
-    return Response.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ message: "User deleted successfully" })
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    console.error("DELETE error:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
   }
 }

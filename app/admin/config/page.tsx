@@ -2,6 +2,7 @@
 
 import { AdminShell } from "../_components/AdminShell"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   MousePointerClick,
   ScanLine,
@@ -28,10 +29,9 @@ import {
   STORAGE_KEY,
   type TestConfig,
   getActiveConfig,
-} from "@/lib/test-config"
+} from "@/lib/client-config"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
 interface ConfigItem {
   key: keyof TestConfig
   label: string
@@ -44,8 +44,18 @@ interface ConfigItem {
 }
 
 // ─── Config metadata ──────────────────────────────────────────────────────────
-
 const CONFIG_ITEMS: ConfigItem[] = [
+  {
+    key: "MAINTENANCE_MODE",
+    label: "Maintenance Mode",
+    description:
+      "Jika aktif, panitia dan siswa akan diarahkan ke halaman maintenance. Hanya admin dan superadmin yang bisa mengakses sistem.",
+    warning: "Aktif = semua pengguna kecuali admin akan diblokir",
+    icon: <ShieldCheck className="h-4 w-4" />,
+    iconBg: "bg-red-50 dark:bg-red-950/40",
+    iconColor: "text-red-600 dark:text-red-400",
+    default: false,
+  },
   {
     key: "ENABLE_SIMULATION",
     label: "Mode Simulasi",
@@ -60,7 +70,7 @@ const CONFIG_ITEMS: ConfigItem[] = [
     key: "ENABLE_ONE_TIME_SCAN",
     label: "Aturan Satu Kali Scan",
     description:
-      "Jika aktif, setiap QR dan pengguna hanya bisa melakukan absen satu kali. Mencegah duplikasi absensi.",
+      "Jika aktif, setiap QR dan pengguna hanya bisa melakukan absensi satu kali. Mencegah duplikasi absensi.",
     warning: "Nonaktif = QR & pengguna bisa scan berkali-kali",
     icon: <ScanLine className="h-4 w-4" />,
     iconBg: "bg-blue-50 dark:bg-blue-950/40",
@@ -71,7 +81,7 @@ const CONFIG_ITEMS: ConfigItem[] = [
     key: "ENABLE_TIME_RESTRICTION",
     label: "Batasan Waktu Absensi",
     description:
-      "Jika aktif, absensi hanya bisa dilakukan pada hari Jumat pukul 12:00–14:00 WIB.",
+      "Jika aktif, absensi hanya bisa dilakukan pada hari Jumat pukul 12:00 - 14:00 WIB.",
     warning: "Nonaktif = absen bisa dilakukan kapan saja",
     icon: <Clock className="h-4 w-4" />,
     iconBg: "bg-amber-50 dark:bg-amber-950/40",
@@ -121,7 +131,6 @@ const CONFIG_ITEMS: ConfigItem[] = [
 ]
 
 // ─── Toast component ──────────────────────────────────────────────────────────
-
 function Toast({ message, visible }: { message: string; visible: boolean }) {
   return (
     <div
@@ -138,12 +147,27 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
-
 export default function SuperadminConfigPage() {
+  const router = useRouter()
   const [config, setConfig] = useState<TestConfig>(getActiveConfig())
   const [toast, setToast] = useState({ visible: false, message: "" })
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      if (!adminSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   // Ambil config dari DB saat pertama kali load
   useEffect(() => {
@@ -213,6 +237,19 @@ export default function SuperadminConfigPage() {
 
   const activeCount = Object.values(config).filter(Boolean).length
 
+  if (checkingSession) {
+    return (
+      <AdminShell requireSuperadmin>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
+  }
+
   return (
     <AdminShell requireSuperadmin>
       <div className="mx-auto max-w-2xl px-4 py-8">
@@ -242,7 +279,9 @@ export default function SuperadminConfigPage() {
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           {CONFIG_ITEMS.map((item, index) => {
             const isOn = config[item.key]
-            const showWarning = item.warning && !isOn
+            const showWarning =
+              item.warning &&
+              (isOn || item.key === "MAINTENANCE_MODE" ? isOn : !isOn)
 
             return (
               <div key={item.key}>
@@ -304,14 +343,14 @@ export default function SuperadminConfigPage() {
           <Button
             variant="outline"
             onClick={handleReset}
-            className="h-11 flex-1 gap-2 rounded-2xl border-border font-bold text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95"
+            className="h-11 flex-1 gap-2 rounded-2xl border-border font-bold text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-[0.98]"
           >
             <RotateCcw className="h-4 w-4" />
             Reset Default
           </Button>
           <Button
             onClick={confirmSave}
-            className="h-11 flex-[1.5] gap-2 rounded-2xl bg-linear-to-r from-teal-600 to-teal-500 font-bold text-white shadow-lg shadow-teal-500/25 transition-all hover:opacity-90 active:scale-95"
+            className="h-11 flex-[1.5] gap-2 rounded-2xl bg-linear-to-r from-teal-600 to-teal-500 font-bold text-white shadow-lg shadow-teal-500/25 transition-all hover:opacity-90 active:scale-[0.98]"
           >
             <Save className="h-4 w-4" />
             Simpan Perubahan

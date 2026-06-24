@@ -1,71 +1,126 @@
-import { supabase } from "@/lib/supabaseClient"
-import { DEFAULT_CONFIG, type TestConfig } from "@/lib/test-config"
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabaseServer"
+import {
+  requireAdminSession,
+  requireAuthenticatedSession,
+} from "@/lib/auth-server"
+import type { Database } from "@/lib/supabase-types"
 
 export async function GET() {
   try {
+    await requireAuthenticatedSession()
+    const supabase = await createClient()
+
     const { data, error } = await supabase
       .from("system_settings")
-      .select("config")
-      .eq("id", 1)
+      .select("*")
       .single()
 
-    if (error) {
-      // Jika tabel belum ada, kembalikan default
-      console.warn(
-        "Config table not found or error, using default:",
-        error.message
-      )
-      return Response.json(DEFAULT_CONFIG)
+    if (error && error.code !== "PGRST116") {
+      throw error
     }
-    return Response.json({ ...DEFAULT_CONFIG, ...data.config })
-  } catch {
-    return Response.json(DEFAULT_CONFIG)
+
+    const defaultConfig = {
+      PAKSA_REALTIME: true,
+      CEK_GPS: false,
+      MAX_JARAK_GPS: 500,
+      ZOOM_GPS: 16,
+      LOGIN_OTP: false,
+      AUTO_SIGN_OUT: 20000,
+      SIMULASI_HARI: 5,
+      SIMULASI_TANGGAL: "2025-04-04",
+      KODE_OTP: "123456",
+      PANITIA_NAMA: "Aditya Dimas Pratama",
+      PANITIA_DIVISI: "Divisi Kerohanian",
+      ENABLE_SIMULATION: false,
+      ENABLE_OTP: false,
+      ENABLE_FORGOT_SIGN_IN: true,
+      SEKOLAH_NAMA: "SMK NEGERI 4 KOTA MALANG",
+      SEKOLAH_KOTA: "Malang",
+      APP_VERSION: "1.0.0",
+    }
+
+    if (!data) {
+      return NextResponse.json(defaultConfig)
+    }
+
+    const config = { ...defaultConfig, ...data.config }
+
+    return NextResponse.json(config)
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    console.error(error)
+    return NextResponse.json(
+      {
+        PAKSA_REALTIME: true,
+        CEK_GPS: false,
+        MAX_JARAK_GPS: 500,
+        ZOOM_GPS: 16,
+        LOGIN_OTP: false,
+        AUTO_SIGN_OUT: 20000,
+        SIMULASI_HARI: 5,
+        SIMULASI_TANGGAL: "2025-04-04",
+        KODE_OTP: "123456",
+        PANITIA_NAMA: "Aditya Dimas Pratama",
+        PANITIA_DIVISI: "Divisi Kerohanian",
+        ENABLE_SIMULATION: false,
+        ENABLE_OTP: false,
+        ENABLE_FORGOT_SIGN_IN: true,
+        SEKOLAH_NAMA: "SMK NEGERI 4 KOTA MALANG",
+        SEKOLAH_KOTA: "Malang",
+        APP_VERSION: "1.0.0",
+      },
+      { status: 500 }
+    )
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const config: TestConfig = await req.json()
+    await requireAdminSession()
+    const body = await req.json()
+    const supabase = await createClient()
 
-    // 1. Cek apakah row ID 1 sudah ada
-    const { data: existing, error: checkError } = await supabase
+    const { data: existing, error: fetchError } = await supabase
       .from("system_settings")
-      .select("id")
-      .eq("id", 1)
-      .maybeSingle() // Gunakan maybeSingle agar tidak error jika kosong
+      .select("*")
+      .single()
 
-    if (checkError) {
-      // Jika errornya adalah tabel tidak ditemukan (42P01)
-      if (checkError.code === "42P01") {
-        return Response.json(
-          {
-            error:
-              "Tabel 'system_settings' belum dibuat di Supabase. Silakan jalankan perintah SQL yang diberikan.",
-          },
-          { status: 500 }
-        )
-      }
-      return Response.json({ error: checkError.message }, { status: 500 })
+    if (fetchError && fetchError.code !== "PGRST116") {
+      throw fetchError
     }
 
-    let result
-    if (existing) {
-      result = await supabase
-        .from("system_settings")
-        .update({ config, updated_at: new Date().toISOString() })
-        .eq("id", 1)
-    } else {
-      result = await supabase
-        .from("system_settings")
-        .insert([{ id: 1, config, updated_at: new Date().toISOString() }])
+    const configData: Database["public"]["Tables"]["system_settings"]["Row"] = {
+      id: existing?.id ?? 1,
+      config: { ...existing?.config, ...body },
+      updated_at: new Date().toISOString(),
     }
 
-    if (result.error) {
-      return Response.json({ error: result.error.message }, { status: 500 })
-    }
+    const { data, error } = await supabase
+      .from("system_settings")
+      .upsert(configData)
+      .select()
+      .single()
 
-    return Response.json({ success: true })
-  } catch {
-    return Response.json({ error: "Permintaan tidak valid" }, { status: 400 })
+    if (error) throw error
+
+    return NextResponse.json(data)
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    console.error(error)
+    return NextResponse.json(
+      { error: "Failed to save config" },
+      { status: 500 }
+    )
   }
 }

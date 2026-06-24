@@ -24,7 +24,9 @@ import {
   getActiveConfig,
   isOutsideAbsensiTime,
   type TestConfig,
-} from "@/lib/test-config"
+} from "@/lib/client-config"
+import { ImpersonationBanner } from "@/components/ImpersonationBanner"
+import { fetchSession, isImpersonatingAsync } from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -98,10 +100,27 @@ export default function AbsenSholatPage() {
   const [panitia, setPanitia] = useState<PanitiaSession | null>(null)
   const [now, setNow] = useState<Date | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [isImpersonating, setIsImpersonating] = useState(false)
 
-  function handleLogout(): void {
+  async function handleLogout() {
+    if (isImpersonating) {
+      // Jika dalam mode impersonasi, jangan logout
+      alert(
+        "Anda dalam mode impersonasi! Silakan keluar dari mode impersonasi terlebih dahulu di banner di atas."
+      )
+      return
+    }
+
+    // Clear all localStorage sessions
     localStorage.removeItem("panitia_session")
-    router.push("/")
+    localStorage.removeItem("admin_session")
+    localStorage.removeItem("siswa_session")
+
+    // Clear the server-side cookie by calling the API
+    await fetch("/api/auth/logout", { method: "POST" })
+
+    // Redirect to login and hard reload to clear state
+    window.location.href = "/"
   }
 
   useEffect(() => {
@@ -193,23 +212,80 @@ export default function AbsenSholatPage() {
   useEffect(() => {
     let isMounted = true
 
-    const sessionStr = localStorage.getItem("panitia_session")
-    if (!sessionStr) {
-      router.push("/")
-      return
+    const loadSession = async () => {
+      // First, try to fetch from API-based session
+      const apiSession = await fetchSession()
+      const impersonationStatus = await isImpersonatingAsync()
+
+      if (isMounted) {
+        setIsImpersonating(impersonationStatus)
+      }
+
+      if (apiSession && apiSession.user) {
+        // Using API-based session
+        if (isMounted) {
+          setPanitia({
+            id: apiSession.user.id,
+            nama: apiSession.user.nama,
+            divisi: apiSession.user.divisi || "Administrator",
+            role: apiSession.user.role,
+          })
+          fetchAbsensi(apiSession.user.id)
+        }
+        return
+      }
+
+      // Fallback to legacy localStorage session
+      let sessionStr = localStorage.getItem("panitia_session")
+      if (!sessionStr) {
+        sessionStr =
+          localStorage.getItem("admin_session") ||
+          localStorage.getItem("siswa_session")
+      }
+      console.log(
+        "[PANITIA HOME] Session string from localStorage:",
+        sessionStr
+      )
+
+      if (!sessionStr) {
+        if (isMounted) router.push("/")
+        return
+      }
+
+      const session: PanitiaSession & { role?: string } = JSON.parse(sessionStr)
+      console.log("[PANITIA HOME] Parsed session:", session)
+      console.log("[PANITIA HOME] session.divisi:", session.divisi)
+      console.log("[PANITIA HOME] session.role:", session.role)
+
+      const isAdminUser =
+        session.role === "admin" || session.role === "superadmin"
+
+      // Izinkan admin, tapi untuk role lain harus panitia
+      if (!isAdminUser && session.role !== "panitia") {
+        if (isMounted) router.push("/")
+        return
+      }
+
+      if (isMounted) {
+        // Jika admin, buat dummy panitia session untuk tampilan
+        if (isAdminUser) {
+          setPanitia({
+            id: session.id,
+            nama: session.nama || "Admin",
+            divisi: "Administrator",
+            role: session.role,
+          })
+          // Untuk admin, gunakan panitia_id 0 atau ambil semua data tanpa filter
+          fetchAbsensi(0)
+        } else {
+          setPanitia(session)
+          console.log("[PANITIA HOME] setPanitia called with:", session)
+          fetchAbsensi(session.id)
+        }
+      }
     }
 
-    const session: PanitiaSession = JSON.parse(sessionStr)
-
-    if (session.role !== "panitia") {
-      router.push("/")
-      return
-    }
-
-    if (isMounted) {
-      setPanitia(session)
-      fetchAbsensi(session.id)
-    }
+    loadSession()
 
     return () => {
       isMounted = false
@@ -224,6 +300,7 @@ export default function AbsenSholatPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">
+      <ImpersonationBanner />
       {/* ── Header Banner ── */}
       <div
         className="relative w-full max-w-md overflow-hidden rounded-b-[2rem] px-5 pt-10 pb-8 shadow-lg shadow-teal-900/10"
@@ -293,10 +370,15 @@ export default function AbsenSholatPage() {
 
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
+                  disabled={isImpersonating}
+                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium ${
+                    isImpersonating
+                      ? "cursor-not-allowed text-muted-foreground opacity-50"
+                      : "cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
+                  }`}
                 >
                   <LogOut className="h-4 w-4" />
-                  <span className="text-sm font-medium">Keluar</span>
+                  <span>Keluar</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

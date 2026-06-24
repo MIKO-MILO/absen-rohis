@@ -49,6 +49,7 @@ interface AdminRecord {
 export default function DataAdminPage() {
   const router = useRouter()
 
+  const [checkingSession, setCheckingSession] = useState(true)
   const [data, setData] = useState<AdminRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -58,6 +59,20 @@ export default function DataAdminPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [perPage, setPerPage] = useState(10)
   const clearSelected = () => setSelected(new Set())
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      if (!adminSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   // ── Dynamic Row Calculation ────────────────────────────────────────────────
   useEffect(() => {
@@ -215,6 +230,18 @@ export default function DataAdminPage() {
         year: "numeric",
       })
     : ""
+
+  if (checkingSession)
+    return (
+      <AdminShell requireSuperadmin>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
 
   if (loading)
     return (

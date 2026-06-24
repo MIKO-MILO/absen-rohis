@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { AdminShell } from "../_components/AdminShell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,10 +23,28 @@ import {
 } from "@/components/ui/dialog"
 
 export default function ClassesManagementPage() {
+  const router = useRouter()
   const [classes, setClasses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      const panitiaSession = localStorage.getItem("panitia_session")
+      
+      if (!adminSession && !panitiaSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   // Add Class Modal
   const [showAddModal, setShowAddModal] = useState(false)
@@ -139,6 +158,19 @@ export default function ClassesManagementPage() {
     } finally {
       setIsDeleting(false)
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <AdminShell requireSuperadmin={true}>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
   }
 
   return (
@@ -285,7 +317,7 @@ export default function ClassesManagementPage() {
               <Button
                 variant="ghost"
                 onClick={() => setShowAddModal(false)}
-                className="h-12 w-full rounded-2xl font-bold text-muted-foreground hover:bg-muted hover:text-foreground border-border transition-all" 
+                className="h-12 w-full rounded-2xl border-border font-bold text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
               >
                 Batalkan
               </Button>

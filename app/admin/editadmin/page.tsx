@@ -60,6 +60,7 @@ function EditAdminContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const id = searchParams.get("id")
+  const [checkingSession, setCheckingSession] = useState(true)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<AdminFormType>>({})
@@ -70,6 +71,20 @@ function EditAdminContent() {
     role: "admin",
     password: "",
   })
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      if (!adminSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   useEffect(() => {
     if (!id) {
@@ -137,6 +152,19 @@ function EditAdminContent() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm font-medium text-muted-foreground">
+            Memeriksa sesi...
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

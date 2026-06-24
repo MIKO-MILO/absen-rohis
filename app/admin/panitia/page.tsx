@@ -28,26 +28,37 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Filter,
   X,
   Plus,
   Pencil,
   AlertTriangle,
+  LogIn,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { startImpersonationAsync, fetchSession } from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UserRecord {
   id: number
   nama: string
-  kelas: string
+  divisi: string
   jenis_kelamin: string
   nis: number
   email: string
   password: string
   created_at: string
   avatar: string
+}
+
+interface PanitiaApiRecord {
+  id: number
+  nama: string
   divisi: string
+  jenis_kelamin: string
+  nis: number
+  email: string
+  password: string
+  created_at: string
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -55,17 +66,70 @@ export default function DataSiswaPage() {
   const router = useRouter()
 
   const [data, setData] = useState<UserRecord[]>([])
-  const [classes, setClasses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [filterKelas, setFilterKelas] = useState("Semua Kelas")
-  const [filterTanggal, setFilterTanggal] = useState("")
   const [page, setPage] = useState(1)
-  const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [perPage, setPerPage] = useState(10)
+  const [checkingSession, setCheckingSession] = useState(true)
+  const [isSuperadmin, setIsSuperadmin] = useState(false)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      console.log("Checking session...")
+      const adminSession = localStorage.getItem("admin_session")
+      const panitiaSession = localStorage.getItem("panitia_session")
+      console.log("adminSession:", adminSession)
+      console.log("panitiaSession:", panitiaSession)
+
+      if (!adminSession && !panitiaSession) {
+        console.log("No session found, redirecting to /admin")
+        router.push("/admin")
+        return
+      }
+
+      // Try to fetch from API session to check if user is superadmin
+      try {
+        const sessionData = await fetchSession()
+        if (
+          sessionData?.originalUser?.role === "superadmin" ||
+          sessionData?.user?.role === "superadmin"
+        ) {
+          setIsSuperadmin(true)
+        } else if (adminSession) {
+          // Fallback to localStorage session
+          try {
+            const parsedAdminSession = JSON.parse(adminSession)
+            if (parsedAdminSession.role === "superadmin") {
+              setIsSuperadmin(true)
+            }
+          } catch {
+            // Ignore if parse fails
+          }
+        }
+      } catch {
+        // Ignore API errors, fall back to localStorage check
+        if (adminSession) {
+          try {
+            const parsedAdminSession = JSON.parse(adminSession)
+            if (parsedAdminSession.role === "superadmin") {
+              setIsSuperadmin(true)
+            }
+          } catch {
+            // Ignore
+          }
+        }
+      }
+
+      console.log("Session found, setting checkingSession to false")
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   // ── Dynamic Row Calculation ────────────────────────────────────────────────
   useEffect(() => {
@@ -85,31 +149,25 @@ export default function DataSiswaPage() {
   useEffect(() => {
     ;(async () => {
       try {
-        const [panitiaRes, classesRes] = await Promise.all([
-          fetch("/api/panitia"),
-          fetch("/api/classes"),
-        ])
-
+        const panitiaRes = await fetch("/api/panitia")
         const result = await panitiaRes.json()
-        const classesData = await classesRes.json()
 
-        setData(
-          result.map((u: UserRecord) => ({
-            id: u.id,
-            nama: u.nama,
-            divisi: u.divisi,
-            jenis_kelamin: u.jenis_kelamin,
-            nis: u.nis,
-            email: u.email,
-            password: u.password,
-            created_at: u.created_at,
-            avatar: String(Math.floor(Math.random() * 70)),
-          }))
-        )
+        // Check if result is an array
+        const mappedData = Array.isArray(result)
+          ? result.map((u: PanitiaApiRecord) => ({
+              id: u.id,
+              nama: u.nama,
+              divisi: u.divisi,
+              jenis_kelamin: u.jenis_kelamin,
+              nis: u.nis,
+              email: u.email,
+              password: u.password,
+              created_at: u.created_at,
+              avatar: String(Math.floor(Math.random() * 70)),
+            }))
+          : []
 
-        if (classesData.classes) {
-          setClasses(classesData.classes)
-        }
+        setData(mappedData)
       } catch (err) {
         console.error(err)
       } finally {
@@ -126,13 +184,10 @@ export default function DataSiswaPage() {
           !search ||
           s.nama.toLowerCase().includes(search.toLowerCase()) ||
           String(s.nis).includes(search) ||
-          s.kelas.toLowerCase().includes(search.toLowerCase()) ||
           s.email.toLowerCase().includes(search.toLowerCase())
-        const matchKelas =
-          filterKelas === "Semua Kelas" || s.kelas === filterKelas
-        return matchSearch && matchKelas
+        return matchSearch
       }),
-    [data, search, filterKelas]
+    [data, search]
   )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
@@ -143,15 +198,8 @@ export default function DataSiswaPage() {
     paginatedIds.length > 0 && paginatedIds.every((id) => selected.has(id))
   const somePageSelected = paginatedIds.some((id) => selected.has(id))
 
-  const activeFilterCount = [
-    filterKelas !== "Semua Kelas",
-    filterTanggal !== "",
-    search !== "",
-  ].filter(Boolean).length
   const resetFilters = () => {
     setSearch("")
-    setFilterKelas("Semua Kelas")
-    setFilterTanggal("")
     setPage(1)
   }
 
@@ -185,6 +233,16 @@ export default function DataSiswaPage() {
   const openDeleteModal = (id: number) => {
     setDeletingId(id)
     setShowDeleteModal(true)
+  }
+
+  const handleImpersonate = async (id: number) => {
+    const result = await startImpersonationAsync(id, "panitia")
+    if (result.success && result.redirect) {
+      router.push(result.redirect)
+      router.refresh()
+    } else {
+      alert(result.error || "Gagal memulai impersonasi")
+    }
   }
 
   const handleDelete = async () => {
@@ -248,6 +306,19 @@ export default function DataSiswaPage() {
         year: "numeric",
       })
     : ""
+
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
+  }
 
   if (loading)
     return (
@@ -325,7 +396,7 @@ export default function DataSiswaPage() {
                 </h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {filtered.length} dari {data.length} panitia
-                  {activeFilterCount > 0 && (
+                  {search && (
                     <button
                       onClick={resetFilters}
                       className="ml-2 inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
@@ -349,32 +420,6 @@ export default function DataSiswaPage() {
                   />
                 </div>
                 <button
-                  onClick={() => setShowFilterPanel((v) => !v)}
-                  className="relative flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-all"
-                  style={{
-                    background:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary-transparent)"
-                        : "transparent",
-                    borderColor:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary)"
-                        : "var(--color-border)",
-                    color:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary)"
-                        : "var(--color-muted-foreground)",
-                  }}
-                >
-                  <Filter className="h-3.5 w-3.5" />
-                  Filter
-                  {activeFilterCount > 0 && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
-                <button
                   onClick={() => router.push("/admin/tambahpanitia")}
                   className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-foreground/80 transition-all hover:bg-muted"
                 >
@@ -382,43 +427,6 @@ export default function DataSiswaPage() {
                 </button>
               </div>
             </div>
-
-            {showFilterPanel && (
-              <div className="flex flex-wrap gap-3 border-t border-border/50 pt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Kelas
-                  </label>
-                  <select
-                    value={filterKelas}
-                    onChange={(e) => {
-                      setFilterKelas(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
-                  >
-                    <option>Semua Kelas</option>
-                    {classes.map((k) => (
-                      <option key={k}>{k}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Tanggal Daftar
-                  </label>
-                  <input
-                    type="date"
-                    value={filterTanggal}
-                    onChange={(e) => {
-                      setFilterTanggal(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Table */}
@@ -460,7 +468,7 @@ export default function DataSiswaPage() {
               <tbody className="divide-y divide-border/50">
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center">
+                    <td colSpan={7} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <Users className="h-8 w-8 text-muted/50" />
                         <p className="text-sm text-muted-foreground">
@@ -565,11 +573,21 @@ export default function DataSiswaPage() {
                                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                 Edit Panitia
                               </DropdownMenuItem>
+                              {isSuperadmin && (
+                                <DropdownMenuItem
+                                  onClick={() => handleImpersonate(s.id)}
+                                  className="cursor-pointer gap-2 rounded-lg text-xs"
+                                >
+                                  <LogIn className="h-3.5 w-3.5 text-blue-600" />
+                                  Login Sebagai
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onClick={() => openDeleteModal(s.id)}
                                 className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                               >
-                                <Trash2 className="h-3.5 w-3.5" /> Hapus Panitia
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Hapus Panitia
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

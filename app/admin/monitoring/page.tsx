@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { AdminShell } from "../_components/AdminShell"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -119,6 +120,8 @@ const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
 }
 
 export default function MonitoringPage() {
+  const router = useRouter()
+  const [checkingSession, setCheckingSession] = useState(true)
   const [users, setUsers] = useState<UserRecord[]>([])
   const [absensi, setAbsensi] = useState<AbsensiRecord[]>([])
   const [classes, setClasses] = useState<string[]>([])
@@ -134,6 +137,21 @@ export default function MonitoringPage() {
   const [perPage, setPerPage] = useState(10)
   const [page, setPage] = useState(1)
   const isMounted = useRef(true)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      const panitiaSession = localStorage.getItem("panitia_session")
+      if (!adminSession && !panitiaSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   // ── Dynamic Row Calculation ────────────────────────────────────────────────
   useEffect(() => {
@@ -165,8 +183,14 @@ export default function MonitoringPage() {
         fetch("/api/classes"),
       ])
 
-      const usersData = (await usersRes.json()) as UserRecord[]
-      const allAbsensi = (await absensiRes.json()) as AbsensiRecord[]
+      const rawUsersData = await usersRes.json()
+      const rawAbsensiData = await absensiRes.json()
+      const usersData = Array.isArray(rawUsersData)
+        ? (rawUsersData as UserRecord[])
+        : []
+      const allAbsensi = Array.isArray(rawAbsensiData)
+        ? (rawAbsensiData as AbsensiRecord[])
+        : []
       const classesData = await classesRes.json()
 
       const dateAbsensi = allAbsensi.filter(
@@ -319,6 +343,19 @@ export default function MonitoringPage() {
     }
   }
 
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
+  }
+
   return (
     <AdminShell>
       <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
@@ -356,7 +393,7 @@ export default function MonitoringPage() {
           <div className="relative z-10">
             <p className="text-xs text-teal-100">Monitoring Kelas</p>
             <h2 className="mt-0.5 text-xl font-black text-white">
-              Kehadiran Siswa {" "}
+              Kehadiran Siswa{" "}
               {selectedDate === new Date().toISOString().split("T")[0]
                 ? "Hari Ini"
                 : "Arsip"}
@@ -478,7 +515,7 @@ export default function MonitoringPage() {
                       type="date"
                       value={selectedDate}
                       onChange={(e) => setSelectedDate(e.target.value)}
-                      className="h-9 w-full cursor-pointer rounded-xl border border-border bg-muted/50 pr-3 pl-7.5 text-xs font-semibold text-muted-foreground outline-none transition-all hover:bg-muted focus:ring-2 focus:ring-primary/20 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+                      className="h-9 w-full cursor-pointer rounded-xl border border-border bg-muted/50 pr-3 pl-7.5 text-xs font-semibold text-muted-foreground transition-all outline-none hover:bg-muted focus:ring-2 focus:ring-primary/20 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
                     />
                   </div>
 

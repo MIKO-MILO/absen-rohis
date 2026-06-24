@@ -20,7 +20,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeButton } from "@/components/mode-button"
-import { getActiveConfig, isOutsideAbsensiTime } from "@/lib/test-config"
+import { getActiveConfig, isOutsideAbsensiTime } from "@/lib/client-config"
+import { ImpersonationBanner } from "@/components/ImpersonationBanner"
+import { fetchSession, isImpersonatingAsync } from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -108,6 +110,7 @@ export default function UserHomePage() {
   const [sudahAbsen, setSudahAbsen] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [isImpersonating, setIsImpersonating] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -220,30 +223,106 @@ export default function UserHomePage() {
 
   useEffect(() => {
     let isMounted = true
-    const sessionStr = localStorage.getItem("siswa_session")
-    if (!sessionStr) {
-      router.push("/")
-      return
+
+    const loadSession = async () => {
+      // First, try to fetch from API-based session
+      const apiSession = await fetchSession()
+      const impersonationStatus = await isImpersonatingAsync()
+
+      if (isMounted) {
+        setIsImpersonating(impersonationStatus)
+      }
+
+      if (apiSession && apiSession.user) {
+        // Using API-based session
+        if (isMounted) {
+          setUser({
+            id: apiSession.user.id,
+            nama: apiSession.user.nama,
+            kelas: apiSession.user.kelas || "Administrator",
+            role: apiSession.user.role,
+          })
+          fetchData(apiSession.user.id)
+        }
+        return
+      }
+
+      // Fallback to legacy localStorage session
+      let sessionStr = localStorage.getItem("siswa_session")
+      if (!sessionStr) {
+        sessionStr =
+          localStorage.getItem("admin_session") ||
+          localStorage.getItem("panitia_session")
+      }
+
+      console.log("[USER HOME] sessionStr =", sessionStr)
+
+      if (!sessionStr) {
+        console.log("[USER HOME] SESSION TIDAK ADA")
+        if (isMounted) router.push("/")
+        return
+      }
+
+      console.log("[USER HOME] SESSION ADA")
+
+      const session: UserSession & { role?: string } = JSON.parse(sessionStr)
+      console.log("[USER HOME] Parsed session:", session)
+      console.log("[USER HOME] session.kelas:", session.kelas)
+      console.log("[USER HOME] session.role:", session.role)
+
+      const isAdminUser =
+        session.role === "admin" || session.role === "superadmin"
+
+      if (isMounted) {
+        // Jika admin, buat dummy user session untuk tampilan
+        if (isAdminUser) {
+          setUser({
+            id: session.id,
+            nama: session.nama || "Admin",
+            kelas: "Administrator",
+            role: session.role,
+          })
+          // Untuk admin, gunakan user_id 0 atau ambil semua data tanpa filter
+          fetchData(0)
+        } else {
+          setUser(session)
+          console.log("[USER HOME] setUser called with:", session)
+          fetchData(session.id)
+        }
+      }
     }
 
-    const session: UserSession = JSON.parse(sessionStr)
-    if (isMounted) {
-      setUser(session)
-      fetchData(session.id)
-    }
+    loadSession()
 
     return () => {
       isMounted = false
     }
   }, [router, fetchData])
 
-  function handleLogout(): void {
+  async function handleLogout() {
+    if (isImpersonating) {
+      // Jika dalam mode impersonasi, jangan logout
+      alert(
+        "Anda dalam mode impersonasi! Silakan keluar dari mode impersonasi terlebih dahulu di banner di atas."
+      )
+      return
+    }
+
+    // Clear all localStorage sessions
     localStorage.removeItem("siswa_session")
-    router.push("/")
+    localStorage.removeItem("admin_session")
+    localStorage.removeItem("panitia_session")
+
+    // Clear the server-side cookie by calling the API
+    await fetch("/api/auth/logout", { method: "POST" })
+
+    // Redirect to login and hard reload to clear state
+    window.location.href = "/"
   }
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">
+      <ImpersonationBanner />
       {/* ── Header Banner ── */}
       <div
         className="relative w-full max-w-md overflow-hidden rounded-b-[2rem] px-5 pt-10 pb-8 shadow-lg shadow-teal-900/10"
@@ -272,7 +351,7 @@ export default function UserHomePage() {
             <h1 className="truncate text-base leading-tight font-semibold text-white">
               {user?.nama || "Memuat..."}
             </h1>
-            <p className="text-xs text-teal-50">{user?.kelas || "..."}</p>
+            <p className="text-xs text-teal-50">{user?.kelas || "Memuat..."}</p>
             <ClockWIB />
           </div>
 
@@ -311,10 +390,15 @@ export default function UserHomePage() {
                 <ModeButton />
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
+                  disabled={isImpersonating}
+                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium ${
+                    isImpersonating
+                      ? "cursor-not-allowed text-muted-foreground opacity-50"
+                      : "cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
+                  }`}
                 >
                   <LogOut className="h-4 w-4" />
-                  <span className="text-sm font-medium">Keluar</span>
+                  <span>Keluar</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -59,12 +59,26 @@ const PILIHAN_CONFIG = {
 // ─── Page ────────────────────────────────────────────────────────────────────
 function ScanQRContent() {
   const router = useRouter()
+  const [checkingSession, setCheckingSession] = useState(true)
   const config = getActiveConfig()
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const codeReaderRef = useRef<BrowserQRCodeReader | null>(null)
   const searchParams = useSearchParams()
   const [token, setToken] = useState<string | null>(searchParams.get("token"))
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const siswaSession = localStorage.getItem("siswa_session")
+      if (!siswaSession) {
+        router.push("/")
+        return
+      }
+      setCheckingSession(false)
+    }
+    checkSession()
+  }, [router])
 
   const [scanState, setScanState] = useState<ScanState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
@@ -240,6 +254,17 @@ function ScanQRContent() {
 
   const cfg = confirmed ? PILIHAN_CONFIG[confirmed] : null
   const SuccessIcon = cfg?.iconSuccess ?? CheckCircle2
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-black">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+          <p className="text-sm text-white/60">Memeriksa sesi...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black">

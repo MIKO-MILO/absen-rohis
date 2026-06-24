@@ -1,12 +1,16 @@
-import { supabase } from "../../../../lib/supabaseClient"
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabaseServer"
+import { requireAdminSession } from "@/lib/auth-server"
 import { getGlobalConfig } from "@/lib/test-config"
+import type { Database } from "@/lib/supabase-types"
 
 export async function POST() {
   try {
+    await requireAdminSession()
     const config = await getGlobalConfig()
-    // Cek apakah fitur ini diaktifkan dan waktu sudah lewat
+
     if (!config.ENABLE_FORGOT_SIGN_IN) {
-      return Response.json(
+      return NextResponse.json(
         { error: "Fitur auto mark tidak hadir dinonaktifkan" },
         { status: 400 }
       )
@@ -15,17 +19,16 @@ export async function POST() {
     const now = new Date()
     const isFriday = now.getDay() === 5
 
-    // Jika bukan hari Jumat, jangan jalankan auto-mark
     if (!isFriday && !config.ENABLE_SIMULATION) {
-      return Response.json(
+      return NextResponse.json(
         { error: "Auto mark hanya berjalan pada hari Jumat" },
         { status: 400 }
       )
     }
 
     const today = now.toISOString().split("T")[0]
+    const supabase = await createClient()
 
-    // 1. Ambil semua user
     const { data: allUsers, error: usersError } = await supabase
       .from("users")
       .select("id")
@@ -33,10 +36,13 @@ export async function POST() {
     if (usersError) throw usersError
 
     if (!allUsers || allUsers.length === 0) {
-      return Response.json({ message: "Tidak ada user ditemukan" })
+      return NextResponse.json({ message: "Tidak ada user ditemukan" })
     }
 
-    // 2. Ambil semua absensi hari ini
+    const typedAllUsers = allUsers as Array<
+      Database["public"]["Tables"]["users"]["Row"]
+    >
+
     const { data: absensiHariIni, error: absensiError } = await supabase
       .from("absensi")
       .select("user_id")
@@ -44,20 +50,24 @@ export async function POST() {
 
     if (absensiError) throw absensiError
 
-    // 3. Filter user yang belum absen
+    const typedAbsensiHariIni = absensiHariIni as Array<
+      Database["public"]["Tables"]["absensi"]["Row"]
+    >
+
     const userIdsAbsenHariIni = new Set(
-      absensiHariIni?.map((a) => a.user_id) || []
+      typedAbsensiHariIni?.map((a) => a.user_id) || []
     )
-    const usersBelumAbsen = allUsers.filter(
+    const usersBelumAbsen = typedAllUsers.filter(
       (u) => !userIdsAbsenHariIni.has(u.id)
     )
 
     if (usersBelumAbsen.length === 0) {
-      return Response.json({ message: "Semua user sudah absen hari ini" })
+      return NextResponse.json({ message: "Semua user sudah absen hari ini" })
     }
 
-    // 4. Insert absensi dengan status "tidak_hadir" (UPSERT)
-    const absensiToUpsert = usersBelumAbsen.map((user) => ({
+    const absensiToUpsert: Array<
+      Omit<Database["public"]["Tables"]["absensi"]["Row"], "id">
+    > = usersBelumAbsen.map((user) => ({
       user_id: user.id,
       tanggal: today,
       waktu: "14:00:00",
@@ -71,14 +81,20 @@ export async function POST() {
 
     if (upsertError) throw upsertError
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
       message: `Berhasil menandai ${usersBelumAbsen.length} user sebagai tidak hadir`,
       count: usersBelumAbsen.length,
     })
-  } catch (err) {
-    console.error("Auto mark tidak hadir error:", err)
-    return Response.json(
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    console.error("Auto mark tidak hadir error:", error)
+    return NextResponse.json(
       { error: "Gagal menandai user sebagai tidak hadir" },
       { status: 500 }
     )

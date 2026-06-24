@@ -90,6 +90,7 @@ function QRCanvas({ token, size = 220 }: { token: string; size?: number }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function GenerateQRPage() {
   const router = useRouter()
+  const [checkingSession, setCheckingSession] = useState(true)
   const [token, setToken] = useState<string>("")
   const [countdown, setCountdown] = useState(() => QR_LIFETIME_SECONDS)
   const [status, setStatus] = useState<QRStatus>("active")
@@ -103,6 +104,19 @@ export default function GenerateQRPage() {
   const isSuccess = status === "success"
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isMounted = useRef(true)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const panitiaSession = localStorage.getItem("panitia_session")
+      if (!panitiaSession) {
+        router.push("/")
+        return
+      }
+      setCheckingSession(false)
+    }
+    checkSession()
+  }, [router])
 
   useEffect(() => {
     isMounted.current = true
@@ -188,11 +202,11 @@ export default function GenerateQRPage() {
 
       if (!isMounted.current) return
 
-      const latest = (data as AbsensiResponse[])
+      const latest = (Array.isArray(data) ? data : [] as AbsensiResponse[])
         .sort(
           (a, b) =>
             new Date(b.created_at || b.tanggal + " " + b.waktu).getTime() -
-            new Date(a.created_at || a.tanggal + " " + b.waktu).getTime()
+            new Date(a.created_at || a.tanggal + " " + a.waktu).getTime()
         )
         .slice(0, 5)
         .map((item) => ({
@@ -254,6 +268,17 @@ export default function GenerateQRPage() {
   }, [fetchLiveAbsen])
 
   // ── Progress bar width ───────────────────────────────────────────────────
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">

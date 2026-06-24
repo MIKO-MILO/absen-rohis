@@ -60,6 +60,11 @@ export interface ExportConfig {
   exportAllDates?: boolean
 }
 
+interface ImagePosition {
+  tl: { col: number; row: number }
+  ext: { width: number; height: number }
+}
+
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
@@ -587,10 +592,11 @@ function createWorksheet(
       })
       // Portrait logo: taller than wide (1288w x 1600h)
       // Use ext with even smaller pixel dimensions to fit within kop surat
+      // Type assertion is safe here because ExcelJS supports floating-point coordinates for precise positioning
       ws.addImage(imgId, {
         tl: { col: 1.3, row: 1.1 },
         ext: { width: 53, height: 65 },
-      } as unknown as any) // eslint-disable-line
+      } as ImagePosition)
     } catch {
       /* logo optional */
     }
@@ -603,10 +609,11 @@ function createWorksheet(
       })
       // Square logo (3375x3375)
       // Use ext with exact square pixel dimensions
+      // Type assertion is safe here because ExcelJS supports floating-point coordinates for precise positioning
       ws.addImage(imgId, {
         tl: { col: LAST - 3, row: 0.9 },
         ext: { width: 75, height: 75 },
-      } as unknown as any) // eslint-disable-line
+      } as ImagePosition)
     } catch {
       /* logo optional */
     }

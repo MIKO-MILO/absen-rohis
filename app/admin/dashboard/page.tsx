@@ -3,14 +3,18 @@
 import { AdminShell } from "../_components/AdminShell"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   UserCheck,
   HeartPulse,
   XCircle,
   ArrowRight,
   GraduationCap,
+  User,
+  Users,
 } from "lucide-react"
 import { useEffect, useState, useMemo } from "react"
+import { startImpersonation } from "@/lib/auth-client"
 
 interface SiswaRecord {
   id: number
@@ -154,6 +158,23 @@ export default function DashboardPage() {
   const [allUsers, setAllUsers] = useState<UserRecord[]>([])
   const [classesList, setClassesList] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [checkingSession, setCheckingSession] = useState(true)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      const panitiaSession = localStorage.getItem("panitia_session")
+
+      if (!adminSession && !panitiaSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   // ─── Stats ───
   const todayStr = new Date().toISOString().split("T")[0]
@@ -273,25 +294,25 @@ export default function DashboardPage() {
           setClassesList(classesJson.classes)
         }
 
-        const formatted = (absensiJson as AbsensiResponse[]).map(
-          (r): SiswaRecord => {
-            let rawStatus = (r.status || "").trim().toLowerCase()
-            if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
-            const tanggal = r.tanggal ?? "—"
-            return {
-              id: r.id,
-              nama: r.users?.nama || "Tidak diketahui",
-              nis: r.users?.nis || "—",
-              kelas: r.users?.kelas || "—",
-              tanggal,
-              hari: getHari(tanggal),
-              waktu: r.waktu ?? "—",
-              status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
-                ? rawStatus
-                : "tidak_hadir") as Status,
-            }
+        const formatted = (
+          Array.isArray(absensiJson) ? absensiJson : ([] as AbsensiResponse[])
+        ).map((r): SiswaRecord => {
+          let rawStatus = (r.status || "").trim().toLowerCase()
+          if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
+          const tanggal = r.tanggal ?? "—"
+          return {
+            id: r.id,
+            nama: r.users?.nama || "Tidak diketahui",
+            nis: r.users?.nis || "—",
+            kelas: r.users?.kelas || "—",
+            tanggal,
+            hari: getHari(tanggal),
+            waktu: r.waktu ?? "—",
+            status: (["hadir", "haid", "tidak_hadir"].includes(rawStatus)
+              ? rawStatus
+              : "tidak_hadir") as Status,
           }
-        )
+        })
         setData(formatted)
       } catch (err: unknown) {
         console.error(err)
@@ -305,6 +326,19 @@ export default function DashboardPage() {
       isMounted = false
     }
   }, [])
+
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
+  }
 
   return (
     <AdminShell>
@@ -356,6 +390,30 @@ export default function DashboardPage() {
                 : ""}
             </p>
           </div>
+        </div>
+
+        {/* ── Impersonation buttons ── */}
+        <div className="flex gap-3">
+          <Button
+            onClick={() => {
+              startImpersonation("siswa")
+              router.push("/user/home")
+            }}
+            className="flex items-center gap-2"
+          >
+            <User className="h-4 w-4" />
+            Masuk sebagai Siswa
+          </Button>
+          <Button
+            onClick={() => {
+              startImpersonation("panitia")
+              router.push("/rohis/home")
+            }}
+            className="flex items-center gap-2"
+          >
+            <Users className="h-4 w-4" />
+            Masuk sebagai Panitia
+          </Button>
         </div>
 
         {/* ── Summary cards ── */}

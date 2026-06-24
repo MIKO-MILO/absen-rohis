@@ -1,44 +1,62 @@
-import { supabase } from "@/lib/supabaseClient"
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabaseServer"
+import { requireRole } from "@/lib/auth-server"
+import { v4 as uuidv4 } from "uuid"
+import QRCode from "qrcode"
+import type { Database } from "@/lib/supabase-types"
 
 export async function POST(req: Request) {
   try {
+    await requireRole(["admin", "superadmin", "panitia"] as const)
     const body = await req.json()
-    const { actor_id, panitia_id } = body
+    const { panitia_id, is_simulation, expired_at } = body as Partial<
+      Database["public"]["Tables"]["qr_token"]["Insert"]
+    >
+    const token = uuidv4()
+    const supabase = await createClient()
 
-    const final_panitia_id = panitia_id || actor_id
-
-    if (!final_panitia_id) {
-      return Response.json(
-        { error: "Unauthorized: ID tidak ditemukan" },
-        { status: 401 }
-      )
-    }
-
-    const rawToken = crypto.randomUUID()
-    const token = `ROHIS-DZUHUR-${rawToken}`
-
-    const { data: newToken, error: tokenError } = await supabase
+    const { data, error } = await supabase
       .from("qr_token")
       .insert({
-        token: rawToken, // Simpan UUID murni di DB agar pencarian EQ lancar
+        token,
+        panitia_id,
         aktif: true,
-        panitia_id: final_panitia_id,
+        expired_at,
+        is_simulation: is_simulation || false,
       })
       .select()
       .single()
 
-    if (tokenError) {
-      console.error("DB ERROR:", tokenError)
-      return Response.json({ error: tokenError.message }, { status: 500 })
-    }
+    if (error) throw error
 
-    return Response.json({
-      token,
-      id: newToken.id, // Mengembalikan ID record untuk referensi frontend admin
+    const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL}/scan?token=${token}`
+    const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
+      width: 512,
+      margin: 2,
+      color: {
+        dark: "#111827",
+        light: "#ffffff",
+      },
     })
-  } catch (err: unknown) {
-    console.error("SERVER ERROR:", err)
-    const msg = err instanceof Error ? err.message : "Terjadi kesalahan server"
-    return Response.json({ error: msg }, { status: 500 })
+
+    return NextResponse.json({
+      success: true,
+      token,
+      qrUrl,
+      qrCodeDataUrl,
+      qrData: data,
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === "Forbidden") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    console.error("Generate QR error:", error)
+    return NextResponse.json(
+      { error: "Gagal generate QR Code" },
+      { status: 500 }
+    )
   }
 }

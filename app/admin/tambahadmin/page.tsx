@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AdminShell } from "../_components/AdminShell"
 import { Button } from "@/components/ui/button"
@@ -55,6 +55,7 @@ function Field({
 
 export default function TambahAdminPage() {
   const router = useRouter()
+  const [checkingSession, setCheckingSession] = useState(true)
   const [form, setForm] = useState<AdminFormType>({
     nama: "",
     username: "",
@@ -64,6 +65,20 @@ export default function TambahAdminPage() {
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<AdminFormType>>({})
   const [success, setSuccess] = useState(false)
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const adminSession = localStorage.getItem("admin_session")
+      if (!adminSession) {
+        router.push("/admin")
+        return
+      }
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   const validate = () => {
     const e: Partial<AdminFormType> = {}
@@ -98,6 +113,21 @@ export default function TambahAdminPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex h-[60vh] items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Memeriksa sesi...
+            </p>
+          </div>
+        </div>
+      </AdminShell>
+    )
   }
 
   if (success) {

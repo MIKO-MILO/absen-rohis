@@ -8,9 +8,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
   Dialog,
@@ -32,8 +32,10 @@ import {
   Plus,
   Pencil,
   AlertTriangle,
+  LogIn,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { startImpersonationAsync, fetchSession } from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UserRecord {
@@ -64,7 +66,59 @@ export default function DataSiswaPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [perPage, setPerPage] = useState(10) // Nilai default awal
+  const [checkingSession, setCheckingSession] = useState(true)
+  const [isSuperadmin, setIsSuperadmin] = useState(false)
   const clearSelected = () => setSelected(new Set())
+
+  // Check session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const adminSession = localStorage.getItem("admin_session")
+      const panitiaSession = localStorage.getItem("panitia_session")
+
+      if (!adminSession && !panitiaSession) {
+        router.push("/admin")
+        return
+      }
+
+      // Try to fetch from API session to check if user is superadmin
+      try {
+        const sessionData = await fetchSession()
+        if (
+          sessionData?.originalUser?.role === "superadmin" ||
+          sessionData?.user?.role === "superadmin"
+        ) {
+          setIsSuperadmin(true)
+        } else if (adminSession) {
+          // Fallback to localStorage session
+          try {
+            const parsedAdminSession = JSON.parse(adminSession)
+            if (parsedAdminSession.role === "superadmin") {
+              setIsSuperadmin(true)
+            }
+          } catch {
+            // Ignore if parse fails
+          }
+        }
+      } catch {
+        // Ignore API errors, fall back to localStorage check
+        if (adminSession) {
+          try {
+            const parsedAdminSession = JSON.parse(adminSession)
+            if (parsedAdminSession.role === "superadmin") {
+              setIsSuperadmin(true)
+            }
+          } catch {
+            // Ignore
+          }
+        }
+      }
+
+      setCheckingSession(false)
+    }
+
+    checkSession()
+  }, [router])
 
   // ── Dynamic Row Calculation ────────────────────────────────────────────────
   useEffect(() => {
@@ -103,17 +157,20 @@ export default function DataSiswaPage() {
 
         if (!isMounted) return
 
-        const mappedData = result.map((u: UserRecord) => ({
-          id: u.id,
-          nama: u.nama,
-          kelas: u.kelas,
-          jenis_kelamin: u.jenis_kelamin,
-          nis: u.nis,
-          email: u.email,
-          password: u.password,
-          created_at: u.created_at,
-          avatar: String(Math.floor(Math.random() * 70)),
-        }))
+        // Check if result is an array
+        const mappedData = Array.isArray(result)
+          ? result.map((u: UserRecord) => ({
+              id: u.id,
+              nama: u.nama,
+              kelas: u.kelas,
+              jenis_kelamin: u.jenis_kelamin,
+              nis: u.nis,
+              email: u.email,
+              password: u.password,
+              created_at: u.created_at,
+              avatar: String(Math.floor(Math.random() * 70)),
+            }))
+          : []
 
         setData(mappedData)
         if (classesData.classes) {
@@ -202,6 +259,16 @@ export default function DataSiswaPage() {
     setShowDeleteModal(true)
   }
 
+  const handleImpersonate = async (id: number) => {
+    const result = await startImpersonationAsync(id, "siswa")
+    if (result.success && result.redirect) {
+      router.push(result.redirect)
+      router.refresh()
+    } else {
+      alert(result.error || "Gagal memulai impersonasi")
+    }
+  }
+
   const handleDelete = async () => {
     if (!deletingId) return
     try {
@@ -256,6 +323,19 @@ export default function DataSiswaPage() {
       year: "numeric",
     })
   }, [])
+
+  if (checkingSession) {
+    return (
+      <AdminShell>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Memeriksa sesi...</p>
+          </div>
+        </div>
+      </AdminShell>
+    )
+  }
 
   if (loading)
     return (
@@ -582,6 +662,15 @@ export default function DataSiswaPage() {
                                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                 Edit Siswa
                               </DropdownMenuItem>
+                              {isSuperadmin && (
+                                <DropdownMenuItem
+                                  onClick={() => handleImpersonate(s.id)}
+                                  className="cursor-pointer gap-2 rounded-lg text-xs"
+                                >
+                                  <LogIn className="h-3.5 w-3.5 text-blue-600" />
+                                  Login Sebagai
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onClick={() => openDeleteModal(s.id)}
                                 className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
