@@ -18,7 +18,6 @@ import {
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import {
-  isAdmin,
   getEffectiveSession,
   getEffectiveRole,
   isImpersonating,
