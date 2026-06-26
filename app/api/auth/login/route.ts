@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabaseServer"
 import { setSessionCookie } from "@/lib/auth-server"
+import { createAuditLog } from "@/lib/audit-log"
 import type { SessionData } from "@/lib/auth-client"
 
 export async function POST(req: Request) {
@@ -86,6 +87,13 @@ export async function POST(req: Request) {
 
     // Simpan session ke HttpOnly Cookie
     await setSessionCookie(sessionData)
+
+    // Log login audit
+    await createAuditLog({
+      actor: sessionData,
+      action: "login",
+      description: `${sessionData.nama} logged in as ${sessionData.role}`,
+    })
 
     const responseJson = {
       user: sessionData,

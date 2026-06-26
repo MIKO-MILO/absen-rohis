@@ -23,6 +23,7 @@ import {
   X,
   LayoutGrid,
   ShieldCheck,
+  History,
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import type { SessionData } from "@/lib/auth-client"
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { label: "Admin", icon: Users, href: "/admin/admin" },
   { label: "Kelas", icon: LayoutGrid, href: "/admin/classes" },
   { label: "Config", icon: ShieldCheck, href: "/admin/config" },
+  { label: "Audit Log", icon: History, href: "/admin/audit-log" },
 ]
 
 interface SidebarContentProps {
@@ -128,7 +130,10 @@ const SidebarContent = ({
     <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
       {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
         const isRestricted =
-          label === "Admin" || label === "Config" || label === "Kelas"
+          label === "Admin" ||
+          label === "Config" ||
+          label === "Kelas" ||
+          label === "Audit Log"
         if (isRestricted && adminRole !== "superadmin") return null
 
         const active =

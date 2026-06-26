@@ -132,6 +132,8 @@ export default function MonitoringPage() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   )
+  const [sortBy, setSortBy] = useState<"nama" | "waktu" | "kelas">("nama")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [, setRefreshing] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [perPage, setPerPage] = useState(10)
@@ -257,7 +259,7 @@ export default function MonitoringPage() {
   }, [users, absensi, selectedDate])
 
   const filteredData = useMemo(() => {
-    return monitoringData.filter((item) => {
+    const filtered = monitoringData.filter((item) => {
       const matchesSearch =
         !search ||
         item.nama.toLowerCase().includes(search.toLowerCase()) ||
@@ -269,7 +271,28 @@ export default function MonitoringPage() {
         item.status === TAB_TO_STATUS[activeTab]
       return matchesSearch && matchesKelas && matchTab
     })
-  }, [monitoringData, search, filterKelas, activeTab])
+
+    // Sorting
+    return [...filtered].sort((a, b) => {
+      let comparison = 0
+      switch (sortBy) {
+        case "nama":
+          comparison = a.nama.localeCompare(b.nama, "id-ID")
+          break
+        case "kelas":
+          comparison = a.kelas.localeCompare(b.kelas, "id-ID")
+          break
+        case "waktu":
+          // Handle cases where waktu is "—"
+          if (a.waktu === "—" && b.waktu === "—") comparison = 0
+          else if (a.waktu === "—") comparison = 1
+          else if (b.waktu === "—") comparison = -1
+          else comparison = a.waktu.localeCompare(b.waktu, "id-ID")
+          break
+      }
+      return sortOrder === "asc" ? comparison : -comparison
+    })
+  }, [monitoringData, search, filterKelas, activeTab, sortBy, sortOrder])
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / perPage))
   const paginated = filteredData.slice((page - 1) * perPage, page * perPage)
@@ -542,6 +565,85 @@ export default function MonitoringPage() {
                           {tab}
                         </DropdownMenuItem>
                       ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Sort Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="h-9 gap-2 rounded-xl border-border bg-muted/50 text-xs font-semibold text-muted-foreground"
+                      >
+                        <span>Sort by</span>
+                        <span className="font-bold text-primary">
+                          {sortBy === "nama"
+                            ? "Nama"
+                            : sortBy === "kelas"
+                              ? "Kelas"
+                              : "Waktu"}
+                        </span>
+                        <span className="text-xs">
+                          {sortOrder === "asc" ? "↑" : "↓"}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-48 rounded-xl"
+                    >
+                      <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("nama")
+                          setSortOrder("asc")
+                        }}
+                      >
+                        Nama (A-Z)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("nama")
+                          setSortOrder("desc")
+                        }}
+                      >
+                        Nama (Z-A)
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("kelas")
+                          setSortOrder("asc")
+                        }}
+                      >
+                        Kelas (A-Z)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("kelas")
+                          setSortOrder("desc")
+                        }}
+                      >
+                        Kelas (Z-A)
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("waktu")
+                          setSortOrder("asc")
+                        }}
+                      >
+                        Waktu (Terlama)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("waktu")
+                          setSortOrder("desc")
+                        }}
+                      >
+                        Waktu (Terbaru)
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 

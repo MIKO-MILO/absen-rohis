@@ -124,34 +124,44 @@ export default function GenerateQRPage() {
   const handleGenerate = async () => {
     setIsGenerating(true)
     try {
+      console.log("[GENERATE QR] Starting handleGenerate...")
       const sessionStr =
         localStorage.getItem("admin_session") ||
         localStorage.getItem("panitia_session")
       if (!sessionStr)
         throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
 
+      console.log("[GENERATE QR] Session string from localStorage:", sessionStr)
       const auth = JSON.parse(sessionStr)
+      console.log("[GENERATE QR] Parsed auth data:", auth)
 
+      const expiredAt = Date.now() + durasi * 60 * 1000
+
+      console.log("[GENERATE QR] Calling API /api/qr/generate...")
       const res = await fetch("/api/qr/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          actor_id: auth.id,
-          role: auth.role,
+          panitia_id: auth.role === "panitia" ? auth.id : null,
+          expired_at: new Date(expiredAt).toISOString(),
         }),
       })
 
+      console.log("[GENERATE QR] API response status:", res.status)
       const data = await res.json()
+      console.log("[GENERATE QR] API response data:", data)
+
       if (!res.ok) throw new Error(data.error || "Gagal generate QR")
 
       setSession({
-        id: data.id,
+        id: data.qrData.id,
         tanggal: new Date().toISOString().split("T")[0],
-        expiredAt: Date.now() + durasi * 60 * 1000,
+        expiredAt: expiredAt,
         token: data.token,
       })
       setSecondsLeft(durasi * 60)
     } catch (err: unknown) {
+      console.error("[GENERATE QR] Error in handleGenerate:", err)
       const msg =
         err instanceof Error ? err.message : "Terjadi kesalahan server"
       alert(msg)
@@ -166,7 +176,7 @@ export default function GenerateQRPage() {
 
   const handleCopy = () => {
     if (!session) return
-    navigator.clipboard.writeText(session.id)
+    navigator.clipboard.writeText(session.token)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -343,7 +353,7 @@ export default function GenerateQRPage() {
                         : "border-primary/20 shadow-xl shadow-primary/10"
                     }`}
                   >
-                    <QRCanvas value={session.id} size={200} />
+                    <QRCanvas value={session.token} size={200} />
                     {isExpired && (
                       <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-background/80 backdrop-blur-sm">
                         <div className="text-center">
@@ -387,7 +397,7 @@ export default function GenerateQRPage() {
                   {/* Token */}
                   <div className="flex w-full items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
                     <code className="flex-1 truncate font-mono text-xs text-muted-foreground">
-                      {session.id}
+                      {session.token}
                     </code>
                     <button onClick={handleCopy} className="shrink-0">
                       {copied ? (

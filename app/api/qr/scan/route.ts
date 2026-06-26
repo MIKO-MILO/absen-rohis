@@ -37,8 +37,6 @@ export async function POST(req: Request) {
 
     // Flag untuk update manual oleh admin
     const isAdminUpdate = qr_token === "MANUAL_UPDATE"
-    const cleanToken = token?.replace("ROHIS-DZUHUR-", "") || ""
-
     if (!isAdminUpdate && (!token || !user_id)) {
       return Response.json(
         { error: "Token atau User ID kosong" },
@@ -56,7 +54,7 @@ export async function POST(req: Request) {
         panitia_id: null,
         is_simulation: true,
       }
-    } else if (cleanToken === "SIMULASI-TOKEN") {
+    } else if (token === "ROHIS-DZUHUR-SIMULASI-TOKEN") {
       if (!config.ENABLE_SIMULATION) {
         return Response.json(
           { error: "Mode simulasi sedang dinonaktifkan" },
@@ -83,7 +81,7 @@ export async function POST(req: Request) {
       const { data, error: qrError } = await supabase
         .from("qr_token")
         .select("*")
-        .eq("token", cleanToken)
+        .eq("token", token)
         .maybeSingle()
 
       if (qrError || !data) {

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabaseServer"
 import { getOriginalSession, setImpersonationCookie } from "@/lib/auth-server"
+import { createAuditLog } from "@/lib/audit-log"
 
 export async function POST(req: Request) {
   try {
@@ -86,16 +87,13 @@ export async function POST(req: Request) {
     }
 
     // 4. Create audit log
-    const { error: auditLogError } = await supabase.from("audit_logs").insert({
-      admin_id: originalSession.id,
-      target_user_id: targetUserId,
-      action: `impersonation_started: ${targetRole} ${(targetUser as Record<string, unknown>).nama as string}`,
+    await createAuditLog({
+      actor: originalSession,
+      action: "start_impersonation",
+      targetType: targetRole,
+      targetId: targetUserId,
+      description: `${originalSession.nama} started impersonating ${(targetUser as Record<string, unknown>).nama as string} (${targetRole})`,
     })
-
-    if (auditLogError) {
-      console.error("Audit log insert error:", auditLogError)
-      // We don't fail the request for audit log errors, just log them
-    }
 
     // 5. Set impersonation cookie
     await setImpersonationCookie({

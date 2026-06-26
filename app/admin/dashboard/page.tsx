@@ -12,6 +12,8 @@ import {
   GraduationCap,
   User,
   Users,
+  Shield,
+  Briefcase,
 } from "lucide-react"
 import { useEffect, useState, useMemo } from "react"
 import { startImpersonation } from "@/lib/auth-client"
@@ -51,6 +53,7 @@ interface ClassStat {
   kelas: string
   total: number
   hadir: number
+  tidakHadir: number
   pct: number
 }
 
@@ -156,6 +159,8 @@ export default function DashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<SiswaRecord[]>([])
   const [allUsers, setAllUsers] = useState<UserRecord[]>([])
+  const [allAdmins, setAllAdmins] = useState<any[]>([])
+  const [allPanitia, setAllPanitia] = useState<any[]>([])
   const [classesList, setClassesList] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [checkingSession, setCheckingSession] = useState(true)
@@ -219,10 +224,13 @@ export default function DashboardPage() {
           (r) => r.status === "hadir" || r.status === "haid"
         ).length
 
+        const tidakHadirCount = total - hadirCount
+
         return {
           kelas: c,
           total,
           hadir: hadirCount,
+          tidakHadir: tidakHadirCount,
           pct: total > 0 ? Math.round((hadirCount / total) * 100) : 0,
         }
       })
@@ -277,19 +285,26 @@ export default function DashboardPage() {
 
     const fetchData = async () => {
       try {
-        const [resAbsensi, resUsers, resClasses] = await Promise.all([
-          fetch("/api/absensi"),
-          fetch("/api/users"),
-          fetch("/api/classes"),
-        ])
+        const [resAbsensi, resUsers, resClasses, resAdmins, resPanitia] =
+          await Promise.all([
+            fetch("/api/absensi"),
+            fetch("/api/users"),
+            fetch("/api/classes"),
+            fetch("/api/admin"),
+            fetch("/api/panitia"),
+          ])
 
         const absensiJson = await resAbsensi.json()
         const usersJson = await resUsers.json()
         const classesJson = await resClasses.json()
+        const adminsJson = await resAdmins.json()
+        const panitiaJson = await resPanitia.json()
 
         if (!isMounted) return
 
         setAllUsers(Array.isArray(usersJson) ? usersJson : [])
+        setAllAdmins(Array.isArray(adminsJson) ? adminsJson : [])
+        setAllPanitia(Array.isArray(panitiaJson) ? panitiaJson : [])
         if (classesJson.classes) {
           setClassesList(classesJson.classes)
         }
@@ -417,7 +432,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Summary cards ── */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
           {[
             {
               label: "Total Siswa",
@@ -427,6 +442,24 @@ export default function DashboardPage() {
               color: "text-slate-600 dark:text-slate-400",
               bg: "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800",
               iconBg: "bg-slate-100 dark:bg-slate-800",
+            },
+            {
+              label: "Total Panitia",
+              value: allPanitia.length,
+              sub: "Panitia Rohis",
+              icon: Briefcase,
+              color: "text-purple-600 dark:text-purple-400",
+              bg: "bg-white dark:bg-slate-900 border-purple-100 dark:border-purple-900/30",
+              iconBg: "bg-purple-50 dark:bg-purple-900/20",
+            },
+            {
+              label: "Total Admin",
+              value: allAdmins.length,
+              sub: "Administrator",
+              icon: Shield,
+              color: "text-orange-600 dark:text-orange-400",
+              bg: "bg-white dark:bg-slate-900 border-orange-100 dark:border-orange-900/30",
+              iconBg: "bg-orange-50 dark:bg-orange-900/20",
             },
             {
               label: "Hadir",
@@ -455,12 +488,18 @@ export default function DashboardPage() {
               bg: "bg-white dark:bg-slate-900 border-rose-100 dark:border-rose-900/30",
               iconBg: "bg-rose-50 dark:bg-rose-900/20",
             },
-          ].map(({ label, value, sub, color, bg }) => (
+          ].map(({ label, value, sub, icon: Icon, color, bg, iconBg }) => (
             <div
               key={label}
               className={`relative flex flex-col gap-3 overflow-hidden rounded-3xl border p-5 shadow-sm transition-all hover:shadow-md ${bg}`}
             >
-              <div className="flex items-center justify-between"></div>
+              <div className="flex items-center justify-between">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-2xl ${iconBg}`}
+                >
+                  <Icon className={`h-5 w-5 ${color}`} />
+                </div>
+              </div>
               <div>
                 <p className={`text-3xl leading-none font-black ${color}`}>
                   {loading ? "..." : value}
@@ -562,7 +601,7 @@ export default function DashboardPage() {
                       />
                     </div>
                     <p className="mt-0.5 text-[10px] text-muted-foreground">
-                      {k.hadir}/{k.total} hadir
+                      {k.hadir}/{k.total} hadir · {k.tidakHadir} tidak hadir
                     </p>
                   </div>
                 ))

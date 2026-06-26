@@ -101,6 +101,8 @@ export interface AuditLog {
   admin_id: number
   target_user_id?: number | null
   action: string
+  target_type?: string | null
+  description?: string | null
   created_at: string
 }
 
@@ -285,6 +287,8 @@ export type Database = {
           admin_id: number
           target_user_id?: number | null
           action: string
+          target_type?: string | null
+          description?: string | null
           created_at?: string
         }
         Update: {
@@ -292,6 +296,8 @@ export type Database = {
           admin_id?: number
           target_user_id?: number | null
           action?: string
+          target_type?: string | null
+          description?: string | null
           created_at?: string
         }
         Relationships: GenericRelationship[]

@@ -159,6 +159,7 @@ export default function GenerateQRPage() {
       }
       const session = JSON.parse(sessionStr)
 
+      const expiredAt = new Date(Date.now() + QR_LIFETIME_SECONDS * 1000)
       const res = await fetch("/api/qr/generate", {
         method: "POST",
         headers: {
@@ -166,6 +167,7 @@ export default function GenerateQRPage() {
         },
         body: JSON.stringify({
           panitia_id: session.id,
+          expired_at: expiredAt.toISOString(),
         }),
       })
 
@@ -202,7 +204,7 @@ export default function GenerateQRPage() {
 
       if (!isMounted.current) return
 
-      const latest = (Array.isArray(data) ? data : [] as AbsensiResponse[])
+      const latest = (Array.isArray(data) ? data : ([] as AbsensiResponse[]))
         .sort(
           (a, b) =>
             new Date(b.created_at || b.tanggal + " " + b.waktu).getTime() -

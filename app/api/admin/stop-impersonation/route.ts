@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabaseServer"
 import { getOriginalSession, clearImpersonationCookie } from "@/lib/auth-server"
+import { createAuditLog } from "@/lib/audit-log"
 
 export async function POST() {
   try {
@@ -34,10 +35,12 @@ export async function POST() {
 
       // 3. Create audit log
       for (const session of activeSessions) {
-        await supabase.from("audit_logs").insert({
-          admin_id: originalSession.id,
-          target_user_id: session.target_user_id,
-          action: `impersonation_stopped: ${session.target_role}`,
+        await createAuditLog({
+          actor: originalSession,
+          action: "stop_impersonation",
+          targetType: session.target_role,
+          targetId: session.target_user_id,
+          description: `${originalSession.nama} stopped impersonating`,
         })
       }
     }
