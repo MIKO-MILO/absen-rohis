@@ -24,6 +24,7 @@ import {
   LayoutGrid,
   ShieldCheck,
   History,
+  MonitorCheck
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import type { SessionData } from "@/lib/auth-client"
@@ -31,7 +32,7 @@ import type { SessionData } from "@/lib/auth-client"
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
   { label: "Data Absen", icon: ClipboardList, href: "/admin/absen" },
-  { label: "Monitoring", icon: LayoutGrid, href: "/admin/monitoring" },
+  { label: "Monitoring", icon: MonitorCheck, href: "/admin/monitoring" },
   { label: "Siswa", icon: Users, href: "/admin/siswa" },
   { label: "Panitia", icon: Users, href: "/admin/panitia" },
   { label: "Admin", icon: Users, href: "/admin/admin" },
@@ -345,7 +346,9 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto px-4 py-4 md:px-0 md:py-0">
+          {children}
+        </main>
       </div>
 
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>

@@ -265,7 +265,6 @@ function ManualForm({
         <ArrowLeft className="h-4 w-4" /> Kembali
       </button>
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="h-1 bg-primary" />
         <div className="flex flex-col gap-5 p-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -618,7 +617,6 @@ function ImportForm({
       </button>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="h-1 bg-blue-500" />
         <div className="flex flex-col gap-5 p-6">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -678,15 +676,15 @@ function ImportForm({
               onClick={() => inputRef.current?.click()}
               className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 transition-all ${
                 dragging
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5"
+                  ? "border-primary bg-blue-500/5"
+                  : "border-border bg-muted/30 hover:border-blue-500/50 hover:bg-blue-500/5"
               }`}
             >
               <div
-                className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-colors ${dragging ? "bg-primary/20" : "border border-border bg-card"}`}
+                className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-colors ${dragging ? "bg-blue-500/20" : "border border-border bg-card"}`}
               >
                 <Upload
-                  className={`h-7 w-7 ${dragging ? "text-primary" : "text-muted-foreground"}`}
+                  className={`h-7 w-7 ${dragging ? "text-blue-500" : "text-muted-foreground"}`}
                 />
               </div>
               <div className="text-center">

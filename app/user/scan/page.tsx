@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { BrowserQRCodeReader } from "@zxing/library"
 import { getActiveConfig } from "@/lib/client-config"
+import { getEffectiveUserAsync } from "@/lib/auth-client"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type ScanState = "idle" | "scanning" | "pilih" | "success" | "error"
@@ -46,12 +47,12 @@ const PILIHAN_CONFIG = {
     inactive: "border-border/10 bg-muted/5",
     iconColor: "text-red-400",
     badgeColor: "bg-red-500",
-    successColor: "text-red-300",
+    successColor: "text-primary",
     ringTop: "rgba(13,148,136,0.4)",
-    ringColor: "rgba(244,114,182,0.15)",
-    ringBg: "rgba(244,114,182,0.15)",
-    iconSuccess: XCircle,
-    iconSuccessColor: "text-red-400",
+    ringColor: "rgba(13,148,136,0.4)",
+    ringBg: "rgba(13,148,136,0.15)",
+    iconSuccess: CheckCircle2,
+    iconSuccessColor: "text-teal-400",
     btnClass: "bg-teal-600 hover:bg-teal-500 shadow-teal-900/40",
   },
 }
@@ -69,9 +70,14 @@ function ScanQRContent() {
 
   // Check session on mount
   useEffect(() => {
-    const checkSession = () => {
-      const siswaSession = localStorage.getItem("siswa_session")
-      if (!siswaSession) {
+    const checkSession = async () => {
+      const user = await getEffectiveUserAsync()
+      if (
+        !user ||
+        (user.role !== "siswa" &&
+          user.role !== "admin" &&
+          user.role !== "superadmin")
+      ) {
         router.push("/")
         return
       }
@@ -180,15 +186,14 @@ function ScanQRContent() {
     return () => stopScanning()
   }, [facingMode, startScanning, stopScanning, token, handleScanSuccess])
 
-  // ── Konfirmasi pilihan ───────────────────────────────────────────────────────
+  // ─── Konfirmasi pilihan ───────────────────────────────────────────────────────
   const handleKonfirmasi = async () => {
     if (!pilihan || !token) return
 
     try {
-      const sessionStr = localStorage.getItem("siswa_session")
-      if (!sessionStr)
+      const session = await getEffectiveUserAsync()
+      if (!session)
         throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
-      const session = JSON.parse(sessionStr)
 
       const res = await fetch("/api/qr/scan", {
         method: "POST",

@@ -179,7 +179,7 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
           onClick={() => onSelect("manual")}
           className="group flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 transition-colors group-hover:bg-primary/20">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
             <UserPlus className="h-6 w-6 text-primary" />
           </div>
           <div>
@@ -198,7 +198,7 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
           onClick={() => onSelect("import")}
           className="group flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 text-left shadow-sm transition-all hover:border-blue-500/50 hover:shadow-md"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500/10 transition-colors group-hover:bg-blue-500/20">
             <FileSpreadsheet className="h-6 w-6 text-blue-500" />
           </div>
           <div>
@@ -290,10 +290,9 @@ function ManualForm({
         <ArrowLeft className="h-4 w-4" /> Kembali
       </button>
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="h-1 bg-primary" />
         <div className="flex flex-col gap-5 p-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <UserPlus className="h-5 w-5 text-primary" />
             </div>
             <div>
@@ -634,7 +633,6 @@ function ImportForm({
       </button>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="h-1 bg-blue-500" />
         <div className="flex flex-col gap-5 p-6">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -693,7 +691,7 @@ function ImportForm({
                 setKelas(e.target.value)
                 setKelasError(false)
               }}
-              className="h-11 rounded-xl border border-border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+              className="h-11 rounded-xl border border-border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-blue-500 focus:outline-none"
             >
               <option value="">Pilih kelas...</option>
               {KELAS_OPTIONS.map((k) => (
@@ -725,15 +723,15 @@ function ImportForm({
                 kelasError
                   ? "border-destructive/50 bg-destructive/5"
                   : dragging
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5"
+                    ? "border-primary bg-blue-500/5"
+                    : "border-border bg-muted/30 hover:border-blue-500/50 hover:bg-blue-500/5"
               }`}
             >
               <div
                 className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-colors ${dragging ? "bg-primary/20" : "border border-border bg-card"}`}
               >
                 <Upload
-                  className={`h-7 w-7 ${dragging ? "text-primary" : "text-muted-foreground"}`}
+                  className={`h-7 w-7 ${dragging ? "text-blue-500" : "text-muted-foreground"}`}
                 />
               </div>
               <div className="text-center">

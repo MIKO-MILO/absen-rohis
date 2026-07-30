@@ -14,7 +14,10 @@ import {
   Save,
   AlertTriangle,
   CheckCircle2,
+  User,
+  Users,
 } from "lucide-react"
+import { startImpersonation } from "@/lib/auth-client"
 import {
   Dialog,
   DialogContent,
@@ -235,7 +238,7 @@ export default function SuperadminConfigPage() {
     showToast("Direset ke pengaturan default")
   }
 
-  const activeCount = Object.values(config).filter(Boolean).length
+  const activeCount = CONFIG_ITEMS.filter((item) => config[item.key]).length
 
   if (checkingSession) {
     return (
@@ -252,7 +255,7 @@ export default function SuperadminConfigPage() {
 
   return (
     <AdminShell requireSuperadmin>
-      <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="mx-auto max-w-2xl py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="mb-3 flex items-center gap-2.5">
@@ -269,10 +272,33 @@ export default function SuperadminConfigPage() {
               {activeCount} / {CONFIG_ITEMS.length} aktif
             </span>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-muted-foreground">
             Aktifkan atau nonaktifkan fitur aplikasi secara global. Perubahan
             berlaku segera setelah disimpan.
           </p>
+          {/* Impersonation buttons */}
+          <div className="flex gap-3">
+            <Button
+              onClick={() => {
+                startImpersonation("siswa")
+                router.push("/user/home")
+              }}
+              className="flex items-center gap-2"
+            >
+              <User className="h-4 w-4" />
+              Masuk sebagai Siswa
+            </Button>
+            <Button
+              onClick={() => {
+                startImpersonation("panitia")
+                router.push("/rohis/home")
+              }}
+              className="flex items-center gap-2"
+            >
+              <Users className="h-4 w-4" />
+              Masuk sebagai Panitia
+            </Button>
+          </div>
         </div>
 
         {/* Config Cards */}
@@ -359,7 +385,7 @@ export default function SuperadminConfigPage() {
 
         {/* Confirmation Modal */}
         <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-          <DialogContent className="max-w-[340px] rounded-3xl p-6">
+          <DialogContent className="max-w-85 rounded-3xl p-6">
             <div className="flex flex-col items-center justify-center text-center">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/20">
                 <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />

@@ -1,6 +1,19 @@
 import { supabase } from "@/lib/supabaseClient"
 import { getGlobalConfig } from "@/lib/server-config"
 import { isWithinTimeRestriction } from "@/lib/client-config"
+import {
+  requireAdminSession,
+  requireAuthenticatedSession,
+} from "@/lib/auth-server"
+
+function isValidDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
 
 export async function POST(req: Request) {
   interface QRToken {
@@ -30,18 +43,51 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const { token, status, user_id, qr_token, tanggal, admin_id } = body // token, status (hadir/berhalangan), user_id dari session
+    const { token, status, user_id, qr_token, tanggal } = body
 
     // Ambil config global dari DB
     const config = await getGlobalConfig()
 
     // Flag untuk update manual oleh admin
     const isAdminUpdate = qr_token === "MANUAL_UPDATE"
-    if (!isAdminUpdate && (!token || !user_id)) {
-      return Response.json(
-        { error: "Token atau User ID kosong" },
-        { status: 400 }
-      )
+    const targetUserId = Number(user_id)
+    let adminSessionId: number | null = null
+
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+      return Response.json({ error: "User ID tidak valid" }, { status: 400 })
+    }
+
+    if (isAdminUpdate) {
+      // Update manual hanya boleh dilakukan oleh admin yang sudah terautentikasi.
+      // ID admin selalu diambil dari sesi server, bukan dari request client.
+      const adminSession = await requireAdminSession()
+      if (!isValidDate(tanggal)) {
+        return Response.json(
+          { error: "Tanggal absensi tidak valid" },
+          { status: 400 }
+        )
+      }
+      if (
+        status !== "hadir" &&
+        status !== "berhalangan" &&
+        status !== "tidak_hadir"
+      ) {
+        return Response.json({ error: "Status tidak valid" }, { status: 400 })
+      }
+
+      // Simpan nilai tepercaya untuk dipakai saat insert atau update.
+      adminSessionId = adminSession.id
+    } else {
+      const session = await requireAuthenticatedSession()
+      if (session.role !== "siswa" || session.id !== targetUserId) {
+        return Response.json({ error: "Forbidden" }, { status: 403 })
+      }
+      if (!token || (status !== "hadir" && status !== "berhalangan")) {
+        return Response.json(
+          { error: "Token atau status tidak valid" },
+          { status: 400 }
+        )
+      }
     }
 
     let qr: QRToken
@@ -139,13 +185,18 @@ export async function POST(req: Request) {
     ].join(":")
 
     // Map "berhalangan" ke "haid" (sesuai ENUM database kita)
-    const mappedStatus = status === "berhalangan" ? "haid" : "hadir"
+    const mappedStatus =
+      status === "berhalangan"
+        ? "haid"
+        : status === "tidak_hadir"
+          ? "tidak_hadir"
+          : "hadir"
 
     // 🔍 Cek apakah sudah ada data absensi untuk user ini di tanggal tersebut
     const { data: existingAbsensi } = await supabase
       .from("absensi")
       .select("id")
-      .eq("user_id", user_id)
+      .eq("user_id", targetUserId)
       .eq("tanggal", targetDate)
       .maybeSingle()
 
@@ -160,7 +211,7 @@ export async function POST(req: Request) {
 
       // Jika admin yang merubah, tambahkan admin_id
       if (isAdminUpdate) {
-        updatePayload.admin_id = admin_id
+        updatePayload.admin_id = adminSessionId
         // Jangan merubah panitia_id jika sudah ada (sesuai request user)
       } else {
         // Jika scan normal, update panitia_id dari QR
@@ -185,7 +236,7 @@ export async function POST(req: Request) {
     } else {
       // ➕ Jika belum ada, lakukan INSERT
       const insertPayload: AbsensiPayload = {
-        user_id: user_id,
+        user_id: targetUserId,
         tanggal: targetDate,
         waktu,
         status: mappedStatus,
@@ -194,7 +245,7 @@ export async function POST(req: Request) {
 
       // Jika admin yang merubah, tambahkan admin_id
       if (isAdminUpdate) {
-        insertPayload.admin_id = admin_id
+        insertPayload.admin_id = adminSessionId
       }
 
       const { data: insertData, error: insertError } = await supabase
@@ -231,6 +282,12 @@ export async function POST(req: Request) {
       nama: finalData?.users?.nama || "Siswa",
     })
   } catch (err: unknown) {
+    if (err instanceof Error && err.message === "Unauthorized") {
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (err instanceof Error && err.message === "Forbidden") {
+      return Response.json({ error: "Forbidden" }, { status: 403 })
+    }
     console.error("Scan QR Route Error:", err)
     const msg = err instanceof Error ? err.message : "Terjadi kesalahan server"
     return Response.json({ error: msg }, { status: 500 })

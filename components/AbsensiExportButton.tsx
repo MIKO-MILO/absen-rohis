@@ -1,13 +1,9 @@
-/**
- * components/AbsensiExportButton.tsx
- * Tombol download export absensi Excel dengan pilihan bulan, kelas, dan export semua kelas
- */
-
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { getActiveConfig } from "@/lib/client-config"
+import { CalendarDays, FileSpreadsheet, Users } from "lucide-react"
 
 const MONTHS = [
   "Januari",
@@ -28,12 +24,16 @@ interface AbsensiExportButtonProps {
   kelas: string
   tahunPelajaran: string
   className?: string
+  exportAllClasses?: boolean
+  onExportAllClassesChange?: (value: boolean) => void
 }
 
 export function AbsensiExportButton({
   kelas: initialKelas,
   tahunPelajaran,
   className,
+  exportAllClasses,
+  onExportAllClassesChange,
 }: AbsensiExportButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,6 +41,8 @@ export function AbsensiExportButton({
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [classes, setClasses] = useState<string[]>([])
   const [selectedKelas, setSelectedKelas] = useState(initialKelas)
+  const [internalExportAll, setInternalExportAll] = useState(false)
+  const isAllClasses = exportAllClasses ?? internalExportAll
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -57,11 +59,15 @@ export function AbsensiExportButton({
         console.error("Error fetching classes:", err)
       }
     }
-
     fetchClasses()
   }, [initialKelas])
 
-  const handleExport = async (semuaKelas: boolean = false) => {
+  const setExportScope = (value: boolean) => {
+    setInternalExportAll(value)
+    onExportAllClassesChange?.(value)
+  }
+
+  const handleExport = async () => {
     setLoading(true)
     setError(null)
 
@@ -72,26 +78,22 @@ export function AbsensiExportButton({
         tahun: tahunPelajaran,
         bulan: String(selectedMonth + 1),
         tahun_bulan: String(selectedYear),
-        ...(semuaKelas && { semua_kelas: "true" }),
+        ...(isAllClasses && { semua_kelas: "true" }),
         ...(config.EXPORT_ALL_DATES && { export_all_dates: "true" }),
       })
       const res = await fetch(`/api/absensi/export?${params}`)
-
-      if (!res.ok) {
-        throw new Error(`Export gagal: ${res.statusText}`)
-      }
+      if (!res.ok) throw new Error(`Export gagal: ${res.statusText}`)
 
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      const monthName = MONTHS[selectedMonth]
-      a.download = semuaKelas
-        ? `Daftar_Hadir_Semua_Kelas_${monthName}_${selectedYear}.xlsx`
-        : `Daftar_Hadir_${selectedKelas}_${monthName}_${selectedYear}.xlsx`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
+      const link = document.createElement("a")
+      link.href = url
+      link.download = isAllClasses
+        ? `Daftar_Hadir_Semua_Kelas_${MONTHS[selectedMonth]}_${selectedYear}.xlsx`
+        : `Daftar_Hadir_${selectedKelas}_${MONTHS[selectedMonth]}_${selectedYear}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
       window.URL.revokeObjectURL(url)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan")
@@ -100,142 +102,131 @@ export function AbsensiExportButton({
     }
   }
 
-  // Generate list tahun (5 tahun ke belakang dan 1 tahun ke depan)
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i)
+  const years = Array.from(
+    { length: 7 },
+    (_, index) => new Date().getFullYear() - 5 + index
+  )
+  const selectClassName =
+    "h-10 w-full appearance-none rounded-xl border border-border bg-card px-3 pr-9 text-xs font-semibold text-foreground outline-none transition-shadow focus:border-[#009775] focus:ring-2 focus:ring-[#009775]/15"
 
   return (
-    <div
-      className={`flex flex-wrap items-center justify-center gap-4 ${className || ""}`}
-    >
-      {classes.length > 0 && (
-        <div className="relative">
-          <select
-            value={selectedKelas}
-            onChange={(e) => setSelectedKelas(e.target.value)}
-            className="h-9 appearance-none rounded-lg border border-border bg-muted/50 pr-8 pl-4 text-xs font-semibold text-muted-foreground outline-none"
-          >
-            {classes.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </select>
-          <svg
-            className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground/70"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <div className="relative">
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="h-9 appearance-none rounded-lg border border-border bg-muted/50 pr-8 pl-4 text-xs font-semibold text-muted-foreground outline-none"
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <svg
-            className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground/70"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </div>
-        <div className="relative">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            style={{ width: `${MONTHS[selectedMonth].length + 5.5}ch` }}
-            className="h-9 appearance-none rounded-lg border border-border bg-muted/50 pr-8 pl-4 text-xs font-semibold text-muted-foreground transition-all outline-none"
-          >
-            {MONTHS.map((m, i) => (
-              <option key={m} value={i}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <svg
-            className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground/70"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
+    <div className={`flex flex-col gap-4 ${className || ""}`}>
+      <div>
+        <p className="mb-2 text-xs font-bold text-foreground">Cakupan Data</p>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            {
+              value: false,
+              title: "Kelas Terpilih",
+              description: "Ekspor data sesuai kelas yang dipilih",
+            },
+            {
+              value: true,
+              title: "Semua Kelas",
+              description: "Ekspor data dari semua kelas",
+            },
+          ].map((option) => (
+            <button
+              key={option.title}
+              type="button"
+              onClick={() => setExportScope(option.value)}
+              className={`flex min-h-16 items-start gap-2 rounded-xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${
+                isAllClasses === option.value
+                  ? "border-[#009775] bg-[#009775]/5"
+                  : "border-border bg-card"
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+                  isAllClasses === option.value
+                    ? "border-[#009775] bg-[#009775]"
+                    : "border-border"
+                }`}
+              >
+                {isAllClasses === option.value && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                )}
+              </span>
+              <span>
+                <span className="block text-[11px] font-bold text-foreground">
+                  {option.title}
+                </span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
+                  {option.description}
+                </span>
+              </span>
+            </button>
+          ))}
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={() => handleExport(false)}
-          disabled={loading}
-          variant="outline"
-          className="h-9 rounded-lg border-muted-foreground/20 text-muted-foreground hover:bg-muted/50"
-        >
-          <svg
-            className="mr-2 h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          {loading ? "Mengekspor..." : "Export Kelas Ini"}
-        </Button>
-        <Button
-          onClick={() => handleExport(true)}
-          disabled={loading}
-          variant="outline"
-          className="h-9 rounded-lg border-muted-foreground/20 text-muted-foreground hover:bg-muted/50"
-        >
-          <svg
-            className="mr-2 h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          {loading ? "Mengekspor..." : "Export Semua Kelas"}
-        </Button>
+
+      <div className="space-y-3">
+        {!isAllClasses && classes.length > 0 && (
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-foreground">Kelas</span>
+            <div className="relative">
+              <Users className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[#009775]" />
+              <select
+                value={selectedKelas}
+                onChange={(event) => setSelectedKelas(event.target.value)}
+                className={`${selectClassName} pl-9`}
+              >
+                {classes.map((kelas) => (
+                  <option key={kelas} value={kelas}>
+                    {kelas}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </label>
+        )}
+
+        <label className="block space-y-1.5">
+          <span className="text-xs font-bold text-foreground">Tahun</span>
+          <div className="relative">
+            <CalendarDays className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[#009775]" />
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(Number(event.target.value))}
+              className={`${selectClassName} pl-9`}
+            >
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+        </label>
+
+        <label className="block space-y-1.5">
+          <span className="text-xs font-bold text-foreground">Bulan</span>
+          <div className="relative">
+            <CalendarDays className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[#009775]" />
+            <select
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(Number(event.target.value))}
+              className={`${selectClassName} pl-9`}
+            >
+              {MONTHS.map((month, index) => (
+                <option key={month} value={index}>
+                  {month}
+                </option>
+              ))}
+            </select>
+          </div>
+        </label>
       </div>
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+
+      <Button
+        onClick={handleExport}
+        disabled={loading}
+        className="h-11 w-full rounded-xl bg-[#009775] text-xs font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#008468] hover:shadow-md active:translate-y-0"
+      >
+        <FileSpreadsheet className="mr-2 h-4 w-4" />
+        {loading ? "Mengekspor..." : "Export ke Excel"}
+      </Button>
+      {error && <p className="text-center text-xs font-medium text-red-500">{error}</p>}
     </div>
   )
 }

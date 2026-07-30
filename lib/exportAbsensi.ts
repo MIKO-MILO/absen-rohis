@@ -427,13 +427,17 @@ function processData(
     })
   }
 
+  console.log('DEBUG dates:', dates);
+
   // Absensi per user
   const byUser: Record<number, Record<string, string>> = {}
   for (const rec of absensi) {
     if (!byUser[rec.user_id]) byUser[rec.user_id] = {}
     byUser[rec.user_id][rec.tanggal] =
       STATUS_MAP[rec.status.toLowerCase()] ?? rec.status
+    console.log('DEBUG rec:', rec, 'mapped to:', STATUS_MAP[rec.status.toLowerCase()] ?? rec.status);
   }
+  console.log('DEBUG byUser:', byUser);
 
   let laki = 0,
     perempuan = 0
@@ -443,6 +447,7 @@ function processData(
     const originalAbsen = byUser[u.id] ?? {}
     for (const d of dates) {
       let s = originalAbsen[d.date] ?? ""
+      console.log('DEBUG user:', u.nama, 'date:', d.date, 'original s:', s);
       if (s !== "H" && s !== "I") {
         s = "A"
       }
@@ -455,6 +460,7 @@ function processData(
       else if (s === "I") jml.I++
       else jml.A++
     }
+    console.log('DEBUG user:', u.nama, 'jml:', jml);
 
     // Ambil jenis_kelamin dari user record, bukan dari absensi
     const lp = u.jenis_kelamin?.toLowerCase().startsWith("p") ? "P" : "L"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { AdminShell } from "../_components/AdminShell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,9 @@ import {
   ChevronDown,
   Eye,
   RefreshCw,
+  Filter,
 } from "lucide-react"
+import { FilterModal } from "@/components/FilterModal"
 
 interface AuditLog {
   id: number
@@ -28,6 +30,7 @@ interface AuditLog {
   target_type?: string | null
   target_id?: number | null
   description?: string | null
+  status_code?: number | null
   created_at: string
 }
 
@@ -35,41 +38,33 @@ interface FetchLogsParams {
   page: number
   search: string
   role: string
+  action: string
+  statusCode: string
   dateFrom: string
   dateTo: string
 }
 
-interface SortIconProps {
-  col: keyof AuditLog
-  sortBy: keyof AuditLog
-  sortOrder: "asc" | "desc"
-}
-
-const SortIcon = ({ col, sortBy, sortOrder }: SortIconProps) =>
-  sortBy === col ? (
-    sortOrder === "asc" ? (
-      <ChevronUp className="h-3 w-3" />
-    ) : (
-      <ChevronDown className="h-3 w-3" />
-    )
-  ) : null
-
 export default function AuditLogPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [rawLogs, setRawLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [limit] = useState(15)
+  const [showFilterModal, setShowFilterModal] = useState(false)
 
   // Filters (applied state)
   const [search, setSearch] = useState("")
   const [role, setRole] = useState("")
+  const [action, setAction] = useState("")
+  const [statusCode, setStatusCode] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
 
   // Draft filters (while typing)
   const [draftSearch, setDraftSearch] = useState("")
   const [draftRole, setDraftRole] = useState("")
+  const [draftAction, setDraftAction] = useState("")
+  const [draftStatusCode, setDraftStatusCode] = useState("")
   const [draftDateFrom, setDraftDateFrom] = useState("")
   const [draftDateTo, setDraftDateTo] = useState("")
 
@@ -78,8 +73,7 @@ export default function AuditLogPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   // Sorting
-  const [sortBy, setSortBy] = useState<keyof AuditLog>("created_at")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [selectedSort, setSelectedSort] = useState("created_at-desc")
 
   const fetchLogs = useCallback(
     async (params: FetchLogsParams) => {
@@ -90,17 +84,19 @@ export default function AuditLogPage() {
           limit: String(limit),
           ...(params.search && { search: params.search }),
           ...(params.role && { role: params.role }),
+          ...(params.action && { action: params.action }),
+          ...(params.statusCode && { statusCode: params.statusCode }),
           ...(params.dateFrom && { dateFrom: params.dateFrom }),
           ...(params.dateTo && { dateTo: params.dateTo }),
         })
         const res = await fetch(`/api/admin/audit-logs?${query}`)
         if (!res.ok) throw new Error("Gagal mengambil audit log")
         const json = await res.json()
-        setLogs(json.data || [])
+        setRawLogs(json.data || [])
         setTotal(json.total || 0)
       } catch (err) {
         console.error(err)
-        setLogs([])
+        setRawLogs([])
         setTotal(0)
       } finally {
         setLoading(false)
@@ -111,14 +107,56 @@ export default function AuditLogPage() {
 
   useEffect(() => {
     const loadLogs = async () => {
-      await fetchLogs({ page, search, role, dateFrom, dateTo })
+      await fetchLogs({
+        page,
+        search,
+        role,
+        action,
+        statusCode,
+        dateFrom,
+        dateTo,
+      })
     }
     loadLogs()
-  }, [fetchLogs, page, search, role, dateFrom, dateTo])
+  }, [fetchLogs, page, search, role, action, statusCode, dateFrom, dateTo])
+
+  const logs = useMemo(() => {
+    const sorted = [...rawLogs].sort((a, b) => {
+      const [sortBy, sortOrder] = selectedSort.split("-") as [
+        keyof AuditLog,
+        "asc" | "desc",
+      ]
+      const aVal = a[sortBy]
+      const bVal = b[sortBy]
+
+      if (sortBy === "created_at") {
+        const dateA = new Date(aVal as string)
+        const dateB = new Date(bVal as string)
+        return sortOrder === "asc"
+          ? dateA.getTime() - dateB.getTime()
+          : dateB.getTime() - dateA.getTime()
+      }
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortOrder === "asc"
+          ? aVal.localeCompare(bVal, "id-ID")
+          : bVal.localeCompare(aVal, "id-ID")
+      }
+
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortOrder === "asc" ? aVal - bVal : bVal - aVal
+      }
+
+      return 0
+    })
+    return sorted
+  }, [rawLogs, selectedSort])
 
   const applyFilters = () => {
     setSearch(draftSearch)
     setRole(draftRole)
+    setAction(draftAction)
+    setStatusCode(draftStatusCode)
     setDateFrom(draftDateFrom)
     setDateTo(draftDateTo)
     setPage(1)
@@ -127,16 +165,22 @@ export default function AuditLogPage() {
   const resetFilters = () => {
     setDraftSearch("")
     setDraftRole("")
+    setDraftAction("")
+    setDraftStatusCode("")
     setDraftDateFrom("")
     setDraftDateTo("")
     setSearch("")
     setRole("")
+    setAction("")
+    setStatusCode("")
     setDateFrom("")
     setDateTo("")
+    setSelectedSort("created_at-desc")
     setPage(1)
   }
 
-  const hasActiveFilters = search || role || dateFrom || dateTo
+  const hasActiveFilters =
+    search || role || action || statusCode || dateFrom || dateTo
 
   const totalPages = Math.ceil(total / limit)
 
@@ -169,42 +213,42 @@ export default function AuditLogPage() {
   const getActionBadge = (action: string) => {
     if (action.toLowerCase().includes("impersonat")) {
       return (
-        <Badge className="border-purple-200 bg-purple-100 text-purple-800">
+        <Badge className="border-purple-200 bg-purple-100 text-purple-800 dark:border-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
           {action}
         </Badge>
       )
     }
     if (action === "login" || action === "logout") {
       return (
-        <Badge className="border-blue-200 bg-blue-100 text-blue-800 capitalize">
+        <Badge className="border-blue-200 bg-blue-100 text-blue-800 capitalize dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
           {action}
         </Badge>
       )
     }
     if (action.startsWith("scan") || action.startsWith("approve")) {
       return (
-        <Badge className="border-amber-200 bg-amber-100 text-amber-800 capitalize">
+        <Badge className="border-amber-200 bg-amber-100 text-amber-800 capitalize dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
           {action}
         </Badge>
       )
     }
     if (action.startsWith("create") || action.startsWith("generate")) {
       return (
-        <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800 capitalize">
+        <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800 capitalize dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
           {action}
         </Badge>
       )
     }
     if (action.startsWith("delete")) {
       return (
-        <Badge className="border-red-200 bg-red-100 text-red-800 capitalize">
+        <Badge className="border-red-200 bg-red-100 text-red-800 capitalize dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
           {action}
         </Badge>
       )
     }
     if (action.startsWith("update")) {
       return (
-        <Badge className="border-sky-200 bg-sky-100 text-sky-800 capitalize">
+        <Badge className="border-sky-200 bg-sky-100 text-sky-800 capitalize dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
           {action}
         </Badge>
       )
@@ -216,13 +260,25 @@ export default function AuditLogPage() {
     )
   }
 
-  const toggleSort = (column: keyof AuditLog) => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+  const getStatusCodeBadge = (code: number | null | undefined) => {
+    if (!code) return null
+
+    let badgeClass = ""
+    if (code >= 200 && code < 300) {
+      badgeClass =
+        "border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300"
+    } else if (code >= 400 && code < 500) {
+      badgeClass =
+        "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+    } else if (code >= 500) {
+      badgeClass =
+        "border-red-200 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
     } else {
-      setSortBy(column)
-      setSortOrder("desc")
+      badgeClass =
+        "border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300"
     }
+
+    return <Badge className={badgeClass}>{code}</Badge>
   }
 
   const openDrawer = (log: AuditLog) => {
@@ -237,7 +293,7 @@ export default function AuditLogPage() {
 
   return (
     <AdminShell requireSuperadmin>
-      <div className="space-y-4 p-4 md:p-6">
+      <div className="space-y-4 py-4 md:p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -252,7 +308,15 @@ export default function AuditLogPage() {
               size="sm"
               className="gap-1.5 text-xs"
               onClick={() =>
-                fetchLogs({ page, search, role, dateFrom, dateTo })
+                fetchLogs({
+                  page,
+                  search,
+                  role,
+                  action,
+                  statusCode,
+                  dateFrom,
+                  dateTo,
+                })
               }
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -265,69 +329,42 @@ export default function AuditLogPage() {
           </div>
         </div>
 
-        {/* Filters — compact inline row */}
+        {/* Search & Filter */}
         <Card className="border-border/60">
           <CardContent className="p-3">
-            <div className="flex flex-wrap items-end gap-2">
-              {/* Search */}
-              <div className="relative min-w-[180px] flex-1">
-                <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="group relative min-w-55 flex-1">
+                <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-hover:text-[#0d9488]" />
                 <Input
                   placeholder="Cari pengguna / aktivitas..."
                   value={draftSearch}
                   onChange={(e) => setDraftSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-                  className="h-8 pl-8 text-xs"
+                  className="h-9 pl-8 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm focus-visible:ring-primary"
                 />
               </div>
-
-              {/* Role */}
-              <select
-                value={draftRole}
-                onChange={(e) => setDraftRole(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground shadow-sm focus:ring-2 focus:ring-ring focus:outline-none"
-              >
-                <option value="">Semua Role</option>
-                <option value="superadmin">Superadmin</option>
-                <option value="admin">Admin</option>
-                <option value="panitia">Panitia</option>
-                <option value="siswa">Siswa</option>
-              </select>
-
-              {/* Date From */}
-              <Input
-                type="date"
-                value={draftDateFrom}
-                onChange={(e) => setDraftDateFrom(e.target.value)}
-                className="h-8 w-[130px] text-xs"
-              />
-              <span className="text-xs text-muted-foreground">–</span>
-              {/* Date To */}
-              <Input
-                type="date"
-                value={draftDateTo}
-                onChange={(e) => setDraftDateTo(e.target.value)}
-                className="h-8 w-[130px] text-xs"
-              />
-
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 text-xs"
+              <button
+                className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md"
                 onClick={applyFilters}
               >
                 <Search className="h-3.5 w-3.5" />
+                Cari
+              </button>
+              <button
+                className="group flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+                onClick={() => setShowFilterModal(true)}
+              >
+                <Filter className="h-3.5 w-3.5 transition-colors duration-200 group-hover:text-[#0d9488]" />
                 Filter
-              </Button>
+              </button>
               {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1 text-xs text-muted-foreground"
+                <button
+                  className="flex h-9 items-center justify-center gap-1 rounded-xl px-3 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:text-foreground"
                   onClick={resetFilters}
                 >
                   <X className="h-3.5 w-3.5" />
                   Reset
-                </Button>
+                </button>
               )}
             </div>
             {hasActiveFilters && (
@@ -345,57 +382,20 @@ export default function AuditLogPage() {
               <table className="w-full text-left">
                 <thead className="bg-muted/30">
                   <tr>
-                    <th
-                      className="cursor-pointer px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:bg-muted/50"
-                      onClick={() => toggleSort("created_at")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Waktu{" "}
-                        <SortIcon
-                          col="created_at"
-                          sortBy={sortBy}
-                          sortOrder={sortOrder}
-                        />
-                      </div>
+                    <th className="px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      Waktu
                     </th>
-                    <th
-                      className="cursor-pointer px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:bg-muted/50"
-                      onClick={() => toggleSort("actor_name")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Pengguna{" "}
-                        <SortIcon
-                          col="actor_name"
-                          sortBy={sortBy}
-                          sortOrder={sortOrder}
-                        />
-                      </div>
+                    <th className="px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      Pengguna
                     </th>
-                    <th
-                      className="cursor-pointer px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:bg-muted/50"
-                      onClick={() => toggleSort("actor_role")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Role{" "}
-                        <SortIcon
-                          col="actor_role"
-                          sortBy={sortBy}
-                          sortOrder={sortOrder}
-                        />
-                      </div>
+                    <th className="px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      Role
                     </th>
-                    <th
-                      className="cursor-pointer px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:bg-muted/50"
-                      onClick={() => toggleSort("action")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Aktivitas{" "}
-                        <SortIcon
-                          col="action"
-                          sortBy={sortBy}
-                          sortOrder={sortOrder}
-                        />
-                      </div>
+                    <th className="px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      Aktivitas
+                    </th>
+                    <th className="px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      Status
                     </th>
                     <th className="px-4 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                       Deskripsi
@@ -425,6 +425,9 @@ export default function AuditLogPage() {
                           <div className="h-4 w-20 rounded bg-muted" />
                         </td>
                         <td className="px-4 py-3">
+                          <div className="h-4 w-12 rounded bg-muted" />
+                        </td>
+                        <td className="px-4 py-3">
                           <div className="h-3.5 w-40 rounded bg-muted" />
                         </td>
                         <td className="px-4 py-3">
@@ -434,7 +437,7 @@ export default function AuditLogPage() {
                     ))
                   ) : logs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center">
+                      <td colSpan={7} className="px-4 py-10 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <Search className="h-10 w-10 text-muted-foreground opacity-20" />
                           <p className="text-sm font-medium text-foreground">
@@ -482,7 +485,10 @@ export default function AuditLogPage() {
                           {getActionBadge(log.action)}
                         </td>
                         <td className="px-4 py-3">
-                          <p className="max-w-[220px] truncate text-xs text-muted-foreground">
+                          {getStatusCodeBadge(log.status_code)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="max-w-55 truncate text-xs text-muted-foreground">
                             {log.description || "—"}
                           </p>
                         </td>
@@ -554,6 +560,60 @@ export default function AuditLogPage() {
           </CardContent>
         </Card>
       </div>
+
+      <FilterModal
+        open={showFilterModal}
+        onOpenChange={setShowFilterModal}
+        title="Filter Audit Log"
+        description="Atur filter audit log tanpa memindahkan pencarian dari halaman utama."
+        roles={[
+          { value: "superadmin", label: "Superadmin" },
+          { value: "admin", label: "Admin" },
+          { value: "panitia", label: "Panitia" },
+          { value: "siswa", label: "Siswa" },
+        ]}
+        selectedRole={draftRole}
+        onRoleChange={setDraftRole}
+        actions={[
+          { value: "login", label: "Login" },
+          { value: "logout", label: "Logout" },
+          { value: "impersonate", label: "Impersonate" },
+          { value: "scan_qr", label: "Scan QR" },
+          { value: "create", label: "Create" },
+          { value: "update", label: "Update" },
+          { value: "delete", label: "Delete" },
+          { value: "error", label: "Error" },
+        ]}
+        actionLabel="Aktivitas"
+        selectedAction={draftAction}
+        onActionChange={setDraftAction}
+        statusCodes={[
+          { value: "200", label: "200 OK" },
+          { value: "400", label: "400 Bad Request" },
+          { value: "401", label: "401 Unauthorized" },
+          { value: "403", label: "403 Forbidden" },
+          { value: "404", label: "404 Not Found" },
+          { value: "500", label: "500 Internal Server Error" },
+        ]}
+        selectedStatusCode={draftStatusCode}
+        onStatusCodeChange={setDraftStatusCode}
+        startDate={draftDateFrom}
+        endDate={draftDateTo}
+        onStartDateChange={setDraftDateFrom}
+        onEndDateChange={setDraftDateTo}
+        sortOptions={[
+          { value: "created_at-desc", label: "Waktu (Terbaru)" },
+          { value: "created_at-asc", label: "Waktu (Terlama)" },
+          { value: "actor_name-asc", label: "Nama Pengguna (A-Z)" },
+          { value: "actor_name-desc", label: "Nama Pengguna (Z-A)" },
+          { value: "actor_role-asc", label: "Role (A-Z)" },
+          { value: "actor_role-desc", label: "Role (Z-A)" },
+        ]}
+        selectedSort={selectedSort}
+        onSortChange={setSelectedSort}
+        onReset={resetFilters}
+        onApply={applyFilters}
+      />
 
       {/* Detail Drawer */}
       {isDrawerOpen && selectedLog && (

@@ -17,6 +17,7 @@ import {
   PartyPopper,
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
+import { getEffectiveUserAsync } from "@/lib/auth-client"
 
 // ─── Install: npm install qrcode ─────────────────────────────────────────────
 // import QRCode from "qrcode";
@@ -107,9 +108,14 @@ export default function GenerateQRPage() {
 
   // Check session on mount
   useEffect(() => {
-    const checkSession = () => {
-      const panitiaSession = localStorage.getItem("panitia_session")
-      if (!panitiaSession) {
+    const checkSession = async () => {
+      const user = await getEffectiveUserAsync()
+      if (
+        !user ||
+        (user.role !== "panitia" &&
+          user.role !== "admin" &&
+          user.role !== "superadmin")
+      ) {
         router.push("/")
         return
       }
@@ -148,16 +154,15 @@ export default function GenerateQRPage() {
     }, 1000)
   }, [])
 
-  // ── Generate QR baru ─────────────────────────────────────────────────────
+  // ─── Generate QR baru ─────────────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
     try {
       if (isMounted.current) setStatus("generating")
 
-      const sessionStr = localStorage.getItem("panitia_session")
-      if (!sessionStr) {
+      const session = await getEffectiveUserAsync()
+      if (!session) {
         throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
       }
-      const session = JSON.parse(sessionStr)
 
       const expiredAt = new Date(Date.now() + QR_LIFETIME_SECONDS * 1000)
       const res = await fetch("/api/qr/generate", {
@@ -190,12 +195,11 @@ export default function GenerateQRPage() {
     }
   }, [startTimer])
 
-  // ── Fetch Live Absen ─────────────────────────────────────────────────────
+  // ─── Fetch Live Absen ─────────────────────────────────────────────────────
   const fetchLiveAbsen = useCallback(async () => {
     try {
-      const sessionStr = localStorage.getItem("panitia_session")
-      if (!sessionStr) return
-      const session = JSON.parse(sessionStr)
+      const session = await getEffectiveUserAsync()
+      if (!session) return
 
       const res = await fetch(`/api/absensi?panitia_id=${session.id}`)
       if (!res.ok) return

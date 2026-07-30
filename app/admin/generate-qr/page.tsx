@@ -15,6 +15,7 @@ import {
   Timer,
 } from "lucide-react"
 import QRCode from "qrcode"
+import { getEffectiveUserAsync } from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface QRSession {
@@ -78,11 +79,14 @@ export default function GenerateQRPage() {
 
   // Check session on mount
   useEffect(() => {
-    const checkSession = () => {
-      const adminSession =
-        localStorage.getItem("admin_session") ||
-        localStorage.getItem("panitia_session")
-      if (!adminSession) {
+    const checkSession = async () => {
+      const user = await getEffectiveUserAsync()
+      if (
+        !user ||
+        (user.role !== "admin" &&
+          user.role !== "superadmin" &&
+          user.role !== "panitia")
+      ) {
         router.push("/admin")
         return
       }
@@ -125,14 +129,9 @@ export default function GenerateQRPage() {
     setIsGenerating(true)
     try {
       console.log("[GENERATE QR] Starting handleGenerate...")
-      const sessionStr =
-        localStorage.getItem("admin_session") ||
-        localStorage.getItem("panitia_session")
-      if (!sessionStr)
-        throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
+      const auth = await getEffectiveUserAsync()
+      if (!auth) throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
 
-      console.log("[GENERATE QR] Session string from localStorage:", sessionStr)
-      const auth = JSON.parse(sessionStr)
       console.log("[GENERATE QR] Parsed auth data:", auth)
 
       const expiredAt = Date.now() + durasi * 60 * 1000

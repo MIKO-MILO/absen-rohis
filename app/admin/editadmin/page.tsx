@@ -221,8 +221,8 @@ function EditAdminContent() {
 
         <div className="p-6 md:p-8">
           <div className="mb-8 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-              <UserCircle className="h-8 w-8 text-primary" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <UserCircle className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h2 className="text-base font-bold text-foreground">

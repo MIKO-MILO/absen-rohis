@@ -33,11 +33,14 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  X,
   CalendarDays,
   Filter,
   AlertTriangle,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react"
+import { FilterModal } from "@/components/FilterModal"
+import { AttendanceBanner } from "@/components/AttendanceBanner"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type AbsenStatus = "hadir" | "haid" | "tidak_hadir"
@@ -182,14 +185,17 @@ export default function DataAbsenPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>("Semua")
   const [search, setSearch] = useState("")
-  const [filterKelas, setFilterKelas] = useState("Semua Kelas")
+  const [filterKelas, setFilterKelas] = useState("")
   const [filterTanggal, setFilterTanggal] = useState("")
+  const [selectedSort, setSelectedSort] = useState("nama-asc")
   const [page, setPage] = useState(1)
-  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [showFilterModal, setShowFilterModal] = useState(false)
   const clearSelected = () => setSelected(new Set())
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportAllClasses, setExportAllClasses] = useState(false)
   const [perPage, setPerPage] = useState(8)
 
   // ── Dynamic Row Calculation ────────────────────────────────────────────────
@@ -210,16 +216,25 @@ export default function DataAbsenPage() {
 
   const todayStr = !loading
     ? new Date().toLocaleDateString("id-ID", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
     : ""
+
+  const displayDateStr = filterTanggal
+    ? new Date(filterTanggal).toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
+    : todayStr
 
   // ── Filter logic ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
-    return data.filter((s) => {
+    const filteredData = data.filter((s) => {
       const matchTab =
         TAB_TO_STATUS[activeTab] === null ||
         s.status === TAB_TO_STATUS[activeTab]
@@ -228,12 +243,24 @@ export default function DataAbsenPage() {
         s.nama.toLowerCase().includes(search.toLowerCase()) ||
         s.nis.includes(search) ||
         s.kelas.toLowerCase().includes(search.toLowerCase())
-      const matchKelas =
-        filterKelas === "Semua Kelas" || s.kelas === filterKelas
+      const matchKelas = !filterKelas || s.kelas === filterKelas
       const matchTgl = !filterTanggal || s.tanggal === filterTanggal
       return matchTab && matchSearch && matchKelas && matchTgl
     })
-  }, [data, activeTab, search, filterKelas, filterTanggal])
+    return filteredData.sort((a, b) => {
+      const [sortBy, sortOrder] = selectedSort.split("-") as [
+        "nama" | "waktu",
+        "asc" | "desc",
+      ]
+      let cmp = 0
+      if (sortBy === "nama") {
+        cmp = a.nama.localeCompare(b.nama, "id-ID")
+      } else {
+        cmp = a.waktu.localeCompare(b.waktu)
+      }
+      return sortOrder === "asc" ? cmp : -cmp
+    })
+  }, [data, activeTab, search, filterKelas, filterTanggal, selectedSort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
@@ -253,18 +280,17 @@ export default function DataAbsenPage() {
     [data]
   )
 
-  const hadirPct = Math.round((summary.hadir / summary.total) * 100)
 
   const activeFilterCount = [
-    filterKelas !== "Semua Kelas",
+    filterKelas !== "",
     filterTanggal !== "",
     search !== "",
   ].filter(Boolean).length
-
   const resetFilters = () => {
     setSearch("")
-    setFilterKelas("Semua Kelas")
+    setFilterKelas("")
     setFilterTanggal("")
+    setSelectedSort("nama-asc")
     setActiveTab("Semua")
     setPage(1)
   }
@@ -390,106 +416,99 @@ export default function DataAbsenPage() {
 
   return (
     <AdminShell>
-      <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
+      <div className="flex flex-col gap-5 py-5 md:px-6">
         {/* ── Banner ── */}
-        <div
-          className="relative flex items-center justify-between overflow-hidden rounded-2xl p-5"
-          style={{
-            background: "linear-gradient(135deg,#0d9488 0%,#0891b2 100%)",
+        <AttendanceBanner
+          title="Sholat Dzuhur Hari Ini"
+          subtitle="Rekap Kehadiran"
+          date={todayStr}
+          summary={{
+            total: summary.total,
+            hadir: summary.hadir,
+            haid: summary.haid,
+            tidak_hadir: summary.tidak_hadir,
           }}
-        >
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              top: -30,
-              right: -30,
-              width: 140,
-              height: 140,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.07)",
-            }}
-          />
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              bottom: -20,
-              left: "40%",
-              width: 90,
-              height: 90,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.05)",
-            }}
-          />
-          <div className="relative z-10">
-            <p className="text-xs text-teal-100">Rekap Kehadiran</p>
-            <h2 className="mt-0.5 text-xl font-black text-white">
-              Sholat Dzuhur Hari Ini
-            </h2>
-            <p className="mt-1 text-xs text-teal-200">{todayStr}</p>
-          </div>
-          <div className="relative z-10 flex items-center gap-3">
-            {/* Attendance ring */}
-            <div className="hidden flex-col items-center gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-5 py-3 backdrop-blur-sm sm:flex">
-              <span className="text-2xl leading-none font-black text-white">
-                {hadirPct}%
-              </span>
-              <span className="text-[10px] text-teal-200">Tingkat Hadir</span>
-            </div>
-          </div>
-        </div>
+        />
 
         {/* ── Summary cards ── */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {[
             {
               label: "Total Siswa",
               value: summary.total,
+              pct: summary.total > 0 ? 100 : 0,
+              sub: "Total absensi tercatat",
               icon: Users,
-              color: "text-muted-foreground",
-              bg: "border-border",
-              iconBg: "bg-muted",
+              color: "text-slate-700 dark:text-slate-200",
+              bg: "bg-card border-border/80 hover:border-slate-400/40",
+              iconBg: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+              barColor: "bg-slate-400 dark:bg-slate-600",
             },
             {
               label: "Hadir",
               value: summary.hadir,
+              pct: summary.total > 0 ? Math.round((summary.hadir / summary.total) * 100) : 0,
+              sub: "Hadir hari ini",
               icon: UserCheck,
-              color: "text-primary",
-              bg: "border-primary/20",
-              iconBg: "bg-primary/10",
+              color: "text-teal-600 dark:text-teal-400",
+              bg: "bg-card border-border/80 hover:border-teal-500/40",
+              iconBg: "bg-teal-500/10 text-teal-600 dark:bg-teal-400/10 dark:text-teal-400",
+              barColor: "bg-teal-500",
             },
             {
               label: "Haid",
               value: summary.haid,
+              pct: summary.total > 0 ? Math.round((summary.haid / summary.total) * 100) : 0,
+              sub: "Berhalangan sholat",
               icon: Clock,
-              color: "text-blue-500",
-              bg: "border-blue-500/20",
-              iconBg: "bg-blue-500/10",
+              color: "text-blue-600 dark:text-blue-400",
+              bg: "bg-card border-border/80 hover:border-blue-500/40",
+              iconBg: "bg-blue-500/10 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400",
+              barColor: "bg-blue-500",
             },
             {
               label: "Tidak Hadir",
               value: summary.tidak_hadir,
+              pct: summary.total > 0 ? Math.round((summary.tidak_hadir / summary.total) * 100) : 0,
+              sub: "Alpa / Izin / Sakit",
               icon: XCircle,
-              color: "text-destructive",
-              bg: "border-destructive/20",
-              iconBg: "bg-destructive/10",
+              color: "text-rose-600 dark:text-rose-400",
+              bg: "bg-card border-border/80 hover:border-rose-500/40",
+              iconBg: "bg-rose-500/10 text-rose-600 dark:bg-rose-400/10 dark:text-rose-400",
+              barColor: "bg-rose-500",
             },
-          ].map(({ label, value, icon: Icon, color, bg, iconBg }) => (
+          ].map(({ label, value, pct, sub, icon: Icon, color, bg, iconBg, barColor }) => (
             <div
               key={label}
-              className={`rounded-2xl border bg-card ${bg} flex flex-col gap-2 px-4 py-4 shadow-sm`}
+              className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border p-3.5 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-4 ${bg}`}
             >
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
-              >
-                <Icon className={`h-4 w-4 ${color}`} />
+              <div className="flex items-center justify-between gap-2">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold shadow-xs transition-transform duration-300 group-hover:scale-105 ${iconBg}`}>
+                  <Icon className="h-4.5 w-4.5" />
+                </div>
+                <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-extrabold text-muted-foreground border border-border/50">
+                  {pct}%
+                </span>
               </div>
-              <div>
-                <p className={`text-2xl leading-none font-black ${color}`}>
+
+              <div className="mt-3 flex flex-col gap-0.5">
+                <p className={`text-2xl leading-none font-black tracking-tight sm:text-3xl ${color}`}>
                   {value}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+                <p className="mt-1 text-xs font-bold tracking-tight text-foreground">
+                  {label}
+                </p>
+                <p className="text-[10px] font-medium text-muted-foreground line-clamp-1">
+                  {sub}
+                </p>
+              </div>
+
+              {/* Progress Mini Bar Accent */}
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                  style={{ width: `${pct}%` }}
+                />
               </div>
             </div>
           ))}
@@ -498,120 +517,60 @@ export default function DataAbsenPage() {
         {/* ── Table card ── */}
         <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           {/* ─ Toolbar ─ */}
-          <div className="flex flex-col gap-3 border-b border-border/50 px-5 pt-4 pb-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-foreground">
-                  Rekap Absensi Dzuhur
-                </h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {filtered.length} dari {data.length} siswa
-                  {activeFilterCount > 0 && (
-                    <button
-                      onClick={resetFilters}
-                      className="ml-2 inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
-                    >
-                      <X className="h-3 w-3" /> Reset filter
-                    </button>
-                  )}
-                </p>
+          <div className="flex flex-col gap-4 border-b border-border/50 px-5 pt-5 pb-5">
+            {/* Judul & Statistik */}
+            <div>
+              <h2 className="text-base font-bold text-foreground">
+                Rekap Absensi Dzuhur
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {filtered.length} dari {data.length} siswa
+              </p>
+            </div>
+
+            {/* Row 2: Search & Actions */}
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              {/* Search Bar */}
+              <div className="group relative w-full md:flex-1">
+                <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-hover:text-[#0d9488]" />
+                <Input
+                  placeholder="Cari nama, NIS, kelas..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    setPage(1)
+                  }}
+                  className="h-11 w-full rounded-xl border-border bg-muted/20 pl-10 text-sm transition-all duration-200 hover:shadow-sm focus-visible:ring-primary"
+                />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari nama, NIS, kelas..."
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-9 w-52 rounded-xl border-border bg-muted/50 pl-8 text-xs focus-visible:ring-primary"
-                  />
-                </div>
-
-                {/* Filter toggle */}
+              {/* Tombol Aksi (Filter & Export) */}
+              <div className="flex w-full items-center gap-3 md:w-auto">
                 <button
-                  onClick={() => setShowFilterPanel((v) => !v)}
-                  className="relative flex h-9 items-center gap-1.5 rounded-xl border border-muted bg-muted/50 px-3 text-xs font-semibold transition-all hover:bg-muted/75"
-                  style={{
-                    background:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary-transparent)"
-                        : "transparent",
-                    borderColor:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary)"
-                        : "var(--color-border)",
-                    color:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary)"
-                        : "var(--color-muted-foreground)",
-                  }}
+                  onClick={() => setShowFilterModal(true)}
+                  className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-md md:w-32 md:flex-none"
                 >
-                  <Filter className="h-3.5 w-3.5" />
+                  <Filter className="h-4 w-4 transition-colors duration-200 group-hover:text-[#0d9488]" />
                   Filter
                   {activeFilterCount > 0 && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-primary-foreground">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-primary-foreground">
                       {activeFilterCount}
                     </span>
                   )}
                 </button>
 
-                {/* Export Excel */}
-                <AbsensiExportButton
-                  kelas={
-                    filterKelas === "Semua Kelas"
-                      ? classes[0] || ""
-                      : filterKelas
-                  }
-                  tahunPelajaran="2025/2026"
-                />
+                <button
+                  onClick={() => {
+                    setExportAllClasses(false)
+                    setShowExportModal(true)
+                  }}
+                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 text-xs font-bold text-white shadow-sm shadow-teal-500/20 transition-all hover:-translate-y-0.5 hover:bg-teal-700 hover:shadow-md md:w-44 md:flex-none"
+                >
+                  <Download className="h-4 w-4" />
+                  Export Data
+                </button>
               </div>
             </div>
-
-            {/* Filter panel */}
-            {showFilterPanel && (
-              <div className="flex flex-wrap gap-3 border-t border-border/50 pt-1 pb-0.5">
-                {/* Kelas */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Kelas
-                  </label>
-                  <select
-                    value={filterKelas}
-                    onChange={(e) => {
-                      setFilterKelas(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 pr-8 pl-3 text-xs text-foreground outline-none focus:border-primary"
-                  >
-                    <option>Semua Kelas</option>
-                    {classes.map((k) => (
-                      <option key={k}>{k}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Tanggal */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Tanggal
-                  </label>
-                  <input
-                    type="date"
-                    value={filterTanggal}
-                    onChange={(e) => {
-                      setFilterTanggal(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* ─ Tabs ─ */}
@@ -620,11 +579,10 @@ export default function DataAbsenPage() {
               <button
                 key={tab}
                 onClick={() => handleTabChange(tab)}
-                className={`relative px-4 py-3 text-xs font-bold transition-colors ${
-                  activeTab === tab
+                className={`relative px-4 py-3 text-xs font-bold transition-colors ${activeTab === tab
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 {tab}
                 {activeTab === tab && (
@@ -634,8 +592,116 @@ export default function DataAbsenPage() {
             ))}
           </div>
 
-          {/* ─ Table ─ */}
-          <div className="overflow-x-auto">
+          {/* ─ Mobile Card List ─ */}
+          <div className="flex flex-col divide-y divide-border/50 md:hidden">
+            {paginated.length > 0 ? (
+              paginated.map((s) => (
+                <div
+                  key={s.id}
+                  className="p-3 transition-colors active:bg-muted/50"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(s.id)}
+                          onChange={() => toggleOne(s.id)}
+                          className="h-3.5 w-3.5 cursor-pointer rounded border-border accent-primary"
+                        />
+                        <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
+                          <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                            {s.nama.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                      <div>
+                        <p className="line-clamp-1 text-[13px] font-bold text-foreground">
+                          {s.nama}
+                        </p>
+                        <p className="text-[9px] font-medium text-muted-foreground">
+                          {s.nis} • {s.kelas}
+                        </p>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-44 rounded-xl"
+                      >
+                        <DropdownMenuLabel>Action</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
+                          Ubah Status
+                        </DropdownMenuLabel>
+                        {Object.entries(STATUS_META).map(([key, meta]) => (
+                          <DropdownMenuItem
+                            key={key}
+                            onClick={() =>
+                              handleStatusChange(s.id, key as AbsenStatus)
+                            }
+                            className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
+                          >
+                            <div
+                              className={`h-2 w-2 rounded-full ${meta.dot}`}
+                            />
+                            {meta.label}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => openDeleteModal(s.id)}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Hapus Record
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground">
+                        <Clock className="h-2.5 w-2.5 text-primary" />
+                        {s.waktu === "—" ? "Belum absen" : `${s.waktu} WIB`}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[8px] text-muted-foreground">
+                        <CalendarDays className="h-2.5 w-2.5" />
+                        {s.tanggal}
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`rounded-lg border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${STATUS_META[s.status].badge}`}
+                    >
+                      {STATUS_META[s.status].label}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-12 text-center">
+                <Search className="mx-auto h-8 w-8 text-muted/30" />
+                <p className="mt-2 text-sm font-bold text-foreground">
+                  Tidak ada data
+                </p>
+                <button
+                  onClick={resetFilters}
+                  className="mt-2 text-xs font-bold text-primary hover:underline"
+                >
+                  Reset filter
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ─ Table (Desktop & Tablet) ─ */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-muted/30 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
@@ -763,7 +829,7 @@ export default function DataAbsenPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-5 py-12 text-center">
+                    <td colSpan={5} className="px-5 py-12 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
                           <Search className="h-6 w-6 text-muted-foreground" />
@@ -812,6 +878,104 @@ export default function DataAbsenPage() {
           </div>
         </div>
       </div>
+
+      {/* Filter Modal */}
+      <FilterModal
+        open={showFilterModal}
+        onOpenChange={setShowFilterModal}
+        title="Filter Data Absen"
+        description="Filter data absensi sesuai dengan kriteria yang Anda inginkan"
+        classes={classes}
+        selectedClass={filterKelas}
+        onClassChange={(val) => {
+          setFilterKelas(val)
+          setPage(1)
+        }}
+        startDate={filterTanggal}
+        onStartDateChange={(val) => {
+          setFilterTanggal(val)
+          setPage(1)
+        }}
+        onReset={resetFilters}
+      />
+
+      {/* Export Modal */}
+      <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
+        <DialogContent className="inset-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-none p-0 shadow-2xl sm:top-1/2 sm:left-1/2 sm:h-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2.5rem]">
+          <div className="p-6 md:p-8">
+            <DialogHeader className="mb-6">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">
+                <FileSpreadsheet className="h-9 w-9" />
+              </div>
+              <DialogTitle className="text-2xl font-black tracking-tight text-foreground">
+                Export Laporan Absensi
+              </DialogTitle>
+              <DialogDescription className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Pilih format dan lingkup data yang ingin Anda ekspor ke Excel.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              <div className="rounded-[1.5rem] border border-border bg-muted/30 p-5">
+                <p className="mb-4 text-[10px] font-black tracking-[0.2em] text-muted-foreground uppercase">
+                  Ringkasan Ekspor
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground/70">
+                      Cakupan Data
+                    </span>
+                    <span className="text-xs font-bold text-teal-600">
+                      {exportAllClasses
+                        ? "Semua Kelas"
+                        : filterKelas === "Semua Kelas"
+                          ? classes[0] || "Semua Kelas"
+                          : filterKelas || "Semua Kelas"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground/70">
+                      Periode
+                    </span>
+                    <span className="text-xs font-bold text-teal-600">
+                      {displayDateStr}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground/70">
+                      Format
+                    </span>
+                    <span className="text-xs font-bold text-teal-600">
+                      Excel (.xlsx)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <AbsensiExportButton
+                  kelas={
+                    filterKelas === "Semua Kelas"
+                      ? classes[0] || ""
+                      : filterKelas
+                  }
+                  tahunPelajaran="2025/2026"
+                  className="w-full"
+                  exportAllClasses={exportAllClasses}
+                  onExportAllClassesChange={setExportAllClasses}
+                />
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowExportModal(false)}
+                  className="h-14 w-full rounded-2xl text-sm font-bold text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
+                >
+                  Batal
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Modal */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>

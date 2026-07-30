@@ -17,13 +17,15 @@ import {
   CalendarDays,
   LucideIcon,
   Filter,
-  Calendar,
   MoreHorizontal,
   FileSpreadsheet,
   Download,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react"
+import { FilterModal } from "@/components/FilterModal"
+import { AttendanceBanner } from "@/components/AttendanceBanner"
 import {
   Dialog,
   DialogContent,
@@ -108,8 +110,7 @@ const STATUS_META: Record<
   },
 }
 
-const TABS = ["Semua", "Hadir", "Haid", "Tidak Hadir", "Belum Absen"] as const
-type Tab = (typeof TABS)[number]
+type Tab = "Semua" | "Hadir" | "Haid" | "Tidak Hadir" | "Belum Absen"
 
 const TAB_TO_STATUS: Record<Tab, AbsenStatus | null> = {
   Semua: null,
@@ -132,10 +133,11 @@ export default function MonitoringPage() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   )
-  const [sortBy, setSortBy] = useState<"nama" | "waktu" | "kelas">("nama")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [selectedSort, setSelectedSort] = useState("nama-asc")
   const [, setRefreshing] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [exportAllClasses, setExportAllClasses] = useState(false)
+  const [showFilterModal, setShowFilterModal] = useState(false)
   const [perPage, setPerPage] = useState(10)
   const [page, setPage] = useState(1)
   const isMounted = useRef(true)
@@ -274,6 +276,10 @@ export default function MonitoringPage() {
 
     // Sorting
     return [...filtered].sort((a, b) => {
+      const [sortBy, sortOrder] = selectedSort.split("-") as [
+        "nama" | "waktu" | "kelas",
+        "asc" | "desc",
+      ]
       let comparison = 0
       switch (sortBy) {
         case "nama":
@@ -292,7 +298,7 @@ export default function MonitoringPage() {
       }
       return sortOrder === "asc" ? comparison : -comparison
     })
-  }, [monitoringData, search, filterKelas, activeTab, sortBy, sortOrder])
+  }, [monitoringData, search, filterKelas, activeTab, selectedSort])
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / perPage))
   const paginated = filteredData.slice((page - 1) * perPage, page * perPage)
@@ -311,8 +317,20 @@ export default function MonitoringPage() {
     return { total, hadir, haid, tidakHadir, belumAbsen }
   }, [filteredData])
 
-  const hadirPct =
-    summary.total > 0 ? Math.round((summary.hadir / summary.total) * 100) : 0
+
+  const activeFilterCount = [
+    search !== "",
+    activeTab !== "Semua",
+    selectedDate !== new Date().toISOString().split("T")[0],
+  ].filter(Boolean).length
+
+  const resetFilters = () => {
+    setSearch("")
+    setActiveTab("Semua")
+    setSelectedDate(new Date().toISOString().split("T")[0])
+    setSelectedSort("nama-asc")
+    setPage(1)
+  }
 
   const displayDateStr = new Date(selectedDate).toLocaleDateString("id-ID", {
     weekday: "long",
@@ -320,16 +338,6 @@ export default function MonitoringPage() {
     month: "long",
     year: "numeric",
   })
-
-  const resetFilters = () => {
-    setSearch("")
-    if (classes.length > 0) {
-      setFilterKelas(classes[0])
-    }
-    setActiveTab("Semua")
-    setPage(1)
-    setSelectedDate(new Date().toISOString().split("T")[0])
-  }
 
   const handleStatusChange = async (userId: number, newStatus: AbsenStatus) => {
     try {
@@ -381,116 +389,115 @@ export default function MonitoringPage() {
 
   return (
     <AdminShell>
-      <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
+      <div className="flex flex-col gap-5 py-5 md:px-6">
         {/* ── Banner ── */}
-        <div
-          className="relative flex items-center justify-between overflow-hidden rounded-2xl p-5"
-          style={{
-            background: "linear-gradient(135deg,#0d9488 0%,#0891b2 100%)",
+        <AttendanceBanner
+          title={
+            selectedDate === new Date().toISOString().split("T")[0]
+              ? "Sholat Dzuhur Hari Ini"
+              : "Arsip Kehadiran"
+          }
+          subtitle="Monitoring Kelas"
+          date={displayDateStr}
+          summary={{
+            total: summary.total,
+            hadir: summary.hadir,
+            haid: summary.haid,
+            tidak_hadir: summary.tidakHadir,
+            belum_absen: summary.belumAbsen,
           }}
-        >
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              top: -30,
-              right: -30,
-              width: 140,
-              height: 140,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.07)",
-            }}
-          />
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              bottom: -20,
-              left: "40%",
-              width: 90,
-              height: 90,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.05)",
-            }}
-          />
-          <div className="relative z-10">
-            <p className="text-xs text-teal-100">Monitoring Kelas</p>
-            <h2 className="mt-0.5 text-xl font-black text-white">
-              Kehadiran Siswa{" "}
-              {selectedDate === new Date().toISOString().split("T")[0]
-                ? "Hari Ini"
-                : "Arsip"}
-            </h2>
-            <p className="mt-1 text-xs text-teal-200">{displayDateStr}</p>
-          </div>
-          <div className="relative z-10 flex items-center gap-3">
-            <div className="flex flex-col items-center gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-5 py-3 backdrop-blur-sm">
-              <span className="text-2xl leading-none font-black text-white">
-                {hadirPct}%
-              </span>
-              <span className="text-[10px] text-teal-200">Tingkat Hadir</span>
-            </div>
-          </div>
-        </div>
+        />
 
         {/* ── Summary cards ── */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
           {[
             {
               label: "Total Siswa",
               value: summary.total,
+              pct: summary.total > 0 ? 100 : 0,
+              sub: "Total siswa terdaftar",
               icon: Users,
-              color: "text-muted-foreground",
-              bg: "border-border",
-              iconBg: "bg-muted",
+              color: "text-slate-700 dark:text-slate-200",
+              bg: "bg-card border-border/80 hover:border-slate-400/40",
+              iconBg: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+              barColor: "bg-slate-400 dark:bg-slate-600",
             },
             {
               label: "Hadir",
               value: summary.hadir,
+              pct: summary.total > 0 ? Math.round((summary.hadir / summary.total) * 100) : 0,
+              sub: "Hadir hari ini",
               icon: UserCheck,
-              color: "text-primary",
-              bg: "border-primary/20",
-              iconBg: "bg-primary/10",
+              color: "text-teal-600 dark:text-teal-400",
+              bg: "bg-card border-border/80 hover:border-teal-500/40",
+              iconBg: "bg-teal-500/10 text-teal-600 dark:bg-teal-400/10 dark:text-teal-400",
+              barColor: "bg-teal-500",
             },
             {
               label: "Haid",
               value: summary.haid,
+              pct: summary.total > 0 ? Math.round((summary.haid / summary.total) * 100) : 0,
+              sub: "Berhalangan sholat",
               icon: Clock,
-              color: "text-blue-500",
-              bg: "border-blue-500/20",
-              iconBg: "bg-blue-500/10",
+              color: "text-blue-600 dark:text-blue-400",
+              bg: "bg-card border-border/80 hover:border-blue-500/40",
+              iconBg: "bg-blue-500/10 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400",
+              barColor: "bg-blue-500",
             },
             {
               label: "Tidak Hadir",
               value: summary.tidakHadir,
+              pct: summary.total > 0 ? Math.round((summary.tidakHadir / summary.total) * 100) : 0,
+              sub: "Alpa / Izin / Sakit",
               icon: XCircle,
-              color: "text-destructive",
-              bg: "border-destructive/20",
-              iconBg: "bg-destructive/10",
+              color: "text-rose-600 dark:text-rose-400",
+              bg: "bg-card border-border/80 hover:border-rose-500/40",
+              iconBg: "bg-rose-500/10 text-rose-600 dark:bg-rose-400/10 dark:text-rose-400",
+              barColor: "bg-rose-500",
             },
             {
               label: "Belum Absen",
               value: summary.belumAbsen,
+              pct: summary.total > 0 ? Math.round((summary.belumAbsen / summary.total) * 100) : 0,
+              sub: "Belum mengisi presensi",
               icon: HelpCircle,
-              color: "text-slate-500",
-              bg: "border-slate-200",
-              iconBg: "bg-slate-100 dark:bg-slate-800",
+              color: "text-amber-600 dark:text-amber-400",
+              bg: "bg-card border-border/80 hover:border-amber-500/40",
+              iconBg: "bg-amber-500/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400",
+              barColor: "bg-amber-500",
             },
-          ].map(({ label, value, icon: Icon, color, bg, iconBg }) => (
+          ].map(({ label, value, pct, sub, icon: Icon, color, bg, iconBg, barColor }) => (
             <div
               key={label}
-              className={`rounded-2xl border bg-card ${bg} flex flex-col gap-2 px-4 py-4 shadow-sm`}
+              className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border p-3.5 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-4 ${bg}`}
             >
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconBg}`}
-              >
-                <Icon className={`h-4 w-4 ${color}`} />
+              <div className="flex items-center justify-between gap-2">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold shadow-xs transition-transform duration-300 group-hover:scale-105 ${iconBg}`}>
+                  <Icon className="h-4.5 w-4.5" />
+                </div>
+                <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-extrabold text-muted-foreground border border-border/50">
+                  {pct}%
+                </span>
               </div>
-              <div>
-                <p className={`text-2xl leading-none font-black ${color}`}>
+
+              <div className="mt-3 flex flex-col gap-0.5">
+                <p className={`text-2xl leading-none font-black tracking-tight sm:text-3xl ${color}`}>
                   {value}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+                <p className="mt-1 text-xs font-bold tracking-tight text-foreground">
+                  {label}
+                </p>
+                <p className="text-[10px] font-medium text-muted-foreground line-clamp-1">
+                  {sub}
+                </p>
+              </div>
+
+              {/* Progress Mini Bar Accent */}
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                  style={{ width: `${pct}%` }}
+                />
               </div>
             </div>
           ))}
@@ -500,159 +507,74 @@ export default function MonitoringPage() {
         <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           {/* ─ Toolbar ─ */}
           <div className="flex flex-col border-b border-border/50">
-            <div className="flex flex-col gap-3 px-5 pt-4 pb-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-bold text-foreground">
-                    Status Kehadiran Per Kelas
-                  </h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Menampilkan {filteredData.length} siswa
-                    {(search ||
-                      (classes.length > 0 && filterKelas !== classes[0]) ||
-                      activeTab !== "Semua") && (
-                      <button
-                        onClick={resetFilters}
-                        className="ml-2 inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
-                      >
-                        {/* <X className="h-3 w-3" /> Reset filter */}
-                      </button>
-                    )}
-                  </p>
+            <div className="flex flex-col gap-4 px-5 pt-5 pb-5">
+              {/* Judul & Statistik */}
+              <div>
+                <h2 className="text-base font-bold text-foreground">
+                  Status Kehadiran Per Kelas
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Menampilkan {filteredData.length} siswa
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={resetFilters}
+                      className="ml-2 inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
+                    >
+                      <X className="h-3 w-3" /> Reset filter
+                    </button>
+                  )}
+                </p>
+              </div>
+
+              {/* Row 2: Search & Actions */}
+              <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                {/* Search Bar */}
+                <div className="group relative w-full md:flex-1">
+                  <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-hover:text-[#0d9488]" />
+                  <Input
+                    placeholder="Cari nama, NIS, kelas..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value)
+                      setPage(1)
+                    }}
+                    className="h-11 w-full rounded-xl border-border bg-muted/20 pl-10 text-sm transition-all duration-200 hover:shadow-sm focus-visible:ring-primary"
+                  />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Cari nama, NIS, kelas..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="h-9 w-52 rounded-xl border-border bg-muted/50 pl-8 text-xs focus-visible:ring-primary"
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <Calendar className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="h-9 w-full cursor-pointer rounded-xl border border-border bg-muted/50 pr-3 pl-7.5 text-xs font-semibold text-muted-foreground transition-all outline-none hover:bg-muted focus:ring-2 focus:ring-primary/20 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
-                    />
-                  </div>
-
-                  {/* Status Filter Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="h-9 gap-2 rounded-xl border-border bg-muted/50 text-xs font-semibold text-muted-foreground"
-                      >
-                        <Filter className="h-3.5 w-3.5" />
-                        {activeTab}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-44 rounded-xl"
-                    >
-                      {TABS.map((tab) => (
-                        <DropdownMenuItem
-                          key={tab}
-                          onClick={() => setActiveTab(tab)}
-                        >
-                          {tab}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Sort Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="h-9 gap-2 rounded-xl border-border bg-muted/50 text-xs font-semibold text-muted-foreground"
-                      >
-                        <span>Sort by</span>
-                        <span className="font-bold text-primary">
-                          {sortBy === "nama"
-                            ? "Nama"
-                            : sortBy === "kelas"
-                              ? "Kelas"
-                              : "Waktu"}
-                        </span>
-                        <span className="text-xs">
-                          {sortOrder === "asc" ? "↑" : "↓"}
-                        </span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-48 rounded-xl"
-                    >
-                      <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSortBy("nama")
-                          setSortOrder("asc")
-                        }}
-                      >
-                        Nama (A-Z)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSortBy("nama")
-                          setSortOrder("desc")
-                        }}
-                      >
-                        Nama (Z-A)
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSortBy("kelas")
-                          setSortOrder("asc")
-                        }}
-                      >
-                        Kelas (A-Z)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSortBy("kelas")
-                          setSortOrder("desc")
-                        }}
-                      >
-                        Kelas (Z-A)
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSortBy("waktu")
-                          setSortOrder("asc")
-                        }}
-                      >
-                        Waktu (Terlama)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSortBy("waktu")
-                          setSortOrder("desc")
-                        }}
-                      >
-                        Waktu (Terbaru)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Export Button */}
-                  <Button
-                    onClick={() => setShowExportModal(true)}
-                    className="h-9 gap-2 rounded-xl bg-teal-600 text-xs font-bold text-white shadow-sm shadow-teal-500/20 hover:bg-teal-700"
+                {/* Tombol Aksi (Filter & Export) */}
+                <div className="flex w-full items-center gap-3 md:w-auto">
+                  <button
+                    onClick={() => setShowFilterModal(true)}
+                    className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-md md:w-32 md:flex-none"
+                    style={{
+                      borderColor:
+                        activeFilterCount > 0
+                          ? "var(--color-primary)"
+                          : "var(--color-border)",
+                      color:
+                        activeFilterCount > 0
+                          ? "var(--color-primary)"
+                          : "inherit",
+                    }}
                   >
-                    <Download className="h-3.5 w-3.5" />
+                    <Filter className="h-4 w-4 transition-colors duration-200 group-hover:text-[#0d9488]" />
+                    Filter
+                    {activeFilterCount > 0 && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-primary-foreground">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <Button
+                    onClick={() => {
+                      setExportAllClasses(false)
+                      setShowExportModal(true)
+                    }}
+                    className="h-11 flex-1 gap-2 rounded-xl bg-teal-600 text-xs font-bold text-white shadow-sm shadow-teal-500/20 hover:bg-teal-700 md:w-40 md:flex-none"
+                  >
+                    <Download className="h-4 w-4" />
                     Export Data
                   </Button>
                 </div>
@@ -668,11 +590,10 @@ export default function MonitoringPage() {
                       setFilterKelas(kelas)
                       setPage(1)
                     }}
-                    className={`relative px-4 py-3 text-[11px] font-bold tracking-wider whitespace-nowrap uppercase transition-colors ${
-                      filterKelas === kelas
+                    className={`relative px-4 py-3 text-[11px] font-bold tracking-wider whitespace-nowrap uppercase transition-colors ${filterKelas === kelas
                         ? "text-primary"
                         : "text-muted-foreground hover:text-foreground"
-                    }`}
+                      }`}
                   >
                     {kelas}
                     {filterKelas === kelas && (
@@ -684,8 +605,114 @@ export default function MonitoringPage() {
             </div>
           </div>
 
-          {/* ─ Table ─ */}
-          <div className="overflow-x-auto">
+          {/* ─ Mobile Card List ─ */}
+          <div className="flex flex-col divide-y divide-border/50 md:hidden">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="animate-pulse p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-muted" />
+                      <div className="space-y-2">
+                        <div className="h-3 w-32 rounded bg-muted" />
+                        <div className="h-2 w-20 rounded bg-muted" />
+                      </div>
+                    </div>
+                    <div className="h-6 w-16 rounded-lg bg-muted" />
+                  </div>
+                </div>
+              ))
+            ) : paginated.length > 0 ? (
+              paginated.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-3 transition-colors active:bg-muted/50"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
+                        <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                          {item.nama.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="line-clamp-1 text-[13px] font-bold text-foreground">
+                          {item.nama}
+                        </p>
+                        <p className="text-[9px] font-medium text-muted-foreground">
+                          {item.nis} • {item.kelas}
+                        </p>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-44 rounded-xl"
+                      >
+                        <DropdownMenuLabel>Action</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
+                          Ubah Status
+                        </DropdownMenuLabel>
+                        {Object.entries(STATUS_META).map(([key, meta]) => (
+                          <DropdownMenuItem
+                            key={key}
+                            onClick={() =>
+                              handleStatusChange(item.id, key as AbsenStatus)
+                            }
+                            className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
+                          >
+                            <div
+                              className={`h-2 w-2 rounded-full ${meta.dot}`}
+                            />
+                            {meta.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground">
+                        <Clock
+                          className={`h-2.5 w-2.5 ${item.status === "belum_absen" ? "text-slate-400" : "text-primary"}`}
+                        />
+                        {item.waktu === "—"
+                          ? "Belum absen"
+                          : `${item.waktu} WIB`}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[8px] text-muted-foreground">
+                        <CalendarDays className="h-2.5 w-2.5" />
+                        {item.tanggal}
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`rounded-lg border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${STATUS_META[item.status].badge}`}
+                    >
+                      {STATUS_META[item.status].label}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-12 text-center">
+                <Search className="mx-auto h-8 w-8 text-muted/30" />
+                <p className="mt-2 text-sm font-bold text-foreground">
+                  Tidak ada data
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ─ Table (Desktop & Tablet) ─ */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-muted/30 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
@@ -848,57 +875,112 @@ export default function MonitoringPage() {
         </div>
       </div>
 
+      {/* Filter Modal */}
+      <FilterModal
+        open={showFilterModal}
+        onOpenChange={setShowFilterModal}
+        title="Filter Monitoring"
+        description="Filter data monitoring kehadiran sesuai kriteria"
+        startDate={selectedDate}
+        onStartDateChange={(val) => {
+          setSelectedDate(val)
+          setPage(1)
+        }}
+        statuses={[
+          { value: "Semua", label: "Semua" },
+          { value: "Hadir", label: "Hadir" },
+          { value: "Haid", label: "Haid" },
+          { value: "Tidak Hadir", label: "Tidak Hadir" },
+          { value: "Belum Absen", label: "Belum Absen" },
+        ]}
+        selectedStatus={activeTab}
+        onStatusChange={(val) => {
+          setActiveTab((val || "Semua") as Tab)
+          setPage(1)
+        }}
+        sortOptions={[
+          { value: "nama-asc", label: "Nama (A-Z)" },
+          { value: "nama-desc", label: "Nama (Z-A)" },
+          { value: "kelas-asc", label: "Kelas (A-Z)" },
+          { value: "kelas-desc", label: "Kelas (Z-A)" },
+          { value: "waktu-desc", label: "Waktu (Terbaru)" },
+          { value: "waktu-asc", label: "Waktu (Terlama)" },
+        ]}
+        selectedSort={selectedSort}
+        onSortChange={(val) => {
+          setSelectedSort(val)
+          setPage(1)
+        }}
+        onReset={resetFilters}
+      />
+
       {/* Export Modal */}
       <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
-        <DialogContent className="max-w-md rounded-3xl p-6">
-          <DialogHeader className="mb-4">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">
-              <FileSpreadsheet className="h-8 w-8" />
-            </div>
-            <DialogTitle className="text-xl font-bold">
-              Export Laporan Absensi
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Pilih format dan lingkup data yang ingin Anda ekspor ke Excel.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="inset-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-none p-0 shadow-2xl sm:top-1/2 sm:left-1/2 sm:h-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2.5rem]">
+          <div className="p-6 md:p-8">
+            <DialogHeader className="mb-6">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">
+                <FileSpreadsheet className="h-9 w-9" />
+              </div>
+              <DialogTitle className="text-2xl font-black tracking-tight text-foreground">
+                Export Laporan Absensi
+              </DialogTitle>
+              <DialogDescription className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Pilih format dan lingkup data yang ingin Anda ekspor ke Excel.
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-border bg-muted/30 p-4">
-              <p className="mb-3 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                Opsi Ekspor Saat Ini
-              </p>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-foreground/80">
-                    Kelas terpilih
-                  </span>
-                  <span className="text-xs font-bold text-teal-600">
-                    {filterKelas}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-foreground/80">Tanggal</span>
-                  <span className="text-xs font-bold text-teal-600">
-                    {displayDateStr}
-                  </span>
+            <div className="space-y-6">
+              <div className="rounded-[1.5rem] border border-border bg-muted/30 p-5">
+                <p className="mb-4 text-[10px] font-black tracking-[0.2em] text-muted-foreground uppercase">
+                  Ringkasan Ekspor
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground/70">
+                      Cakupan Data
+                    </span>
+                    <span className="text-xs font-bold text-teal-600">
+                      {exportAllClasses
+                        ? "Semua Kelas"
+                        : filterKelas || "Semua Kelas"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground/70">
+                      Periode
+                    </span>
+                    <span className="text-xs font-bold text-teal-600">
+                      {displayDateStr}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground/70">
+                      Format
+                    </span>
+                    <span className="text-xs font-bold text-teal-600">
+                      Excel (.xlsx)
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              <AbsensiExportButton
-                kelas={filterKelas}
-                tahunPelajaran="2025/2026"
-                className="w-full"
-              />
-              <Button
-                variant="outline"
-                onClick={() => setShowExportModal(false)}
-                className="h-12 w-full rounded-2xl border-border text-sm font-bold"
-              >
-                Batal
-              </Button>
+              <div className="flex flex-col gap-3">
+                <AbsensiExportButton
+                  kelas={filterKelas}
+                  tahunPelajaran="2025/2026"
+                  className="w-full"
+                  exportAllClasses={exportAllClasses}
+                  onExportAllClassesChange={setExportAllClasses}
+                />
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowExportModal(false)}
+                  className="h-14 w-full rounded-2xl text-sm font-bold text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
+                >
+                  Batal
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

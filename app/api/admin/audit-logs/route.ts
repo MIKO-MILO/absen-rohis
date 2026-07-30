@@ -11,6 +11,8 @@ export async function GET(request: Request) {
     const limit      = parseInt(searchParams.get("limit") || "15", 10);
     const search     = searchParams.get("search")   || "";
     const roleFilter = searchParams.get("role")     || "";
+    const actionFilter = searchParams.get("action") || "";
+    const statusCodeFilter = searchParams.get("statusCode") || "";
     const dateFrom   = searchParams.get("dateFrom") || "";
     const dateTo     = searchParams.get("dateTo")   || "";
     const offset = (page - 1) * limit;
@@ -55,11 +57,23 @@ export async function GET(request: Request) {
       };
     });
 
-    // ── 4. Filter role & search setelah enrich ────────────────────────────
+    // ── 4. Filter setelah enrich ────────────────────────────
     let finalData = enriched;
 
     if (roleFilter) {
       finalData = finalData.filter((l) => l.actor_role === roleFilter);
+    }
+
+    if (actionFilter) {
+      finalData = finalData.filter((l) => 
+        l.action?.toLowerCase() === actionFilter.toLowerCase()
+      );
+    }
+
+    if (statusCodeFilter) {
+      finalData = finalData.filter((l) => 
+        l.status_code?.toString() === statusCodeFilter
+      );
     }
 
     if (search) {

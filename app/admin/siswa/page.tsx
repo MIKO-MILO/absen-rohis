@@ -27,13 +27,17 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Filter,
   X,
   Plus,
   Pencil,
   AlertTriangle,
   LogIn,
+  Filter,
+  CalendarDays,
+  Mail,
+  User,
 } from "lucide-react"
+import { FilterModal } from "@/components/FilterModal"
 import { useRouter } from "next/navigation"
 import { startImpersonationAsync, fetchSession } from "@/lib/auth-client"
 
@@ -55,15 +59,16 @@ export default function DataSiswaPage() {
   const router = useRouter()
 
   const [data, setData] = useState<UserRecord[]>([])
-  const [classes, setClasses] = useState<string[]>([])
+  const [, setClasses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [filterKelas, setFilterKelas] = useState("Semua Kelas")
-  const [filterTanggal, setFilterTanggal] = useState("")
+  const [filterKelas, setFilterKelas] = useState("")
+  const [selectedSort, setSelectedSort] = useState("nama-asc")
   const [page, setPage] = useState(1)
-  const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showFilterModal, setShowFilterModal] = useState(false)
+  const [filterJK, setFilterJK] = useState("")
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [perPage, setPerPage] = useState(10) // Nilai default awal
   const [checkingSession, setCheckingSession] = useState(true)
@@ -175,6 +180,10 @@ export default function DataSiswaPage() {
         setData(mappedData)
         if (classesData.classes) {
           setClasses(classesData.classes)
+          setFilterKelas(
+            (currentClass: string) =>
+              currentClass || classesData.classes[0] || ""
+          )
         }
       } catch (err) {
         console.error(err)
@@ -193,21 +202,35 @@ export default function DataSiswaPage() {
   }, [])
 
   // ── Filter ──────────────────────────────────────────────────────────────────
-  const filtered = useMemo(
-    () =>
-      data.filter((s) => {
-        const matchSearch =
-          !search ||
-          s.nama.toLowerCase().includes(search.toLowerCase()) ||
-          String(s.nis).includes(search) ||
-          s.kelas.toLowerCase().includes(search.toLowerCase()) ||
-          s.email.toLowerCase().includes(search.toLowerCase())
-        const matchKelas =
-          filterKelas === "Semua Kelas" || s.kelas === filterKelas
-        return matchSearch && matchKelas
-      }),
-    [data, search, filterKelas]
-  )
+  const filtered = useMemo(() => {
+    const filteredData = data.filter((s) => {
+      const matchSearch =
+        !search ||
+        s.nama.toLowerCase().includes(search.toLowerCase()) ||
+        String(s.nis).includes(search) ||
+        s.kelas.toLowerCase().includes(search.toLowerCase()) ||
+        s.email.toLowerCase().includes(search.toLowerCase())
+      const matchKelas = !filterKelas || s.kelas === filterKelas
+      const matchJK = !filterJK || s.jenis_kelamin === filterJK
+      return matchSearch && matchKelas && matchJK
+    })
+    return filteredData.sort((a, b) => {
+      const [sortBy, sortOrder] = selectedSort.split("-") as [
+        "nama" | "kelas" | "nis",
+        "asc" | "desc",
+      ]
+      let cmp = 0
+      if (sortBy === "nama") {
+        cmp = a.nama.localeCompare(b.nama, "id-ID")
+      } else if (sortBy === "kelas") {
+        cmp = a.kelas.localeCompare(b.kelas, "id-ID")
+        if (cmp === 0) cmp = a.nama.localeCompare(b.nama, "id-ID")
+      } else if (sortBy === "nis") {
+        cmp = a.nis - b.nis
+      }
+      return sortOrder === "asc" ? cmp : -cmp
+    })
+  }, [data, search, filterKelas, filterJK, selectedSort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
@@ -217,15 +240,13 @@ export default function DataSiswaPage() {
     paginatedIds.length > 0 && paginatedIds.every((id) => selected.has(id))
   const somePageSelected = paginatedIds.some((id) => selected.has(id))
 
-  const activeFilterCount = [
-    filterKelas !== "Semua Kelas",
-    filterTanggal !== "",
-    search !== "",
-  ].filter(Boolean).length
+  const activeFilterCount = [search !== "", filterJK !== ""].filter(
+    Boolean
+  ).length
   const resetFilters = () => {
     setSearch("")
-    setFilterKelas("Semua Kelas")
-    setFilterTanggal("")
+    setFilterJK("")
+    setSelectedSort("nama-asc")
     setPage(1)
   }
 
@@ -353,50 +374,42 @@ export default function DataSiswaPage() {
 
   return (
     <AdminShell>
-      <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
+      <div className="flex flex-col gap-5 py-5 md:px-6">
         {/* Banner */}
         <div
-          className="relative flex items-center justify-between overflow-hidden rounded-2xl p-5"
+          className="relative flex items-center justify-between overflow-hidden rounded-3xl p-6 shadow-lg md:p-8"
           style={{
             background: "linear-gradient(135deg,#0d9488 0%,#0891b2 100%)",
           }}
         >
+          {/* Decorative Circles */}
           <div
             aria-hidden
-            style={{
-              position: "absolute",
-              top: -30,
-              right: -30,
-              width: 140,
-              height: 140,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.07)",
-            }}
+            className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10"
           />
           <div
             aria-hidden
-            style={{
-              position: "absolute",
-              bottom: -20,
-              left: "40%",
-              width: 90,
-              height: 90,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.05)",
-            }}
+            className="absolute -bottom-8 left-1/3 h-24 w-24 rounded-full bg-white/5"
           />
-          <div className="relative z-10">
-            <p className="text-xs text-teal-100">Data Siswa</p>
-            <h2 className="mt-0.5 text-xl font-black text-white">
+
+          <div className="relative z-10 max-w-[65%]">
+            <p className="text-[10px] font-bold tracking-widest text-teal-100/80 uppercase">
+              Data Siswa
+            </p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-white md:text-3xl">
               Manajemen Siswa Rohis
             </h2>
-            <p className="mt-1 text-xs text-teal-200">{todayStr}</p>
+            <div className="mt-3 flex items-center gap-2 text-teal-100/90 md:mt-4">
+              <CalendarDays className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <p className="text-[10px] font-medium md:text-xs">{todayStr}</p>
+            </div>
           </div>
-          <div className="relative z-10 flex flex-col items-center rounded-2xl border border-white/15 bg-white/10 px-5 py-3 backdrop-blur-sm">
-            <span className="text-2xl leading-none font-black text-white">
+
+          <div className="relative z-10 flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border-[5px] border-white/15 md:h-28 md:w-28">
+            <span className="text-2xl leading-none font-black text-white md:text-4xl">
               {data.length}
             </span>
-            <span className="mt-0.5 text-[10px] text-white/80">
+            <span className="mt-1 text-[7px] font-bold tracking-widest text-teal-100/80 uppercase md:text-[9px]">
               Total Siswa
             </span>
           </div>
@@ -405,112 +418,175 @@ export default function DataSiswaPage() {
         {/* Table card */}
         <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           {/* Toolbar */}
-          <div className="flex flex-col gap-3 border-b border-border/50 px-5 pt-4 pb-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-foreground">
-                  Daftar Siswa
-                </h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {filtered.length} dari {data.length} siswa
-                  {activeFilterCount > 0 && (
-                    <button
-                      onClick={resetFilters}
-                      className="ml-2 inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
-                    >
-                      <X className="h-3 w-3" /> Reset filter
-                    </button>
-                  )}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari nama, NIS, email..."
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-9 w-52 rounded-xl border-border bg-muted/50 pl-8 text-xs focus-visible:ring-primary"
-                  />
-                </div>
-                <button
-                  onClick={() => setShowFilterPanel((v) => !v)}
-                  className="relative flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-all"
-                  style={{
-                    background:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary-transparent)"
-                        : "transparent",
-                    borderColor:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary)"
-                        : "var(--color-border)",
-                    color:
-                      showFilterPanel || activeFilterCount > 0
-                        ? "var(--color-primary)"
-                        : "var(--color-muted-foreground)",
+          <div className="flex flex-col gap-4 border-b border-border/50 px-5 pt-5 pb-5">
+            {/* Judul & Statistik */}
+            <div>
+              <h2 className="text-base font-bold text-foreground">
+                Daftar Siswa
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {filtered.length} dari {data.length} siswa
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={resetFilters}
+                    className="ml-2 inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
+                  >
+                    <X className="h-3 w-3" /> Reset
+                  </button>
+                )}
+              </p>
+            </div>
+
+            {/* Row 2: Search & Actions */}
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              {/* Search Bar */}
+              <div className="group relative w-full md:flex-1">
+                <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-hover:text-[#0d9488]" />
+                <Input
+                  placeholder="Cari nama, NIS, kelas..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    setPage(1)
                   }}
+                  className="h-11 w-full rounded-xl border-border bg-muted/20 pl-10 text-sm transition-all duration-200 hover:shadow-sm focus-visible:ring-primary"
+                />
+              </div>
+
+              {/* Tombol Aksi (Filter & Tambah) */}
+              <div className="flex w-full items-center gap-3 md:w-auto">
+                <button
+                  onClick={() => setShowFilterModal(true)}
+                  className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-md md:w-32 md:flex-none"
                 >
-                  <Filter className="h-3.5 w-3.5" />
+                  <Filter className="h-4 w-4 transition-colors duration-200 group-hover:text-[#0d9488]" />
                   Filter
                   {activeFilterCount > 0 && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-primary-foreground">
                       {activeFilterCount}
                     </span>
                   )}
                 </button>
                 <button
                   onClick={() => router.push("/admin/tambahsiswa")}
-                  className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-foreground/80 transition-all hover:bg-muted"
+                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 text-xs font-bold text-white shadow-sm shadow-teal-500/20 transition-all hover:-translate-y-0.5 hover:bg-teal-700 hover:shadow-md md:w-44 md:flex-none"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Tambah Siswa
+                  <Plus className="h-4 w-4" /> Tambah Siswa
                 </button>
               </div>
             </div>
+          </div>
 
-            {showFilterPanel && (
-              <div className="flex flex-wrap gap-3 border-t border-border/50 pt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Kelas
-                  </label>
-                  <select
-                    value={filterKelas}
-                    onChange={(e) => {
-                      setFilterKelas(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
+          {/* ─ Mobile Card List ─ */}
+          <div className="flex flex-col divide-y divide-border/50 md:hidden">
+            {paginated.length === 0 ? (
+              <div className="py-16 text-center">
+                <div className="flex flex-col items-center gap-2">
+                  <Users className="h-8 w-8 text-muted/50" />
+                  <p className="text-sm text-muted-foreground">
+                    Tidak ada data ditemukan
+                  </p>
+                  <button
+                    onClick={resetFilters}
+                    className="text-xs font-semibold text-primary hover:underline"
                   >
-                    <option>Semua Kelas</option>
-                    {classes.map((k) => (
-                      <option key={k}>{k}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Tanggal Daftar
-                  </label>
-                  <input
-                    type="date"
-                    value={filterTanggal}
-                    onChange={(e) => {
-                      setFilterTanggal(e.target.value)
-                      setPage(1)
-                    }}
-                    className="h-8 cursor-pointer rounded-lg border border-border bg-muted/50 px-3 text-xs text-foreground outline-none focus:border-primary"
-                  />
+                    Reset filter
+                  </button>
                 </div>
               </div>
+            ) : (
+              paginated.map((s) => {
+                const isChecked = selected.has(s.id)
+                return (
+                  <div
+                    key={s.id}
+                    className={`p-3 transition-colors active:bg-muted/50 ${isChecked ? "bg-primary/5" : ""}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleOne(s.id)}
+                            className="h-3.5 w-3.5 cursor-pointer rounded border-border accent-primary"
+                          />
+                          <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
+                            <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                              {s.nama.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <div>
+                          <p className="line-clamp-1 text-[13px] font-bold text-foreground">
+                            {s.nama}
+                          </p>
+                          <p className="text-[9px] font-medium text-muted-foreground">
+                            {s.nis} • {s.kelas}
+                          </p>
+                        </div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-44 rounded-xl"
+                        >
+                          <DropdownMenuLabel>Action</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() =>
+                              router.push(`/admin/editsiswa?id=${s.id}`)
+                            }
+                            className="cursor-pointer gap-2 rounded-lg text-xs"
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                            Edit Siswa
+                          </DropdownMenuItem>
+                          {isSuperadmin && (
+                            <DropdownMenuItem
+                              onClick={() => handleImpersonate(s.id)}
+                              className="cursor-pointer gap-2 rounded-lg text-xs"
+                            >
+                              <LogIn className="h-3.5 w-3.5 text-blue-600" />
+                              Login Sebagai
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => openDeleteModal(s.id)}
+                            className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Hapus Siswa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground">
+                          <Mail className="h-2.5 w-2.5 text-primary" />
+                          {s.email}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[9px] font-medium text-muted-foreground">
+                          <User className="h-2.5 w-2.5" />
+                          {s.jenis_kelamin}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
             )}
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
+          {/* Table (Desktop & Tablet) */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/30">
@@ -640,7 +716,7 @@ export default function DataSiswaPage() {
                         </td>
 
                         {/* Action */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
@@ -737,6 +813,37 @@ export default function DataSiswaPage() {
           </div>
         </div>
       </div>
+
+      <FilterModal
+        open={showFilterModal}
+        onOpenChange={setShowFilterModal}
+        title="Filter Data Siswa"
+        description="Pilih kriteria untuk menyaring data siswa"
+        statuses={[
+          { value: "Laki-laki", label: "Laki-laki" },
+          { value: "Perempuan", label: "Perempuan" },
+        ]}
+        statusLabel="Jenis Kelamin"
+        selectedStatus={filterJK}
+        onStatusChange={(val) => {
+          setFilterJK(val)
+          setPage(1)
+        }}
+        sortOptions={[
+          { value: "nama-asc", label: "Nama (A-Z)" },
+          { value: "nama-desc", label: "Nama (Z-A)" },
+          { value: "kelas-asc", label: "Kelas (A-Z)" },
+          { value: "kelas-desc", label: "Kelas (Z-A)" },
+          { value: "nis-asc", label: "NIS ↑" },
+          { value: "nis-desc", label: "NIS ↓" },
+        ]}
+        selectedSort={selectedSort}
+        onSortChange={(val) => {
+          setSelectedSort(val)
+          setPage(1)
+        }}
+        onReset={resetFilters}
+      />
 
       {/* Delete confirmation modal */}
       <Dialog

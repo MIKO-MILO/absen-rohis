@@ -1,4 +1,5 @@
 import { cookies } from "next/headers"
+import { createHmac, timingSafeEqual } from "crypto"
 import {
   UserRole,
   SessionData,
@@ -20,10 +21,50 @@ export interface ImpersonationCookieData {
   targetRole: "siswa" | "panitia"
 }
 
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET
+  if (!secret) {
+    throw new Error("SESSION_SECRET is not configured")
+  }
+  return secret
+}
+
+function signSessionPayload(payload: string): string {
+  return createHmac("sha256", getSessionSecret())
+    .update(payload)
+    .digest("base64url")
+}
+
+function serializeSession(session: SessionData): string {
+  const payload = Buffer.from(JSON.stringify(session)).toString("base64url")
+  return `${payload}.${signSessionPayload(payload)}`
+}
+
+export function parseSignedSessionCookie(value: string): SessionData | null {
+  const [payload, signature, ...extra] = value.split(".")
+  if (!payload || !signature || extra.length > 0) return null
+
+  const expectedSignature = signSessionPayload(payload)
+  const provided = Buffer.from(signature)
+  const expected = Buffer.from(expectedSignature)
+  if (
+    provided.length !== expected.length ||
+    !timingSafeEqual(provided, expected)
+  ) {
+    return null
+  }
+
+  try {
+    return parseSessionCookie(Buffer.from(payload, "base64url").toString("utf8"))
+  } catch {
+    return null
+  }
+}
+
 // ─── Cookie helpers ──────────────────────────────────────────────────────────
 export async function setSessionCookie(session: SessionData): Promise<void> {
   const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(session), {
+  cookieStore.set(SESSION_COOKIE_NAME, serializeSession(session), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -73,7 +114,7 @@ export async function getOriginalSession(): Promise<SessionData | null> {
   if (!sessionCookie) {
     return null
   }
-  return parseSessionCookie(sessionCookie)
+  return parseSignedSessionCookie(sessionCookie)
 }
 
 async function fetchTargetUserFromDB(

@@ -173,12 +173,10 @@ export default function TambahAdminPage() {
         </div>
 
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xl shadow-muted-foreground/5">
-          <div className="h-1.5 bg-linear-to-r from-primary to-primary/60" />
-
           <div className="p-6 md:p-8">
             <div className="mb-8 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                <UserPlus className="h-8 w-8 text-primary" />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <UserPlus className="h-6 w-6 text-primary" />
               </div>
               <div>
                 <h2 className="text-base font-bold text-foreground">
@@ -253,14 +251,14 @@ export default function TambahAdminPage() {
               <Button
                 variant="outline"
                 onClick={() => router.back()}
-                className="h-11 rounded-xl px-6 text-xs font-bold"
+                className="h-11 flex-1 rounded-xl px-6 text-xs font-bold"
               >
                 Batal
               </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="h-11 rounded-xl bg-primary px-8 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90"
+                className="h-11 flex-1 rounded-xl bg-primary px-8 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90"
               >
                 {loading ? "Menyimpan..." : "Simpan Admin"}
               </Button>

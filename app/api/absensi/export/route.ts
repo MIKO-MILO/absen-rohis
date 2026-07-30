@@ -169,6 +169,12 @@ async function fetchAbsensiByClass(
 ): Promise<AbsensiRecord[]> {
   if (!supabase) return []
 
+  // First get all users for this class to get their user_ids
+  const users = await fetchUsersByClass(kelas, supabase)
+  const userIds = users.map((u) => u.id)
+
+  if (userIds.length === 0) return []
+
   let query = supabase
     .from("absensi")
     .select(
@@ -186,7 +192,7 @@ async function fetchAbsensiByClass(
       )
     `
     )
-    .eq("users.kelas", kelas)
+    .in("user_id", userIds)
 
   if (bulan && tahunBulan) {
     const firstDay = `${tahunBulan}-${String(bulan).padStart(2, "0")}-01`
@@ -203,15 +209,21 @@ async function fetchAbsensiByClass(
 
   const typedData = data as unknown as Array<AbsensiWithUserSummary>
 
-  return typedData.map((item) => ({
-    user_id: item.user_id,
-    status: item.status,
-    nis: item.users[0]?.nis ?? "",
-    nama: item.users[0]?.nama ?? "",
-    jenis_kelamin: item.users[0]?.jenis_kelamin ?? "L",
-    waktu: item.waktu ?? "",
-    tanggal: item.tanggal ?? "",
-  }))
+  return typedData
+    .filter((item) => item.users)
+    .map((item) => {
+      const userData = Array.isArray(item.users) ? item.users[0] : item.users
+      return {
+        user_id: item.user_id,
+        status: item.status,
+        nis: userData?.nis ?? "",
+        nama: userData?.nama ?? "",
+        jenis_kelamin: userData?.jenis_kelamin ?? "L",
+        waktu: item.waktu ?? "",
+        tanggal: item.tanggal ?? "",
+        kelas: userData?.kelas ?? "",
+      }
+    })
 }
 
 async function fetchAllClassesData(
@@ -274,16 +286,21 @@ async function fetchAllClassesData(
   for (const k of uniqueClasses) {
     const classUsers = typedAllUsers.filter((u) => u.kelas === k)
     const classAbsensi = typedAllAbsensi
-      .filter((item) => item.users[0]?.kelas === k)
-      .map((item) => ({
-        user_id: item.user_id,
-        status: item.status,
-        nis: item.users[0]?.nis ?? "",
-        nama: item.users[0]?.nama ?? "",
-        jenis_kelamin: item.users[0]?.jenis_kelamin ?? "L",
-        waktu: item.waktu ?? "",
-        tanggal: item.tanggal ?? "",
-      }))
+      .filter((item) => item.users)
+      .map((item) => {
+        const userData = Array.isArray(item.users) ? item.users[0] : item.users
+        return {
+          user_id: item.user_id,
+          status: item.status,
+          nis: userData?.nis ?? "",
+          nama: userData?.nama ?? "",
+          jenis_kelamin: userData?.jenis_kelamin ?? "L",
+          waktu: item.waktu ?? "",
+          tanggal: item.tanggal ?? "",
+          kelas: userData?.kelas ?? "",
+        }
+      })
+      .filter((item) => item.kelas === k)
 
     result.push({ kelas: k, users: classUsers, absensi: classAbsensi })
   }

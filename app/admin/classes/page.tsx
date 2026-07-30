@@ -175,7 +175,7 @@ export default function ClassesManagementPage() {
 
   return (
     <AdminShell requireSuperadmin={true}>
-      <div className="flex flex-col gap-6 px-4 py-6 md:px-8">
+      <div className="flex flex-col gap-6 py-6 md:px-8">
         {/* Header Section */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
@@ -267,7 +267,7 @@ export default function ClassesManagementPage() {
 
       {/* Add Class Modal */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-[400px] overflow-hidden rounded-3xl border-none p-0 shadow-2xl">
+        <DialogContent className="max-w-100 overflow-hidden rounded-3xl border-none p-0 shadow-2xl">
           <div className="bg-teal-600 px-6 py-8 text-center text-white">
             <div className="mb-4 flex justify-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
@@ -329,7 +329,7 @@ export default function ClassesManagementPage() {
 
       {/* Delete Confirmation Modal */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="max-w-[400px] overflow-hidden rounded-3xl border-none p-6 shadow-2xl">
+        <DialogContent className="max-w-100 overflow-hidden rounded-3xl border-none p-6 shadow-2xl">
           <div className="flex flex-col items-center justify-center text-center">
             {/* Icon Warning */}
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-500">
