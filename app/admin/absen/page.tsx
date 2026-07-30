@@ -419,9 +419,10 @@ export default function DataAbsenPage() {
       <div className="flex flex-col gap-5 py-5 md:px-6">
         {/* ── Banner ── */}
         <AttendanceBanner
-          title="Sholat Dzuhur Hari Ini"
-          subtitle="Rekap Kehadiran"
+          title="Data Absen Siswa Rohis"
+          subtitle="Data Absensi"
           date={todayStr}
+          totalLabel="Total Absen"
           summary={{
             total: summary.total,
             hadir: summary.hadir,
@@ -480,36 +481,20 @@ export default function DataAbsenPage() {
           ].map(({ label, value, pct, sub, icon: Icon, color, bg, iconBg, barColor }) => (
             <div
               key={label}
-              className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border p-3.5 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-4 ${bg}`}
+              className="group flex flex-col items-center justify-center rounded-[24px] border border-border/50 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:bg-card"
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold shadow-xs transition-transform duration-300 group-hover:scale-105 ${iconBg}`}>
-                  <Icon className="h-4.5 w-4.5" />
-                </div>
-                <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-extrabold text-muted-foreground border border-border/50">
-                  {pct}%
-                </span>
+              <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110 ${iconBg}`}>
+                <Icon className="h-6 w-6" />
               </div>
-
-              <div className="mt-3 flex flex-col gap-0.5">
-                <p className={`text-2xl leading-none font-black tracking-tight sm:text-3xl ${color}`}>
-                  {value}
-                </p>
-                <p className="mt-1 text-xs font-bold tracking-tight text-foreground">
-                  {label}
-                </p>
-                <p className="text-[10px] font-medium text-muted-foreground line-clamp-1">
-                  {sub}
-                </p>
-              </div>
-
-              {/* Progress Mini Bar Accent */}
-              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+              <p className={`text-3xl font-black leading-none tracking-tight sm:text-4xl ${color}`}>
+                {value}
+              </p>
+              <p className="mt-2 text-xs font-bold tracking-tight text-foreground sm:text-sm">
+                {label}
+              </p>
+              <p className="mt-1 text-center text-[10px] font-medium text-muted-foreground sm:text-[11px]">
+                {sub}
+              </p>
             </div>
           ))}
         </div>

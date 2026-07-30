@@ -317,7 +317,6 @@ export default function MonitoringPage() {
     return { total, hadir, haid, tidakHadir, belumAbsen }
   }, [filteredData])
 
-
   const activeFilterCount = [
     search !== "",
     activeTab !== "Semua",
@@ -394,11 +393,12 @@ export default function MonitoringPage() {
         <AttendanceBanner
           title={
             selectedDate === new Date().toISOString().split("T")[0]
-              ? "Sholat Dzuhur Hari Ini"
-              : "Arsip Kehadiran"
+              ? "Monitoring Siswa Rohis"
+              : "Arsip Kehadiran Rohis"
           }
-          subtitle="Monitoring Kelas"
+          subtitle="Data Siswa"
           date={displayDateStr}
+          totalLabel="Total Siswa"
           summary={{
             total: summary.total,
             hadir: summary.hadir,
@@ -414,100 +414,89 @@ export default function MonitoringPage() {
             {
               label: "Total Siswa",
               value: summary.total,
-              pct: summary.total > 0 ? 100 : 0,
-              sub: "Total siswa terdaftar",
+              sub: "Total absensi tercatat",
               icon: Users,
               color: "text-slate-700 dark:text-slate-200",
-              bg: "bg-card border-border/80 hover:border-slate-400/40",
-              iconBg: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-              barColor: "bg-slate-400 dark:bg-slate-600",
+              bg: "bg-white hover:border-slate-300/70 dark:bg-card",
+              iconBg:
+                "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
             },
             {
               label: "Hadir",
               value: summary.hadir,
-              pct: summary.total > 0 ? Math.round((summary.hadir / summary.total) * 100) : 0,
               sub: "Hadir hari ini",
               icon: UserCheck,
               color: "text-teal-600 dark:text-teal-400",
-              bg: "bg-card border-border/80 hover:border-teal-500/40",
-              iconBg: "bg-teal-500/10 text-teal-600 dark:bg-teal-400/10 dark:text-teal-400",
-              barColor: "bg-teal-500",
+              bg: "bg-white hover:border-teal-300/70 dark:bg-card",
+              iconBg:
+                "bg-teal-500/10 text-teal-600 dark:bg-teal-400/10 dark:text-teal-400",
             },
             {
               label: "Haid",
               value: summary.haid,
-              pct: summary.total > 0 ? Math.round((summary.haid / summary.total) * 100) : 0,
               sub: "Berhalangan sholat",
               icon: Clock,
               color: "text-blue-600 dark:text-blue-400",
-              bg: "bg-card border-border/80 hover:border-blue-500/40",
-              iconBg: "bg-blue-500/10 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400",
-              barColor: "bg-blue-500",
+              bg: "bg-white hover:border-blue-300/70 dark:bg-card",
+              iconBg:
+                "bg-blue-500/10 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400",
             },
             {
               label: "Tidak Hadir",
               value: summary.tidakHadir,
-              pct: summary.total > 0 ? Math.round((summary.tidakHadir / summary.total) * 100) : 0,
               sub: "Alpa / Izin / Sakit",
               icon: XCircle,
               color: "text-rose-600 dark:text-rose-400",
-              bg: "bg-card border-border/80 hover:border-rose-500/40",
-              iconBg: "bg-rose-500/10 text-rose-600 dark:bg-rose-400/10 dark:text-rose-400",
-              barColor: "bg-rose-500",
+              bg: "bg-white hover:border-rose-300/70 dark:bg-card",
+              iconBg:
+                "bg-rose-500/10 text-rose-600 dark:bg-rose-400/10 dark:text-rose-400",
             },
             {
               label: "Belum Absen",
               value: summary.belumAbsen,
-              pct: summary.total > 0 ? Math.round((summary.belumAbsen / summary.total) * 100) : 0,
               sub: "Belum mengisi presensi",
               icon: HelpCircle,
               color: "text-amber-600 dark:text-amber-400",
-              bg: "bg-card border-border/80 hover:border-amber-500/40",
-              iconBg: "bg-amber-500/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400",
-              barColor: "bg-amber-500",
+              bg: "bg-white hover:border-amber-300/70 dark:bg-card",
+              iconBg:
+                "bg-amber-500/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400",
             },
-          ].map(({ label, value, pct, sub, icon: Icon, color, bg, iconBg, barColor }) => (
-            <div
-              key={label}
-              className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border p-3.5 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-4 ${bg}`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold shadow-xs transition-transform duration-300 group-hover:scale-105 ${iconBg}`}>
-                  <Icon className="h-4.5 w-4.5" />
-                </div>
-                <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-extrabold text-muted-foreground border border-border/50">
-                  {pct}%
-                </span>
-              </div>
-
-              <div className="mt-3 flex flex-col gap-0.5">
-                <p className={`text-2xl leading-none font-black tracking-tight sm:text-3xl ${color}`}>
-                  {value}
-                </p>
-                <p className="mt-1 text-xs font-bold tracking-tight text-foreground">
-                  {label}
-                </p>
-                <p className="text-[10px] font-medium text-muted-foreground line-clamp-1">
-                  {sub}
-                </p>
-              </div>
-
-              {/* Progress Mini Bar Accent */}
-              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+          ].map(
+            ({ label, value, sub, icon: Icon, color, bg, iconBg }, index) => (
+              <div
+                key={label}
+                className={`group flex min-h-[184px] flex-col items-center justify-center rounded-[28px] border border-slate-200/80 p-4 text-center shadow-[0_4px_18px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_24px_rgba(15,23,42,0.12)] sm:min-h-[200px] sm:p-5 dark:border-border/80 ${bg} ${
+                  index === 0 ? "col-span-2 md:col-span-1" : ""
+                }`}
+              >
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                  style={{ width: `${pct}%` }}
-                />
+                  className={`flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110 sm:h-16 sm:w-16 ${iconBg}`}
+                >
+                  <Icon className="h-6 w-6 sm:h-7 sm:w-7" />
+                </div>
+                <div className="mt-5 space-y-2">
+                  <p
+                    className={`text-4xl leading-none font-black tracking-tight sm:text-5xl ${color}`}
+                  >
+                    {value}
+                  </p>
+                  <p className="text-base font-bold text-foreground">{label}</p>
+                </div>
+                <div className="mt-2 max-w-[140px]">
+                  <p className="text-xs leading-relaxed font-medium text-muted-foreground sm:text-sm">
+                    {sub}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
 
         {/* ── Table card ── */}
         <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           {/* ─ Toolbar ─ */}
           <div className="flex flex-col border-b border-border/50">
-            <div className="flex flex-col gap-4 px-5 pt-5 pb-5">
+            <div className="flex flex-col gap-4 border-b border-border/50 px-5 pt-5 pb-5">
               {/* Judul & Statistik */}
               <div>
                 <h2 className="text-base font-bold text-foreground">
@@ -527,7 +516,7 @@ export default function MonitoringPage() {
               </div>
 
               {/* Row 2: Search & Actions */}
-              <div className="flex flex-col gap-4 md:flex-row md:items-center">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 {/* Search Bar */}
                 <div className="group relative w-full md:flex-1">
                   <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-hover:text-[#0d9488]" />
@@ -581,7 +570,7 @@ export default function MonitoringPage() {
               </div>
             </div>
 
-            <div className="no-scrollbar flex items-center overflow-x-auto border-t border-border/50 bg-muted/5 px-5">
+            <div className="no-scrollbar flex items-center border-b border-border/50 px-5">
               <div className="flex items-center">
                 {classes.map((kelas) => (
                   <button
@@ -590,10 +579,11 @@ export default function MonitoringPage() {
                       setFilterKelas(kelas)
                       setPage(1)
                     }}
-                    className={`relative px-4 py-3 text-[11px] font-bold tracking-wider whitespace-nowrap uppercase transition-colors ${filterKelas === kelas
+                    className={`relative px-4 py-3 text-xs font-bold transition-colors ${
+                      filterKelas === kelas
                         ? "text-primary"
                         : "text-muted-foreground hover:text-foreground"
-                      }`}
+                    }`}
                   >
                     {kelas}
                     {filterKelas === kelas && (
@@ -623,90 +613,105 @@ export default function MonitoringPage() {
                 </div>
               ))
             ) : paginated.length > 0 ? (
-              paginated.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-3 transition-colors active:bg-muted/50"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
-                        <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
-                          {item.nama.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="line-clamp-1 text-[13px] font-bold text-foreground">
-                          {item.nama}
-                        </p>
-                        <p className="text-[9px] font-medium text-muted-foreground">
-                          {item.nis} • {item.kelas}
-                        </p>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="w-44 rounded-xl"
-                      >
-                        <DropdownMenuLabel>Action</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
-                          Ubah Status
-                        </DropdownMenuLabel>
-                        {Object.entries(STATUS_META).map(([key, meta]) => (
-                          <DropdownMenuItem
-                            key={key}
-                            onClick={() =>
-                              handleStatusChange(item.id, key as AbsenStatus)
-                            }
-                            className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
-                          >
-                            <div
-                              className={`h-2 w-2 rounded-full ${meta.dot}`}
-                            />
-                            {meta.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+              paginated.map((item) => {
+                const statusMeta = STATUS_META[item.status]
+                const StatusIcon = statusMeta.icon
 
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground">
-                        <Clock
-                          className={`h-2.5 w-2.5 ${item.status === "belum_absen" ? "text-slate-400" : "text-primary"}`}
-                        />
-                        {item.waktu === "—"
-                          ? "Belum absen"
-                          : `${item.waktu} WIB`}
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3 transition-colors active:bg-muted/50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
+                          <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+                            {item.nama.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="line-clamp-2 text-sm leading-tight font-bold text-foreground">
+                            {item.nama}
+                          </p>
+                          <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+                            {item.nis} • {item.kelas}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5 text-[8px] text-muted-foreground">
-                        <CalendarDays className="h-2.5 w-2.5" />
-                        {item.tanggal}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-44 rounded-xl"
+                        >
+                          <DropdownMenuLabel>Action</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
+                            Ubah Status
+                          </DropdownMenuLabel>
+                          {Object.entries(STATUS_META).map(([key, meta]) => (
+                            <DropdownMenuItem
+                              key={key}
+                              onClick={() =>
+                                handleStatusChange(item.id, key as AbsenStatus)
+                              }
+                              className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
+                            >
+                              <div
+                                className={`h-2 w-2 rounded-full ${meta.dot}`}
+                              />
+                              {meta.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between">
+                      <Badge
+                        variant="outline"
+                        className={`rounded-lg border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${statusMeta.badge}`}
+                      >
+                        <StatusIcon className="mr-1.5 h-3 w-3" />
+                        {statusMeta.label}
+                      </Badge>
+
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground">
+                          <Clock
+                            className={`h-2.5 w-2.5 ${item.status === "belum_absen" ? "text-slate-400" : "text-primary"}`}
+                          />
+                          {item.waktu === "—"
+                            ? "Belum absen"
+                            : `${item.waktu} WIB`}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[8px] text-muted-foreground">
+                          <CalendarDays className="h-2.5 w-2.5" />
+                          {item.tanggal}
+                        </div>
                       </div>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={`rounded-lg border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${STATUS_META[item.status].badge}`}
-                    >
-                      {STATUS_META[item.status].label}
-                    </Badge>
                   </div>
-                </div>
-              ))
+                )
+              })
             ) : (
               <div className="py-12 text-center">
                 <Search className="mx-auto h-8 w-8 text-muted/30" />
                 <p className="mt-2 text-sm font-bold text-foreground">
                   Tidak ada data
                 </p>
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={resetFilters}
+                    className="mt-2 text-xs font-bold text-primary hover:underline"
+                  >
+                    Reset filter
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -716,10 +721,19 @@ export default function MonitoringPage() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-muted/30 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
-                  <th className="px-5 py-3">Siswa</th>
-                  <th className="px-5 py-3">Tanggal dan Waktu</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Action</th>
+                  {[
+                    { label: "Siswa", width: "" },
+                    { label: "Waktu & Tanggal", width: "w-60" },
+                    { label: "Status", width: "w-40" },
+                    { label: "Action", width: "w-16" },
+                  ].map((h) => (
+                    <th
+                      key={h.label}
+                      className={`px-5 py-3 ${h.label === "Action" ? "text-right" : ""} ${h.width}`}
+                    >
+                      {h.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -770,17 +784,19 @@ export default function MonitoringPage() {
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                          <Clock
-                            className={`h-3 w-3 ${item.status === "belum_absen" ? "text-slate-400" : "text-primary"}`}
-                          />
-                          {item.waktu === "—"
-                            ? "Belum absen"
-                            : `${item.status === "belum_absen" ? "Belum absen" : item.waktu} WIB`}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                          <CalendarDays className="h-3 w-3" />
-                          {item.tanggal}
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                            <Clock
+                              className={`h-3 w-3 ${item.status === "belum_absen" ? "text-slate-400" : "text-primary"}`}
+                            />
+                            {item.waktu === "—"
+                              ? "Belum absen"
+                              : `${item.status === "belum_absen" ? "Belum absen" : item.waktu} WIB`}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            <CalendarDays className="h-3 w-3" />
+                            {item.tanggal}
+                          </div>
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
