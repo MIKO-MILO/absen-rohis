@@ -21,6 +21,7 @@ import {
   X,
   Filter,
   Users,
+  ChevronDown,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -329,23 +330,32 @@ function ManualForm({
               <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 Kelas
               </Label>
-              <select
-                value={form.kelas}
-                onChange={(e) => {
-                  setForm((p) => ({ ...p, kelas: e.target.value }))
-                  setErrors((p) => ({ ...p, kelas: undefined }))
-                }}
-                className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none ${errors.kelas ? "border-destructive/50" : "border-border"}`}
-              >
-                <option value="" disabled>
-                  Pilih kelas...
-                </option>
-                {classes.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
+
+              <div className="relative">
+                <select
+                  value={form.kelas}
+                  onChange={(e) => {
+                    setForm((p) => ({ ...p, kelas: e.target.value }))
+                    setErrors((p) => ({ ...p, kelas: undefined }))
+                  }}
+                  className={`h-11 w-full appearance-none rounded-xl border bg-muted/50 px-4 pr-10 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none ${
+                    errors.kelas ? "border-destructive/50" : "border-border"
+                  }`}
+                >
+                  <option value="" disabled>
+                    Pilih kelas...
                   </option>
-                ))}
-              </select>
+
+                  {classes.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+
               {errors.kelas && (
                 <p className="flex items-center gap-1 text-xs text-destructive">
                   <AlertCircle className="h-3 w-3" /> {errors.kelas}
@@ -685,21 +695,26 @@ function ImportForm({
             <Label className="text-xs font-semibold text-muted-foreground uppercase">
               Kelas
             </Label>
-            <select
-              value={kelas}
-              onChange={(e) => {
-                setKelas(e.target.value)
-                setKelasError(false)
-              }}
-              className="h-11 rounded-xl border border-border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="">Pilih kelas...</option>
-              {KELAS_OPTIONS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
+
+            <div className="relative">
+              <select
+                value={kelas}
+                onChange={(e) => {
+                  setKelas(e.target.value)
+                  setKelasError(false)
+                }}
+                className="h-11 w-full appearance-none rounded-xl border border-border bg-muted/50 px-4 pr-10 text-sm text-foreground focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              >
+                <option value="">Pilih kelas...</option>
+                {KELAS_OPTIONS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown className="pointer-events-none absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
           </div>
 
           {/* Drop zone */}
@@ -826,18 +841,21 @@ function ImportForm({
                 </div>
 
                 {/* Filter Kelas */}
-                <select
-                  value={filterKelas}
-                  onChange={(e) => setFilterKelas(e.target.value)}
-                  className="h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                >
-                  <option value="semua">Semua Kelas</option>
-                  {uniqueKelasInRows.map((k) => (
-                    <option key={k} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={filterKelas}
+                    onChange={(e) => setFilterKelas(e.target.value)}
+                    className="h-8 appearance-none rounded-lg border border-border bg-card pr-8 pl-2.5 text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+                  >
+                    <option value="semua">Semua Kelas</option>
+                    {uniqueKelasInRows.map((k) => (
+                      <option key={k} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                </div>
 
                 {/* Filter Jenis Kelamin */}
                 <select
@@ -874,7 +892,7 @@ function ImportForm({
               {/* ── TABLE ── */}
               <div className="overflow-hidden rounded-2xl border border-border">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-sm">
+                  <table className="w-full min-w-140 text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
                         {/* Checkbox select-all */}

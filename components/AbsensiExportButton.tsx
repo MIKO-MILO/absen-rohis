@@ -26,6 +26,7 @@ interface AbsensiExportButtonProps {
   className?: string
   exportAllClasses?: boolean
   onExportAllClassesChange?: (value: boolean) => void
+  onSelectedKelasChange?: (value: string) => void
 }
 
 export function AbsensiExportButton({
@@ -34,15 +35,25 @@ export function AbsensiExportButton({
   className,
   exportAllClasses,
   onExportAllClassesChange,
+  onSelectedKelasChange,
 }: AbsensiExportButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [classes, setClasses] = useState<string[]>([])
-  const [selectedKelas, setSelectedKelas] = useState(initialKelas)
+  const [internalSelectedKelas, setInternalSelectedKelas] =
+    useState(initialKelas)
   const [internalExportAll, setInternalExportAll] = useState(false)
   const isAllClasses = exportAllClasses ?? internalExportAll
+
+  const selectedKelas = onSelectedKelasChange
+    ? initialKelas
+    : internalSelectedKelas
+  const effectiveKelas =
+    classes.length > 0 && !classes.includes(selectedKelas)
+      ? classes[0]
+      : selectedKelas
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -51,16 +62,13 @@ export function AbsensiExportButton({
         const data = await res.json()
         if (data.classes) {
           setClasses(data.classes)
-          if (!data.classes.includes(initialKelas) && data.classes.length > 0) {
-            setSelectedKelas(data.classes[0])
-          }
         }
       } catch (err) {
         console.error("Error fetching classes:", err)
       }
     }
     fetchClasses()
-  }, [initialKelas])
+  }, [])
 
   const setExportScope = (value: boolean) => {
     setInternalExportAll(value)
@@ -74,7 +82,7 @@ export function AbsensiExportButton({
     try {
       const config = getActiveConfig()
       const params = new URLSearchParams({
-        kelas: selectedKelas,
+        kelas: effectiveKelas,
         tahun: tahunPelajaran,
         bulan: String(selectedMonth + 1),
         tahun_bulan: String(selectedYear),
@@ -90,7 +98,7 @@ export function AbsensiExportButton({
       link.href = url
       link.download = isAllClasses
         ? `Daftar_Hadir_Semua_Kelas_${MONTHS[selectedMonth]}_${selectedYear}.xlsx`
-        : `Daftar_Hadir_${selectedKelas}_${MONTHS[selectedMonth]}_${selectedYear}.xlsx`
+        : `Daftar_Hadir_${effectiveKelas}_${MONTHS[selectedMonth]}_${selectedYear}.xlsx`
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -167,8 +175,13 @@ export function AbsensiExportButton({
             <div className="relative">
               <Users className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[#009775]" />
               <select
-                value={selectedKelas}
-                onChange={(event) => setSelectedKelas(event.target.value)}
+                value={effectiveKelas}
+                onChange={(event) => {
+                  const nextKelas = event.target.value
+                  onSelectedKelasChange?.(nextKelas)
+                  if (!onSelectedKelasChange)
+                    setInternalSelectedKelas(nextKelas)
+                }}
                 className={`${selectClassName} pl-9`}
               >
                 {classes.map((kelas) => (
@@ -226,7 +239,9 @@ export function AbsensiExportButton({
         <FileSpreadsheet className="mr-2 h-4 w-4" />
         {loading ? "Mengekspor..." : "Export ke Excel"}
       </Button>
-      {error && <p className="text-center text-xs font-medium text-red-500">{error}</p>}
+      {error && (
+        <p className="text-center text-xs font-medium text-red-500">{error}</p>
+      )}
     </div>
   )
 }

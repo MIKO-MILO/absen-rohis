@@ -13,8 +13,6 @@ import {
   Clock,
   X,
   Download,
-  ChevronUp,
-  ChevronDown,
   Eye,
   RefreshCw,
   Filter,

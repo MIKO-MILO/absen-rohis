@@ -365,7 +365,7 @@ export default function SuperadminConfigPage() {
         </div>
 
         {/* Actions */}
-        <div className="mt-8 flex items-center justify-between gap-4">
+        <div className="mt-8 flex items-center gap-4">
           <Button
             variant="outline"
             onClick={handleReset}
@@ -374,9 +374,10 @@ export default function SuperadminConfigPage() {
             <RotateCcw className="h-4 w-4" />
             Reset Default
           </Button>
+
           <Button
             onClick={confirmSave}
-            className="h-11 flex-[1.5] gap-2 rounded-2xl bg-linear-to-r from-teal-600 to-teal-500 font-bold text-white shadow-lg shadow-teal-500/25 transition-all hover:opacity-90 active:scale-[0.98]"
+            className="h-11 flex-1 gap-2 rounded-2xl bg-linear-to-r from-teal-600 to-teal-500 font-bold text-white shadow-lg shadow-teal-500/25 transition-all hover:opacity-90 active:scale-[0.98]"
           >
             <Save className="h-4 w-4" />
             Simpan Perubahan

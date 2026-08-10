@@ -16,7 +16,7 @@ export default function MaintenancePage() {
       try {
         const res = await fetch("/api/auth/session")
         const contentType = res.headers.get("content-type") || ""
-        if (res.ok && contentType.includes("application/json")) {
+        if (contentType.includes("application/json")) {
           const data = await res.json()
           if (data.user && isAdmin(data.user.role)) {
             setCanAccess(true)

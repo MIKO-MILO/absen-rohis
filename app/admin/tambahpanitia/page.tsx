@@ -21,6 +21,7 @@ import {
   X,
   Filter,
   Users,
+  ChevronDown,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -296,23 +297,32 @@ function ManualForm({
               <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 Divisi
               </Label>
-              <select
-                value={form.divisi}
-                onChange={(e) => {
-                  setForm((p) => ({ ...p, divisi: e.target.value }))
-                  setErrors((p) => ({ ...p, divisi: undefined }))
-                }}
-                className={`h-11 rounded-xl border bg-muted/50 px-4 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none ${errors.divisi ? "border-destructive/50" : "border-border"}`}
-              >
-                <option value="" disabled>
-                  Pilih divisi...
-                </option>
-                {DIVISI_OPTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
+
+              <div className="relative">
+                <select
+                  value={form.divisi}
+                  onChange={(e) => {
+                    setForm((p) => ({ ...p, divisi: e.target.value }))
+                    setErrors((p) => ({ ...p, divisi: undefined }))
+                  }}
+                  className={`h-11 w-full appearance-none rounded-xl border bg-muted/50 px-4 pr-10 text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none ${
+                    errors.divisi ? "border-destructive/50" : "border-border"
+                  }`}
+                >
+                  <option value="" disabled>
+                    Pilih divisi...
                   </option>
-                ))}
-              </select>
+
+                  {DIVISI_OPTIONS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+
               {errors.divisi && (
                 <p className="flex items-center gap-1 text-xs text-destructive">
                   <AlertCircle className="h-3 w-3" /> {errors.divisi}
@@ -822,7 +832,7 @@ function ImportForm({
               {/* ── TABLE ── */}
               <div className="overflow-hidden rounded-2xl border border-border">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px] text-sm">
+                  <table className="w-full min-w-150 text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
                         {/* Checkbox select-all */}

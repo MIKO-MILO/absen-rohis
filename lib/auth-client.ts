@@ -273,11 +273,11 @@ export async function fetchSession(): Promise<FullSessionData | null> {
 
   try {
     const res = await fetch("/api/auth/session")
-    if (!res.ok) {
+    const data = await res.json()
+    if (!data?.user) {
       cachedSession = null
       return null
     }
-    const data = await res.json()
     cachedSession = data
     lastFetchTime = now
     return data

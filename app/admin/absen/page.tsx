@@ -432,7 +432,7 @@ export default function DataAbsenPage() {
         />
 
         {/* ── Summary cards ── */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
           {[
             {
               label: "Total Siswa",
@@ -478,10 +478,10 @@ export default function DataAbsenPage() {
               iconBg: "bg-rose-500/10 text-rose-600 dark:bg-rose-400/10 dark:text-rose-400",
               barColor: "bg-rose-500",
             },
-          ].map(({ label, value, pct, sub, icon: Icon, color, bg, iconBg, barColor }) => (
+          ].map(({ label, value, sub, icon: Icon, color, iconBg }) => (
             <div
               key={label}
-              className="group flex flex-col items-center justify-center rounded-[24px] border border-border/50 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:bg-card"
+              className="group flex w-[calc(50%-0.375rem)] flex-col items-center justify-center rounded-[24px] border border-border/50 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md sm:w-[calc(50%-0.5rem)] lg:w-[calc(25%-0.75rem)] dark:bg-card"
             >
               <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110 ${iconBg}`}>
                 <Icon className="h-6 w-6" />

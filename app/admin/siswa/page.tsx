@@ -36,6 +36,7 @@ import {
   CalendarDays,
   Mail,
   User,
+  ChevronDown,
 } from "lucide-react"
 import { FilterModal } from "@/components/FilterModal"
 import { useRouter } from "next/navigation"
@@ -59,7 +60,7 @@ export default function DataSiswaPage() {
   const router = useRouter()
 
   const [data, setData] = useState<UserRecord[]>([])
-  const [, setClasses] = useState<string[]>([])
+  const [classes, setClasses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [filterKelas, setFilterKelas] = useState("")
@@ -70,7 +71,7 @@ export default function DataSiswaPage() {
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [filterJK, setFilterJK] = useState("")
   const [deletingId, setDeletingId] = useState<number | null>(null)
-  const [perPage, setPerPage] = useState(10) // Nilai default awal
+  const [perPage, setPerPage] = useState(10)
   const [checkingSession, setCheckingSession] = useState(true)
   const [isSuperadmin, setIsSuperadmin] = useState(false)
   const clearSelected = () => setSelected(new Set())
@@ -125,28 +126,6 @@ export default function DataSiswaPage() {
     checkSession()
   }, [router])
 
-  // ── Dynamic Row Calculation ────────────────────────────────────────────────
-  useEffect(() => {
-    const calculateRows = () => {
-      // Tinggi layar - (Header + Banner + Toolbar + Footer + Padding)
-      // Estimasi:
-      // Header/Nav: 64px
-      // Banner: 120px
-      // Toolbar: 80px
-      // Pagination Footer: 64px
-      // Padding & Spacing: 100px
-      // Total estimasi non-tabel: ~430px
-      const availableHeight = window.innerHeight - 430
-      const rowHeight = 53 // Tinggi rata-rata satu baris tabel
-      const estimatedRows = Math.max(5, Math.floor(availableHeight / rowHeight))
-      setPerPage(estimatedRows)
-    }
-
-    calculateRows()
-    window.addEventListener("resize", calculateRows)
-    return () => window.removeEventListener("resize", calculateRows)
-  }, [])
-
   // ── Fetch ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     let isMounted = true
@@ -180,10 +159,6 @@ export default function DataSiswaPage() {
         setData(mappedData)
         if (classesData.classes) {
           setClasses(classesData.classes)
-          setFilterKelas(
-            (currentClass: string) =>
-              currentClass || classesData.classes[0] || ""
-          )
         }
       } catch (err) {
         console.error(err)
@@ -233,7 +208,8 @@ export default function DataSiswaPage() {
   }, [data, search, filterKelas, filterJK, selectedSort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage)
+  const safePage = Math.min(Math.max(1, page), totalPages)
+  const paginated = filtered.slice((safePage - 1) * perPage, safePage * perPage)
   const paginatedIds = paginated.map((s) => s.id)
 
   const allPageSelected =
@@ -475,6 +451,44 @@ export default function DataSiswaPage() {
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="no-scrollbar flex items-center overflow-x-auto border-b border-border/50 px-5">
+            <button
+              onClick={() => {
+                setFilterKelas("")
+                setPage(1)
+              }}
+              className={`relative px-4 py-3 text-xs font-bold transition-colors ${
+                filterKelas === ""
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              } shrink-0 whitespace-nowrap`}
+            >
+              Semua
+              {filterKelas === "" && (
+                <div className="absolute right-0 bottom-0 left-0 h-0.5 bg-primary" />
+              )}
+            </button>
+            {classes.map((kelas) => (
+              <button
+                key={kelas}
+                onClick={() => {
+                  setFilterKelas(kelas)
+                  setPage(1)
+                }}
+                className={`relative px-4 py-3 text-xs font-bold transition-colors ${
+                  filterKelas === kelas
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                } shrink-0 whitespace-nowrap`}
+              >
+                {kelas}
+                {filterKelas === kelas && (
+                  <div className="absolute right-0 bottom-0 left-0 h-0.5 bg-primary" />
+                )}
+              </button>
+            ))}
           </div>
 
           {/* ─ Mobile Card List ─ */}
@@ -766,13 +780,13 @@ export default function DataSiswaPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-5 py-4">
+          <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-5 py-4 pr-7 sm:pr-5">
             <div className="flex items-center gap-3">
               <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                Halaman {page} dari {totalPages}
+                Halaman {safePage} dari {totalPages}
               </p>
               {selected.size > 0 && (
-                <div className="flex items-center gap-2 border-l border-border/50 pl-3">
+                <div className="flex items-center gap-2 pl-3">
                   <p className="text-[10px] font-bold text-primary uppercase">
                     {selected.size} dipilih
                   </p>
@@ -795,16 +809,32 @@ export default function DataSiswaPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <div className="relative">
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    setPerPage(Number(e.target.value))
+                    setPage(1)
+                  }}
+                  className="h-8 w-14 appearance-none rounded-lg border border-border bg-card pr-8 pl-2 text-[10px] font-bold"
+                >
+                  <option value={10}>10</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              </div>
               <button
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
+                disabled={safePage === 1}
+                onClick={() => setPage(Math.max(1, safePage - 1))}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <button
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => p + 1)}
+                disabled={safePage === totalPages}
+                onClick={() => setPage(Math.min(totalPages, safePage + 1))}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -824,6 +854,7 @@ export default function DataSiswaPage() {
           { value: "Perempuan", label: "Perempuan" },
         ]}
         statusLabel="Jenis Kelamin"
+        statusFieldClassName="space-y-1 mt-2"
         selectedStatus={filterJK}
         onStatusChange={(val) => {
           setFilterJK(val)

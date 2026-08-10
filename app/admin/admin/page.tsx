@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -28,6 +27,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
   Plus,
   Pencil,
@@ -81,20 +81,6 @@ export default function DataAdminPage() {
 
     checkSession()
   }, [router])
-
-  // ── Dynamic Row Calculation ────────────────────────────────────────────────
-  useEffect(() => {
-    const calculateRows = () => {
-      const availableHeight = window.innerHeight - 380 // Banner admin lebih pendek sedikit
-      const rowHeight = 53
-      const estimatedRows = Math.max(5, Math.floor(availableHeight / rowHeight))
-      setPerPage(estimatedRows)
-    }
-
-    calculateRows()
-    window.addEventListener("resize", calculateRows)
-    return () => window.removeEventListener("resize", calculateRows)
-  }, [])
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -152,7 +138,8 @@ export default function DataAdminPage() {
   }, [data, search, filterRole, selectedSort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
-  const paginated = filtered.slice((page - 1) * perPage, page * perPage)
+  const safePage = Math.min(Math.max(1, page), totalPages)
+  const paginated = filtered.slice((safePage - 1) * perPage, safePage * perPage)
   const paginatedIds = paginated.map((s) => s.id)
 
   const allPageSelected =
@@ -246,7 +233,8 @@ export default function DataAdminPage() {
 
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
-    setMounted(true)
+    const raf = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(raf)
   }, [])
 
   const todayStr = mounted
@@ -645,7 +633,7 @@ export default function DataAdminPage() {
           <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-5 py-4">
             <div className="flex items-center gap-3">
               <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                Halaman {page} dari {totalPages}
+                Halaman {safePage} dari {totalPages}
               </p>
               {selected.size > 0 && (
                 <div className="flex items-center gap-2 border-l border-border/50 pl-3">
@@ -671,16 +659,32 @@ export default function DataAdminPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <div className="relative">
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    setPerPage(Number(e.target.value))
+                    setPage(1)
+                  }}
+                  className="h-8 w-14 appearance-none rounded-lg border border-border bg-card pr-8 pl-2 text-[10px] font-bold"
+                >
+                  <option value={10}>10</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              </div>
               <button
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
+                disabled={safePage === 1}
+                onClick={() => setPage(Math.max(1, safePage - 1))}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <button
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => p + 1)}
+                disabled={safePage === totalPages}
+                onClick={() => setPage(Math.min(totalPages, safePage + 1))}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:bg-muted disabled:opacity-30"
               >
                 <ChevronRight className="h-4 w-4" />

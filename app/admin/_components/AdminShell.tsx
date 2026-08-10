@@ -212,7 +212,6 @@ export function AdminShell({
     const fetchSession = async () => {
       try {
         const res = await fetch("/api/auth/session")
-        if (!res.ok) throw new Error("Not authorized")
         const data = await res.json()
         if (data.user) {
           setAdmin(data.user)

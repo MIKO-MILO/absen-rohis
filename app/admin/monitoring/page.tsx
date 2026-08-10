@@ -409,7 +409,7 @@ export default function MonitoringPage() {
         />
 
         {/* ── Summary cards ── */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
           {[
             {
               label: "Total Siswa",
@@ -417,7 +417,6 @@ export default function MonitoringPage() {
               sub: "Total absensi tercatat",
               icon: Users,
               color: "text-slate-700 dark:text-slate-200",
-              bg: "bg-white hover:border-slate-300/70 dark:bg-card",
               iconBg:
                 "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
             },
@@ -427,7 +426,6 @@ export default function MonitoringPage() {
               sub: "Hadir hari ini",
               icon: UserCheck,
               color: "text-teal-600 dark:text-teal-400",
-              bg: "bg-white hover:border-teal-300/70 dark:bg-card",
               iconBg:
                 "bg-teal-500/10 text-teal-600 dark:bg-teal-400/10 dark:text-teal-400",
             },
@@ -437,7 +435,6 @@ export default function MonitoringPage() {
               sub: "Berhalangan sholat",
               icon: Clock,
               color: "text-blue-600 dark:text-blue-400",
-              bg: "bg-white hover:border-blue-300/70 dark:bg-card",
               iconBg:
                 "bg-blue-500/10 text-blue-600 dark:bg-blue-400/10 dark:text-blue-400",
             },
@@ -447,7 +444,6 @@ export default function MonitoringPage() {
               sub: "Alpa / Izin / Sakit",
               icon: XCircle,
               color: "text-rose-600 dark:text-rose-400",
-              bg: "bg-white hover:border-rose-300/70 dark:bg-card",
               iconBg:
                 "bg-rose-500/10 text-rose-600 dark:bg-rose-400/10 dark:text-rose-400",
             },
@@ -457,39 +453,32 @@ export default function MonitoringPage() {
               sub: "Belum mengisi presensi",
               icon: HelpCircle,
               color: "text-amber-600 dark:text-amber-400",
-              bg: "bg-white hover:border-amber-300/70 dark:bg-card",
               iconBg:
                 "bg-amber-500/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400",
             },
-          ].map(
-            ({ label, value, sub, icon: Icon, color, bg, iconBg }, index) => (
+          ].map(({ label, value, sub, icon: Icon, color, iconBg }) => (
+            <div
+              key={label}
+              className="group flex w-[calc(50%-0.375rem)] flex-col items-center justify-center rounded-[24px] border border-border/50 bg-white p-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md sm:w-[calc(50%-0.5rem)] md:w-[calc(33.333%-0.667rem)] lg:w-[calc(20%-0.8rem)] dark:bg-card"
+            >
               <div
-                key={label}
-                className={`group flex min-h-[184px] flex-col items-center justify-center rounded-[28px] border border-slate-200/80 p-4 text-center shadow-[0_4px_18px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_24px_rgba(15,23,42,0.12)] sm:min-h-[200px] sm:p-5 dark:border-border/80 ${bg} ${
-                  index === 0 ? "col-span-2 md:col-span-1" : ""
-                }`}
+                className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110 ${iconBg}`}
               >
-                <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110 sm:h-16 sm:w-16 ${iconBg}`}
-                >
-                  <Icon className="h-6 w-6 sm:h-7 sm:w-7" />
-                </div>
-                <div className="mt-5 space-y-2">
-                  <p
-                    className={`text-4xl leading-none font-black tracking-tight sm:text-5xl ${color}`}
-                  >
-                    {value}
-                  </p>
-                  <p className="text-base font-bold text-foreground">{label}</p>
-                </div>
-                <div className="mt-2 max-w-[140px]">
-                  <p className="text-xs leading-relaxed font-medium text-muted-foreground sm:text-sm">
-                    {sub}
-                  </p>
-                </div>
+                <Icon className="h-6 w-6" />
               </div>
-            )
-          )}
+              <p
+                className={`text-3xl leading-none font-black tracking-tight sm:text-4xl ${color}`}
+              >
+                {value}
+              </p>
+              <p className="mt-2 text-xs font-bold tracking-tight text-foreground sm:text-sm">
+                {label}
+              </p>
+              <p className="mt-1 text-center text-[10px] font-medium text-muted-foreground sm:text-[11px]">
+                {sub}
+              </p>
+            </div>
+          ))}
         </div>
 
         {/* ── Table card ── */}
