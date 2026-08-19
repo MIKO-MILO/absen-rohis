@@ -37,10 +37,10 @@ export interface CreateAuditLogParams {
 }
 
 export async function createAuditLog(params: CreateAuditLogParams): Promise<void> {
-  const { actor, action, targetType, targetId, description } = params;
-  const supabase = await createClient();
-
   try {
+    const { actor, action, targetType, targetId, description } = params;
+    const supabase = await createClient();
+
     const { error } = await supabase.from("audit_logs").insert({
       admin_id:       actor.id,
       action,
@@ -56,4 +56,3 @@ export async function createAuditLog(params: CreateAuditLogParams): Promise<void
     console.error("Error creating audit log:", err);
   }
 }
-
