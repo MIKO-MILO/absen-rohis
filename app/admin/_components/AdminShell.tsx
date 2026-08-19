@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import type { SessionData } from "@/lib/auth-client"
+import { clearAllLocalStorageSessions } from "@/lib/auth-client"
 
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
@@ -209,10 +210,30 @@ export function AdminShell({
 
   useEffect(() => {
     setMounted(true)
+    let cancelled = false
+    const failSafeTimer = setTimeout(() => {
+      if (!cancelled) {
+        console.warn("[AdminShell] Session check timed out, forcing cleanup")
+        clearAllLocalStorageSessions()
+        setIsAuthorized(false)
+        if (!redirecting.current) {
+          redirecting.current = true
+          window.location.href = "/admin"
+        }
+      }
+    }, 15000)
+
     const fetchSession = async () => {
       try {
-        const res = await fetch("/api/auth/session")
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000)
+        const res = await fetch("/api/auth/session", {
+          cache: "no-store",
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
         const data = await res.json()
+        if (cancelled) return
         if (data.user) {
           setAdmin(data.user)
           if (requireSuperadmin && data.user.role !== "superadmin") {
@@ -220,17 +241,26 @@ export function AdminShell({
             return
           }
           setIsAuthorized(true)
+          clearTimeout(failSafeTimer)
         } else {
           throw new Error("No user")
         }
       } catch {
+        if (cancelled) return
+        clearAllLocalStorageSessions()
+        clearTimeout(failSafeTimer)
         if (!redirecting.current) {
           redirecting.current = true
-          router.replace("/admin")
+          window.location.href = "/admin"
         }
       }
     }
     fetchSession()
+
+    return () => {
+      cancelled = true
+      clearTimeout(failSafeTimer)
+    }
   }, [router, requireSuperadmin])
 
   const handleLogout = () => {

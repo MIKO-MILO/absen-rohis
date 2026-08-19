@@ -22,7 +22,11 @@ import {
 import { ModeButton } from "@/components/mode-button"
 import { getActiveConfig, isOutsideAbsensiTime } from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
-import { fetchSession, isImpersonatingAsync } from "@/lib/auth-client"
+import {
+  fetchSession,
+  isImpersonatingAsync,
+  clearAllLocalStorageSessions,
+} from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -223,31 +227,40 @@ export default function UserHomePage() {
 
   useEffect(() => {
     let isMounted = true
+    let failSafeTimer: ReturnType<typeof setTimeout> | null = null
 
     const loadSession = async () => {
-      // First, try to fetch from API-based session
+      failSafeTimer = setTimeout(() => {
+        if (isMounted) {
+          console.warn("[USER HOME] Session check timed out, forcing redirect")
+          clearAllLocalStorageSessions()
+          setLoading(false)
+          router.push("/")
+        }
+      }, 15000)
+
       const apiSession = await fetchSession()
       const impersonationStatus = await isImpersonatingAsync()
 
-      if (isMounted) {
-        setIsImpersonating(impersonationStatus)
-      }
-
-      if (apiSession && apiSession.user) {
-        // Using API-based session
-        if (isMounted) {
-          setUser({
-            id: apiSession.user.id,
-            nama: apiSession.user.nama,
-            kelas: apiSession.user.kelas || "Administrator",
-            role: apiSession.user.role,
-          })
-          fetchData(apiSession.user.id)
-        }
+      if (!isMounted) {
+        if (failSafeTimer) clearTimeout(failSafeTimer)
         return
       }
 
-      // Fallback to legacy localStorage session
+      setIsImpersonating(impersonationStatus)
+
+      if (apiSession && apiSession.user) {
+        if (failSafeTimer) clearTimeout(failSafeTimer)
+        setUser({
+          id: apiSession.user.id,
+          nama: apiSession.user.nama,
+          kelas: apiSession.user.kelas || "Administrator",
+          role: apiSession.user.role,
+        })
+        fetchData(apiSession.user.id)
+        return
+      }
+
       let sessionStr = localStorage.getItem("siswa_session")
       if (!sessionStr) {
         sessionStr =
@@ -259,22 +272,25 @@ export default function UserHomePage() {
 
       if (!sessionStr) {
         console.log("[USER HOME] SESSION TIDAK ADA")
+        if (failSafeTimer) clearTimeout(failSafeTimer)
+        clearAllLocalStorageSessions()
+        setLoading(false)
         if (isMounted) router.push("/")
         return
       }
 
       console.log("[USER HOME] SESSION ADA")
 
-      const session: UserSession & { role?: string } = JSON.parse(sessionStr)
-      console.log("[USER HOME] Parsed session:", session)
-      console.log("[USER HOME] session.kelas:", session.kelas)
-      console.log("[USER HOME] session.role:", session.role)
+      try {
+        const session: UserSession & { role?: string } = JSON.parse(sessionStr)
+        console.log("[USER HOME] Parsed session:", session)
+        console.log("[USER HOME] session.kelas:", session.kelas)
+        console.log("[USER HOME] session.role:", session.role)
 
-      const isAdminUser =
-        session.role === "admin" || session.role === "superadmin"
+        const isAdminUser =
+          session.role === "admin" || session.role === "superadmin"
 
-      if (isMounted) {
-        // Jika admin, buat dummy user session untuk tampilan
+        if (failSafeTimer) clearTimeout(failSafeTimer)
         if (isAdminUser) {
           setUser({
             id: session.id,
@@ -282,13 +298,17 @@ export default function UserHomePage() {
             kelas: "Administrator",
             role: session.role,
           })
-          // Untuk admin, gunakan user_id 0 atau ambil semua data tanpa filter
           fetchData(0)
         } else {
           setUser(session)
           console.log("[USER HOME] setUser called with:", session)
           fetchData(session.id)
         }
+      } catch {
+        if (failSafeTimer) clearTimeout(failSafeTimer)
+        clearAllLocalStorageSessions()
+        setLoading(false)
+        if (isMounted) router.push("/")
       }
     }
 
@@ -296,6 +316,7 @@ export default function UserHomePage() {
 
     return () => {
       isMounted = false
+      if (failSafeTimer) clearTimeout(failSafeTimer)
     }
   }, [router, fetchData])
 

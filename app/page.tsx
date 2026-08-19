@@ -21,6 +21,8 @@ import {
   getEffectiveSession,
   getEffectiveRole,
   isImpersonating,
+  validateAndSyncSession,
+  clearAllLocalStorageSessions,
 } from "@/lib/auth-client"
 import type { SessionData } from "@/lib/auth-client"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
@@ -37,45 +39,107 @@ export default function LoginPage() {
 
   // Check session on mount
   useEffect(() => {
-    const checkSession = () => {
+    const checkSession = async () => {
       console.log("[MAIN LOGIN PAGE] Starting session check")
 
-      const effectiveSession = getEffectiveSession()
-      setSession(effectiveSession)
+      const cancelled = false
+      const failSafeTimer = setTimeout(() => {
+        if (!cancelled) {
+          console.warn("[LOGIN PAGE] Session check timed out, forcing fallback")
+          clearAllLocalStorageSessions()
+          setCheckingSession(false)
+        }
+      }, 15000)
 
-      const effectiveRole = getEffectiveRole()
-      console.log("[MAIN LOGIN PAGE] Effective role:", effectiveRole)
+      try {
+        const result = await validateAndSyncSession()
 
-      // If impersonating, redirect to the appropriate page
-      if (isImpersonating()) {
-        if (effectiveRole === "siswa") {
-          router.push("/user/home")
-          return
-        } else if (effectiveRole === "panitia") {
-          router.push("/rohis/home")
+        if (cancelled) {
+          clearTimeout(failSafeTimer)
           return
         }
-      }
 
-      // If normal session, redirect accordingly
-      if (effectiveSession) {
-        if (effectiveSession.role === "superadmin") {
-          // Stay on development hub
-        } else if (effectiveSession.role === "admin") {
-          // Redirect regular admin directly to dashboard
-          router.push("/admin/dashboard")
-          return
-        } else if (effectiveSession.role === "panitia") {
-          router.push("/rohis/home")
-          return
-        } else if (effectiveSession.role === "siswa") {
-          router.push("/user/home")
+        if (result.session) {
+          setSession(result.session)
+          const effRole = result.session.role
+
+          if (result.isImpersonating) {
+            if (effRole === "siswa") {
+              clearTimeout(failSafeTimer)
+              router.push("/user/home")
+              return
+            } else if (effRole === "panitia") {
+              clearTimeout(failSafeTimer)
+              router.push("/rohis/home")
+              return
+            }
+          }
+
+          if (effRole === "admin") {
+            clearTimeout(failSafeTimer)
+            router.push("/admin/dashboard")
+            return
+          } else if (effRole === "panitia") {
+            clearTimeout(failSafeTimer)
+            router.push("/rohis/home")
+            return
+          } else if (effRole === "siswa") {
+            clearTimeout(failSafeTimer)
+            router.push("/user/home")
+            return
+          }
+          clearTimeout(failSafeTimer)
+          setCheckingSession(false)
           return
         }
-      }
 
-      setCheckingSession(false)
-      console.log("[MAIN LOGIN PAGE] Session check complete")
+        // Fallback: legacy localStorage check (only to clean up stale entries)
+        const effectiveSession = getEffectiveSession()
+        const effectiveRole = getEffectiveRole()
+        console.log("[MAIN LOGIN PAGE] Fallback effective role:", effectiveRole)
+
+        if (isImpersonating()) {
+          if (effectiveRole === "siswa") {
+            clearTimeout(failSafeTimer)
+            router.push("/user/home")
+            return
+          } else if (effectiveRole === "panitia") {
+            clearTimeout(failSafeTimer)
+            router.push("/rohis/home")
+            return
+          }
+        }
+
+        if (effectiveSession) {
+          if (effectiveSession.role === "admin") {
+            clearTimeout(failSafeTimer)
+            router.push("/admin/dashboard")
+            return
+          } else if (effectiveSession.role === "panitia") {
+            clearTimeout(failSafeTimer)
+            router.push("/rohis/home")
+            return
+          } else if (effectiveSession.role === "siswa") {
+            clearTimeout(failSafeTimer)
+            router.push("/user/home")
+            return
+          } else if (effectiveSession.role === "superadmin") {
+            setSession(effectiveSession)
+            clearTimeout(failSafeTimer)
+            setCheckingSession(false)
+            return
+          }
+        }
+
+        clearTimeout(failSafeTimer)
+        setCheckingSession(false)
+        console.log("[MAIN LOGIN PAGE] Session check complete (no session)")
+      } catch (e) {
+        console.error("[LOGIN PAGE] Session check error:", e)
+        clearAllLocalStorageSessions()
+        clearTimeout(failSafeTimer)
+        setCheckingSession(false)
+      }
     }
 
     checkSession()
@@ -216,7 +280,7 @@ export default function LoginPage() {
               {[0, 45, 90, 135].map((deg) => (
                 <div
                   key={deg}
-                  className="absolute top-1/2 left-1/2 h-20 w-20 rounded-[4px] border-2 border-white"
+                  className="absolute top-1/2 left-1/2 h-20 w-20 rounded-lg border-2 border-white"
                   style={{
                     transform: `translate(-50%, -50%) rotate(${deg}deg)`,
                   }}
@@ -391,7 +455,7 @@ export default function LoginPage() {
               {[0, 45, 90, 135].map((deg) => (
                 <div
                   key={deg}
-                  className="absolute top-1/2 left-1/2 h-20 w-20 rounded-[4px] border-2 border-white"
+                  className="absolute top-1/2 left-1/2 h-20 w-20 rounded-lg border-2 border-white"
                   style={{
                     transform: `translate(-50%, -50%) rotate(${deg}deg)`,
                   }}

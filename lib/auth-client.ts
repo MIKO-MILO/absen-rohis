@@ -264,6 +264,81 @@ export function stopImpersonation(): void {
 let cachedSession: FullSessionData | null = null
 let lastFetchTime = 0
 const CACHE_TTL = 5000 // 5 seconds
+const FETCH_TIMEOUT = 10000 // 10 seconds timeout for auth calls
+
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = FETCH_TIMEOUT
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error(`Request timeout after ${timeoutMs}ms`))
+    }, timeoutMs)
+
+    fetch(url, { ...options, signal: controller.signal })
+      .then((res) => {
+        clearTimeout(timer)
+        resolve(res)
+      })
+      .catch((err) => {
+        clearTimeout(timer)
+        reject(err)
+      })
+  })
+}
+
+export function clearAllLocalStorageSessions(): void {
+  if (typeof window === "undefined") return
+  localStorage.removeItem(ADMIN_SESSION_KEY)
+  localStorage.removeItem(PANITIA_SESSION_KEY)
+  localStorage.removeItem(SISWA_SESSION_KEY)
+  localStorage.removeItem(IMPERSONATION_KEY)
+}
+
+function cleanupInvalidLocalStorageSessions(): void {
+  if (typeof window === "undefined") return
+  const keys = [ADMIN_SESSION_KEY, PANITIA_SESSION_KEY, SISWA_SESSION_KEY]
+  for (const key of keys) {
+    const raw = localStorage.getItem(key)
+    if (!raw) continue
+    try {
+      const parsed = JSON.parse(raw)
+      if (!isValidSessionData(parsed)) {
+        localStorage.removeItem(key)
+      }
+    } catch {
+      localStorage.removeItem(key)
+    }
+  }
+  const impRaw = localStorage.getItem(IMPERSONATION_KEY)
+  if (impRaw) {
+    try {
+      const imp = JSON.parse(impRaw)
+      if (!isValidImpersonationSession(imp)) {
+        localStorage.removeItem(IMPERSONATION_KEY)
+      } else {
+        const adminRaw = localStorage.getItem(ADMIN_SESSION_KEY)
+        if (!adminRaw) {
+          localStorage.removeItem(IMPERSONATION_KEY)
+        } else {
+          try {
+            const admin = JSON.parse(adminRaw)
+            if (!isValidSessionData(admin) || !isAdmin(admin.role)) {
+              localStorage.removeItem(IMPERSONATION_KEY)
+            }
+          } catch {
+            localStorage.removeItem(IMPERSONATION_KEY)
+          }
+        }
+      }
+    } catch {
+      localStorage.removeItem(IMPERSONATION_KEY)
+    }
+  }
+}
 
 export async function fetchSession(): Promise<FullSessionData | null> {
   const now = Date.now()
@@ -271,11 +346,16 @@ export async function fetchSession(): Promise<FullSessionData | null> {
     return cachedSession
   }
 
+  cleanupInvalidLocalStorageSessions()
+
   try {
-    const res = await fetch("/api/auth/session")
+    const res = await fetchWithTimeout("/api/auth/session", {
+      cache: "no-store",
+    })
     const data = await res.json()
     if (!data?.user) {
       cachedSession = null
+      clearAllLocalStorageSessions()
       return null
     }
     cachedSession = data
@@ -291,6 +371,62 @@ export async function fetchSession(): Promise<FullSessionData | null> {
 export function clearSessionCache() {
   cachedSession = null
   lastFetchTime = 0
+}
+
+function syncLocalStorageFromSession(session: SessionData): void {
+  if (typeof window === "undefined") return
+  clearAllLocalStorageSessions()
+  let key: string
+  if (session.role === "admin" || session.role === "superadmin") {
+    key = ADMIN_SESSION_KEY
+  } else if (session.role === "panitia") {
+    key = PANITIA_SESSION_KEY
+  } else {
+    key = SISWA_SESSION_KEY
+  }
+  const toSave: SessionData = {
+    id: session.id,
+    nama: session.nama,
+    role: session.role,
+  }
+  if (session.username !== undefined) toSave.username = session.username
+  if (session.kelas !== undefined) toSave.kelas = session.kelas
+  if (session.divisi !== undefined) toSave.divisi = session.divisi
+  try {
+    localStorage.setItem(key, JSON.stringify(toSave))
+  } catch {
+    /* ignore quota errors */
+  }
+}
+
+export interface SessionValidationResult {
+  session: SessionData | null
+  isImpersonating: boolean
+}
+
+export async function validateAndSyncSession(): Promise<SessionValidationResult> {
+  if (typeof window === "undefined") {
+    return { session: null, isImpersonating: false }
+  }
+  cleanupInvalidLocalStorageSessions()
+  const full = await fetchSession()
+  if (!full || !full.user) {
+    clearAllLocalStorageSessions()
+    return { session: null, isImpersonating: false }
+  }
+  try {
+    if (full.originalUser && full.impersonation) {
+      syncLocalStorageFromSession(full.originalUser)
+    } else {
+      syncLocalStorageFromSession(full.user)
+    }
+  } catch {
+    /* ignore */
+  }
+  return {
+    session: full.user,
+    isImpersonating: !!full.impersonation,
+  }
 }
 
 export async function isImpersonatingAsync(): Promise<boolean> {

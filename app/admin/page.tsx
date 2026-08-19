@@ -7,6 +7,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
+import {
+  validateAndSyncSession,
+  clearAllLocalStorageSessions,
+  ADMIN_SESSION_KEY,
+  PANITIA_SESSION_KEY,
+  SISWA_SESSION_KEY,
+  isValidSessionData,
+  isAdmin,
+} from "@/lib/auth-client"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -19,44 +28,110 @@ export default function AdminLoginPage() {
 
   // Check session on mount
   useEffect(() => {
-    const checkSession = () => {
+    const checkSession = async () => {
       console.log("[ADMIN LOGIN PAGE] Starting session check")
 
-      // Check admin session first
-      const adminSession = localStorage.getItem("admin_session")
-      console.log("[ADMIN LOGIN PAGE] admin_session exists:", !!adminSession)
+      const cancelled = false
+      const failSafeTimer = setTimeout(() => {
+        if (!cancelled) {
+          console.warn(
+            "[ADMIN LOGIN PAGE] Session check timed out, forcing fallback"
+          )
+          clearAllLocalStorageSessions()
+          setCheckingSession(false)
+        }
+      }, 15000)
 
-      if (adminSession) {
-        console.log("[ADMIN LOGIN PAGE] Redirecting to /admin/dashboard")
-        router.push("/admin/dashboard")
-        return
+      try {
+        const result = await validateAndSyncSession()
+
+        if (cancelled) {
+          clearTimeout(failSafeTimer)
+          return
+        }
+
+        if (result.session) {
+          const role = result.session.role
+          if (isAdmin(role) || result.isImpersonating) {
+            clearTimeout(failSafeTimer)
+            if (result.isImpersonating && role === "siswa") {
+              router.push("/user/home")
+              return
+            }
+            if (result.isImpersonating && role === "panitia") {
+              router.push("/rohis/home")
+              return
+            }
+            router.push("/admin/dashboard")
+            return
+          } else if (role === "panitia") {
+            clearTimeout(failSafeTimer)
+            router.push("/rohis/home")
+            return
+          } else if (role === "siswa") {
+            clearTimeout(failSafeTimer)
+            router.push("/user/home")
+            return
+          }
+        }
+
+        // Fallback: legacy localStorage validation (only used to clear stale entries)
+        const adminRaw = localStorage.getItem(ADMIN_SESSION_KEY)
+        if (adminRaw) {
+          try {
+            const parsed = JSON.parse(adminRaw)
+            if (isValidSessionData(parsed) && isAdmin(parsed.role)) {
+              clearTimeout(failSafeTimer)
+              router.push("/admin/dashboard")
+              return
+            } else {
+              localStorage.removeItem(ADMIN_SESSION_KEY)
+            }
+          } catch {
+            localStorage.removeItem(ADMIN_SESSION_KEY)
+          }
+        }
+
+        const panitiaRaw = localStorage.getItem(PANITIA_SESSION_KEY)
+        if (panitiaRaw) {
+          try {
+            const parsed = JSON.parse(panitiaRaw)
+            if (isValidSessionData(parsed) && parsed.role === "panitia") {
+              clearTimeout(failSafeTimer)
+              router.push("/rohis/home")
+              return
+            } else {
+              localStorage.removeItem(PANITIA_SESSION_KEY)
+            }
+          } catch {
+            localStorage.removeItem(PANITIA_SESSION_KEY)
+          }
+        }
+
+        const siswaRaw = localStorage.getItem(SISWA_SESSION_KEY)
+        if (siswaRaw) {
+          try {
+            const parsed = JSON.parse(siswaRaw)
+            if (isValidSessionData(parsed) && parsed.role === "siswa") {
+              clearTimeout(failSafeTimer)
+              router.push("/user/home")
+              return
+            } else {
+              localStorage.removeItem(SISWA_SESSION_KEY)
+            }
+          } catch {
+            localStorage.removeItem(SISWA_SESSION_KEY)
+          }
+        }
+
+        clearTimeout(failSafeTimer)
+        setCheckingSession(false)
+      } catch (e) {
+        console.error("[ADMIN LOGIN PAGE] Session check error:", e)
+        clearAllLocalStorageSessions()
+        clearTimeout(failSafeTimer)
+        setCheckingSession(false)
       }
-
-      // Check if user or panitia is already logged in - redirect them to their respective homes
-      const panitiaSession = localStorage.getItem("panitia_session")
-      console.log(
-        "[ADMIN LOGIN PAGE] panitia_session exists:",
-        !!panitiaSession
-      )
-
-      if (panitiaSession) {
-        console.log("[ADMIN LOGIN PAGE] Redirecting to /rohis/home")
-        router.push("/rohis/home")
-        return
-      }
-
-      const siswaSession = localStorage.getItem("siswa_session")
-      console.log("[ADMIN LOGIN PAGE] siswa_session exists:", !!siswaSession)
-
-      if (siswaSession) {
-        console.log("[ADMIN LOGIN PAGE] Redirecting to /user/home")
-        router.push("/user/home")
-        return
-      }
-
-      // No session, stay on admin login
-      console.log("[ADMIN LOGIN PAGE] No session found, staying on /admin")
-      setCheckingSession(false)
     }
 
     checkSession()
@@ -152,7 +227,7 @@ export default function AdminLoginPage() {
       />
 
       {/* Card */}
-      <div className="relative w-full max-w-[420px]">
+      <div className="relative w-full max-w-105">
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
           {/* Top accent bar */}
 

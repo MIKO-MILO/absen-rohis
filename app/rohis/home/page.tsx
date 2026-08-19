@@ -26,7 +26,11 @@ import {
   type TestConfig,
 } from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
-import { fetchSession, isImpersonatingAsync } from "@/lib/auth-client"
+import {
+  fetchSession,
+  isImpersonatingAsync,
+  clearAllLocalStorageSessions,
+} from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -211,31 +215,42 @@ export default function AbsenSholatPage() {
 
   useEffect(() => {
     let isMounted = true
+    let failSafeTimer: ReturnType<typeof setTimeout> | null = null
 
     const loadSession = async () => {
-      // First, try to fetch from API-based session
+      failSafeTimer = setTimeout(() => {
+        if (isMounted) {
+          console.warn(
+            "[PANITIA HOME] Session check timed out, forcing redirect"
+          )
+          clearAllLocalStorageSessions()
+          setLoading(false)
+          router.push("/")
+        }
+      }, 15000)
+
       const apiSession = await fetchSession()
       const impersonationStatus = await isImpersonatingAsync()
 
-      if (isMounted) {
-        setIsImpersonating(impersonationStatus)
-      }
-
-      if (apiSession && apiSession.user) {
-        // Using API-based session
-        if (isMounted) {
-          setPanitia({
-            id: apiSession.user.id,
-            nama: apiSession.user.nama,
-            divisi: apiSession.user.divisi || "Administrator",
-            role: apiSession.user.role,
-          })
-          fetchAbsensi(apiSession.user.id)
-        }
+      if (!isMounted) {
+        if (failSafeTimer) clearTimeout(failSafeTimer)
         return
       }
 
-      // Fallback to legacy localStorage session
+      setIsImpersonating(impersonationStatus)
+
+      if (apiSession && apiSession.user) {
+        if (failSafeTimer) clearTimeout(failSafeTimer)
+        setPanitia({
+          id: apiSession.user.id,
+          nama: apiSession.user.nama,
+          divisi: apiSession.user.divisi || "Administrator",
+          role: apiSession.user.role,
+        })
+        fetchAbsensi(apiSession.user.id)
+        return
+      }
+
       let sessionStr = localStorage.getItem("panitia_session")
       if (!sessionStr) {
         sessionStr =
@@ -248,26 +263,32 @@ export default function AbsenSholatPage() {
       )
 
       if (!sessionStr) {
+        if (failSafeTimer) clearTimeout(failSafeTimer)
+        clearAllLocalStorageSessions()
+        setLoading(false)
         if (isMounted) router.push("/")
         return
       }
 
-      const session: PanitiaSession & { role?: string } = JSON.parse(sessionStr)
-      console.log("[PANITIA HOME] Parsed session:", session)
-      console.log("[PANITIA HOME] session.divisi:", session.divisi)
-      console.log("[PANITIA HOME] session.role:", session.role)
+      try {
+        const session: PanitiaSession & { role?: string } =
+          JSON.parse(sessionStr)
+        console.log("[PANITIA HOME] Parsed session:", session)
+        console.log("[PANITIA HOME] session.divisi:", session.divisi)
+        console.log("[PANITIA HOME] session.role:", session.role)
 
-      const isAdminUser =
-        session.role === "admin" || session.role === "superadmin"
+        const isAdminUser =
+          session.role === "admin" || session.role === "superadmin"
 
-      // Izinkan admin, tapi untuk role lain harus panitia
-      if (!isAdminUser && session.role !== "panitia") {
-        if (isMounted) router.push("/")
-        return
-      }
+        if (!isAdminUser && session.role !== "panitia") {
+          if (failSafeTimer) clearTimeout(failSafeTimer)
+          clearAllLocalStorageSessions()
+          setLoading(false)
+          if (isMounted) router.push("/")
+          return
+        }
 
-      if (isMounted) {
-        // Jika admin, buat dummy panitia session untuk tampilan
+        if (failSafeTimer) clearTimeout(failSafeTimer)
         if (isAdminUser) {
           setPanitia({
             id: session.id,
@@ -275,13 +296,17 @@ export default function AbsenSholatPage() {
             divisi: "Administrator",
             role: session.role,
           })
-          // Untuk admin, gunakan panitia_id 0 atau ambil semua data tanpa filter
           fetchAbsensi(0)
         } else {
           setPanitia(session)
           console.log("[PANITIA HOME] setPanitia called with:", session)
           fetchAbsensi(session.id)
         }
+      } catch {
+        if (failSafeTimer) clearTimeout(failSafeTimer)
+        clearAllLocalStorageSessions()
+        setLoading(false)
+        if (isMounted) router.push("/")
       }
     }
 
@@ -289,6 +314,7 @@ export default function AbsenSholatPage() {
 
     return () => {
       isMounted = false
+      if (failSafeTimer) clearTimeout(failSafeTimer)
     }
   }, [router, fetchAbsensi])
 
