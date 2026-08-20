@@ -15,6 +15,7 @@ import {
   SISWA_SESSION_KEY,
   isValidSessionData,
   isAdmin,
+  clearSessionCache,
 } from "@/lib/auth-client"
 
 export default function AdminLoginPage() {
@@ -162,10 +163,10 @@ export default function AdminLoginPage() {
       // Save session to localStorage
       const sessionKey =
         result.role === "admin" || result.role === "superadmin"
-          ? "admin_session"
+          ? ADMIN_SESSION_KEY
           : result.role === "panitia"
-            ? "panitia_session"
-            : "siswa_session"
+            ? PANITIA_SESSION_KEY
+            : SISWA_SESSION_KEY
 
       const sessionToSave = {
         id: result.user.id,
@@ -173,9 +174,14 @@ export default function AdminLoginPage() {
         nama: result.user.nama,
         kelas: result.user.kelas,
         divisi: result.user.divisi,
+        username: result.user.username,
       }
 
       localStorage.setItem(sessionKey, JSON.stringify(sessionToSave))
+      clearSessionCache()
+
+      await validateAndSyncSession()
+      router.refresh()
 
       // Redirect
       router.push(result.redirect)

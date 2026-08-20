@@ -353,19 +353,47 @@ export async function fetchSession(): Promise<FullSessionData | null> {
       cache: "no-store",
     })
     const data = await res.json()
-    if (!data?.user) {
-      cachedSession = null
-      clearAllLocalStorageSessions()
-      return null
+    if (data?.user) {
+      cachedSession = data
+      lastFetchTime = now
+      return data
     }
-    cachedSession = data
-    lastFetchTime = now
-    return data
   } catch (err) {
     console.error("Failed to fetch session:", err)
-    cachedSession = null
-    return null
   }
+
+  const fallback = getEffectiveSession()
+  if (fallback) {
+    const result: FullSessionData = { user: fallback }
+    const imp = getImpersonationSession()
+    const adminRaw =
+      typeof window !== "undefined"
+        ? localStorage.getItem(ADMIN_SESSION_KEY)
+        : null
+    if (imp && adminRaw) {
+      try {
+        const parsedAdmin = JSON.parse(adminRaw)
+        if (isValidSessionData(parsedAdmin) && isAdmin(parsedAdmin.role)) {
+          result.originalUser = parsedAdmin
+          result.impersonation = {
+            adminId: parsedAdmin.id,
+            adminNama: parsedAdmin.nama,
+            targetUserId: fallback.id,
+            targetRole: imp.role,
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    cachedSession = result
+    lastFetchTime = now
+    return result
+  }
+
+  cachedSession = null
+  clearAllLocalStorageSessions()
+  return null
 }
 
 export function clearSessionCache() {
