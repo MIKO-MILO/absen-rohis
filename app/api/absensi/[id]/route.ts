@@ -2,8 +2,9 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabaseServer"
 import { requireAdminSession } from "@/lib/auth-server"
 import type { Database } from "@/lib/supabase-types"
+import { withRequestMetrics } from "@/lib/request-metrics"
 
-export async function GET(
+export const GET = withRequestMetrics(async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -44,9 +45,9 @@ export async function GET(
       { status: 500 }
     )
   }
-}
+})
 
-export async function PUT(
+export const PUT = withRequestMetrics(async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -99,9 +100,9 @@ export async function PUT(
       { status: 500 }
     )
   }
-}
+})
 
-export async function DELETE(
+export const DELETE = withRequestMetrics(async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -131,4 +132,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})

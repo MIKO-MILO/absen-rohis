@@ -103,8 +103,9 @@ export default function GenerateQRPage() {
   const isWarning = countdown <= 15
   const isExpired = status === "expired"
   const isSuccess = status === "success"
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isMounted = useRef(true)
+  const isFetchingLiveAbsen = useRef(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Check session on mount
   useEffect(() => {
@@ -197,6 +198,8 @@ export default function GenerateQRPage() {
 
   // ─── Fetch Live Absen ─────────────────────────────────────────────────────
   const fetchLiveAbsen = useCallback(async () => {
+    if (isFetchingLiveAbsen.current) return
+    isFetchingLiveAbsen.current = true
     try {
       const session = await getEffectiveUserAsync()
       if (!session) return
@@ -258,6 +261,8 @@ export default function GenerateQRPage() {
       }
     } catch (err) {
       console.error("Live fetch error:", err)
+    } finally {
+      isFetchingLiveAbsen.current = false
     }
   }, [handleGenerate, router])
 
@@ -269,7 +274,7 @@ export default function GenerateQRPage() {
   }, [handleGenerate])
 
   useEffect(() => {
-    const interval = setInterval(fetchLiveAbsen, 3000)
+    const interval = setInterval(fetchLiveAbsen, 5000)
     return () => clearInterval(interval)
   }, [fetchLiveAbsen])
 

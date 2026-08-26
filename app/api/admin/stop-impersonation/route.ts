@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabaseServer"
 import { getOriginalSession, clearImpersonationCookie } from "@/lib/auth-server"
 import { createAuditLog } from "@/lib/audit-log"
+import { withRequestMetrics } from "@/lib/request-metrics"
 
-export async function POST() {
+export const POST = withRequestMetrics(async function POST() {
   try {
     const originalSession = await getOriginalSession()
 
@@ -56,4 +57,4 @@ export async function POST() {
     console.error("Stop impersonation error:", error)
     return Response.json({ error: "Terjadi kesalahan server" }, { status: 500 })
   }
-}
+})

@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient"
+import { withRequestMetrics } from "@/lib/request-metrics"
 
-export async function GET(req: Request) {
+export const GET = withRequestMetrics(async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const user_id = searchParams.get("user_id")
 
@@ -25,4 +26,4 @@ export async function GET(req: Request) {
   const sudahAbsen = data.length > 0
 
   return Response.json({ sudahAbsen })
-}
+})

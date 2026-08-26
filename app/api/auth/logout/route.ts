@@ -1,7 +1,8 @@
 import { clearSessionCookie, clearImpersonationCookie } from "@/lib/auth-server"
 import { NextResponse } from "next/server"
+import { withRequestMetrics } from "@/lib/request-metrics"
 
-export async function POST() {
+export const POST = withRequestMetrics(async function POST() {
   try {
     await clearSessionCookie()
     await clearImpersonationCookie()
@@ -10,4 +11,4 @@ export async function POST() {
     console.error("[API /api/auth/logout] Unhandled error:", err)
     return NextResponse.json({ success: false })
   }
-}
+})

@@ -1,5 +1,5 @@
-import { createClient } from "./supabaseServer";
-import { type SessionData } from "./auth-client";
+import { createClient } from "./supabaseServer"
+import { type SessionData } from "./auth-client"
 
 export type AuditAction =
   | "login"
@@ -18,7 +18,7 @@ export type AuditAction =
   | "start_impersonation"
   | "stop_impersonation"
   | "scan_qr"
-  | "approve_absensi";
+  | "approve_absensi"
 
 export type AuditTargetType =
   | "admin"
@@ -26,33 +26,51 @@ export type AuditTargetType =
   | "siswa"
   | "config"
   | "absensi"
-  | null;
+  | null
 
 export interface CreateAuditLogParams {
-  actor: SessionData;
-  action: AuditAction;
-  targetType?: AuditTargetType;
-  targetId?: number;
-  description?: string;
+  actor: SessionData
+  action: AuditAction
+  targetType?: AuditTargetType
+  targetId?: number
+  description?: string
 }
 
-export async function createAuditLog(params: CreateAuditLogParams): Promise<void> {
+export async function createAuditLog(
+  params: CreateAuditLogParams
+): Promise<void> {
   try {
-    const { actor, action, targetType, targetId, description } = params;
-    const supabase = await createClient();
+    const { actor, action, targetType, targetId, description } = params
+    const supabase = await createClient()
+
+    const finalDescription =
+      description ??
+      `${actor.nama} (${actor.role}) ${action.replace(/_/g, " ")}`
 
     const { error } = await supabase.from("audit_logs").insert({
-      admin_id:       actor.id,
+      admin_id: actor.id,
       action,
       target_user_id: targetId ?? null,
-      target_type:    targetType ?? null,
-      description:    description ?? null,
-    });
+      target_type: targetType ?? null,
+      description: finalDescription,
+      created_at: new Date().toISOString(),
+    })
 
     if (error) {
-      console.error("Failed to create audit log:", error);
+      console.error(
+        "[AUDIT-LOG] Failed to create audit log:",
+        error,
+        "| payload:",
+        {
+          admin_id: actor.id,
+          actor_role: actor.role,
+          actor_nama: actor.nama,
+          action,
+          description: finalDescription,
+        }
+      )
     }
   } catch (err) {
-    console.error("Error creating audit log:", err);
+    console.error("[AUDIT-LOG] Error creating audit log:", err)
   }
 }

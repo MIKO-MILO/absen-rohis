@@ -106,6 +106,20 @@ export interface AuditLog {
   created_at: string
 }
 
+export interface RequestMetrics {
+  id: number
+  endpoint: string
+  method: string
+  bucket_date: string
+  bucket_hour: number
+  total_requests: number
+  success_count: number
+  error_count: number
+  total_response_time: number
+  created_at: string
+  updated_at: string
+}
+
 export interface SystemSettings {
   id: number
   config: Json

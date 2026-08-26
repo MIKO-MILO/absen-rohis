@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabaseServer"
 import { getOriginalSession, setImpersonationCookie } from "@/lib/auth-server"
 import { createAuditLog } from "@/lib/audit-log"
+import { withRequestMetrics } from "@/lib/request-metrics"
 
-export async function POST(req: Request) {
+export const POST = withRequestMetrics(async function POST(req: Request) {
   try {
     const body = await req.json()
     const { targetUserId, targetRole } = body
@@ -113,4 +114,4 @@ export async function POST(req: Request) {
     console.error("Impersonate error:", error)
     return Response.json({ error: "Terjadi kesalahan server" }, { status: 500 })
   }
-}
+})

@@ -5,6 +5,10 @@ import {
   requireAdminSession,
   requireAuthenticatedSession,
 } from "@/lib/auth-server"
+import { withRequestMetrics } from "@/lib/request-metrics"
+import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
+import { checkRateLimit } from "@/lib/rate-limit"
+import { createAuditLog } from "@/lib/audit-log"
 
 function isValidDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -12,10 +16,15 @@ function isValidDate(value: unknown): value is string {
   }
 
   const date = new Date(`${value}T00:00:00.000Z`)
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+  return (
+    !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+  )
 }
 
-export async function POST(req: Request) {
+export const POST = withRequestMetrics(async function POST(req: Request) {
+  const rl = await checkRateLimitPreset({ req, scope: "qr-scan" })
+  if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
+
   interface QRToken {
     id: string | number
     token?: string
@@ -79,6 +88,34 @@ export async function POST(req: Request) {
       adminSessionId = adminSession.id
     } else {
       const session = await requireAuthenticatedSession()
+
+      // ─── Rate Limiting (30 req/min per user, fail-open) ───────────────────
+      const limitResult = await checkRateLimit({
+        key: `rate:qr:user:${session.id}`,
+        limit: 30,
+        windowSeconds: 60,
+        failClosed: false,
+      })
+
+      if (!limitResult.allowed) {
+        const retryAfter = Math.max(
+          0,
+          Math.ceil((limitResult.resetAt.getTime() - Date.now()) / 1000)
+        )
+        return Response.json(
+          { error: "Too many requests. Please try again later.", retryAfter },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": String(retryAfter),
+              "X-RateLimit-Limit": "30",
+              "X-RateLimit-Remaining": "0",
+              "X-RateLimit-Reset": limitResult.resetAt.toISOString(),
+            },
+          }
+        )
+      }
+
       if (session.role !== "siswa" || session.id !== targetUserId) {
         return Response.json({ error: "Forbidden" }, { status: 403 })
       }
@@ -292,4 +329,4 @@ export async function POST(req: Request) {
     const msg = err instanceof Error ? err.message : "Terjadi kesalahan server"
     return Response.json({ error: msg }, { status: 500 })
   }
-}
+})

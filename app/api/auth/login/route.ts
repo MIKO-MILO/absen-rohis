@@ -2,16 +2,43 @@ import { createClient } from "@/lib/supabaseServer"
 import { setSessionCookie } from "@/lib/auth-server"
 import { createAuditLog } from "@/lib/audit-log"
 import type { SessionData } from "@/lib/auth-client"
+import { withRequestMetrics } from "@/lib/request-metrics"
+import { checkRateLimit } from "@/lib/rate-limit"
+import { getClientIp } from "@/lib/request-client"
 
-export async function POST(req: Request) {
+export const POST = withRequestMetrics(async function POST(req: Request) {
   try {
+    // ─── 0. Rate Limiting Check (Fail-closed) ──────────────────────────────
+    const ip = getClientIp(req)
+    const limitResult = await checkRateLimit({
+      key: `rate:login:ip:${ip}`,
+      limit: 5,
+      windowSeconds: 60,
+      failClosed: true,
+    })
+
+    const headers: Record<string, string> = {
+      "X-RateLimit-Limit": "5",
+      "X-RateLimit-Remaining": String(limitResult.remaining),
+      "X-RateLimit-Reset": limitResult.resetAt.toISOString(),
+    }
+
+    if (!limitResult.allowed) {
+      const retryAfter = Math.max(0, Math.ceil((limitResult.resetAt.getTime() - Date.now()) / 1000))
+      headers["Retry-After"] = String(retryAfter)
+      return Response.json(
+        { error: "Too many requests. Please try again later.", retryAfter },
+        { status: 429, headers }
+      )
+    }
+
     const body = await req.json()
     const { identifier, password } = body
 
     if (!identifier || !password) {
       return Response.json(
         { error: "Username/Email/NIS dan Password wajib diisi" },
-        { status: 400 }
+        { status: 400, headers }
       )
     }
 
@@ -108,4 +135,4 @@ export async function POST(req: Request) {
     console.error("Login error:", error)
     return Response.json({ error: "Terjadi kesalahan server" }, { status: 500 })
   }
-}
+})

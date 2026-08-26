@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -26,11 +26,7 @@ import {
   type TestConfig,
 } from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
-import {
-  fetchSession,
-  isImpersonatingAsync,
-  clearAllLocalStorageSessions,
-} from "@/lib/auth-client"
+import { fetchSession, clearAllLocalStorageSessions } from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -105,6 +101,7 @@ export default function AbsenSholatPage() {
   const [now, setNow] = useState<Date | null>(null)
   const [mounted, setMounted] = useState(false)
   const [isImpersonating, setIsImpersonating] = useState(false)
+  const isFetchingConfigRef = useRef(false)
 
   async function handleLogout() {
     if (isImpersonating) {
@@ -127,55 +124,49 @@ export default function AbsenSholatPage() {
     window.location.href = "/"
   }
 
+  const fetchConfig = useCallback(async () => {
+    if (isFetchingConfigRef.current) return
+    isFetchingConfigRef.current = true
+    try {
+      const res = await fetch("/api/config")
+      if (res.ok) {
+        const dbConfig = await res.json()
+        setConfig(dbConfig)
+        try {
+          localStorage.setItem(
+            "test_config_superadmin",
+            JSON.stringify(dbConfig)
+          )
+        } catch {
+          /* ignore quota errors */
+        }
+      }
+    } catch {
+      /* silent error */
+    } finally {
+      isFetchingConfigRef.current = false
+    }
+  }, [])
+
   useEffect(() => {
     setMounted(true)
     setNow(new Date())
 
-    // Ambil config awal dari DB
-    const initConfig = async () => {
-      try {
-        const res = await fetch("/api/config")
-        if (res.ok) {
-          const dbConfig = await res.json()
-          setConfig(dbConfig)
-          localStorage.setItem(
-            "test_config_superadmin",
-            JSON.stringify(dbConfig)
-          )
-        }
-      } catch {
-        // silent error
-      }
-    }
-    initConfig()
+    void fetchConfig()
 
-    // Sinkronisasi waktu (lokal)
     const timeInterval = setInterval(() => {
       setNow(new Date())
     }, 1000)
 
-    // Sinkronisasi config dari DB secara periodik (setiap 5 detik)
-    const configInterval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/config")
-        if (res.ok) {
-          const dbConfig = await res.json()
-          setConfig(dbConfig)
-          localStorage.setItem(
-            "test_config_superadmin",
-            JSON.stringify(dbConfig)
-          )
-        }
-      } catch {
-        // silent error
-      }
-    }, 5000)
+    const configInterval = setInterval(() => {
+      void fetchConfig()
+    }, 60000)
 
     return () => {
       clearInterval(timeInterval)
       clearInterval(configInterval)
     }
-  }, [])
+  }, [fetchConfig])
 
   const fetchAbsensi = useCallback(async (panitiaId: string | number) => {
     try {
@@ -230,14 +221,13 @@ export default function AbsenSholatPage() {
       }, 15000)
 
       const apiSession = await fetchSession()
-      const impersonationStatus = await isImpersonatingAsync()
 
       if (!isMounted) {
         if (failSafeTimer) clearTimeout(failSafeTimer)
         return
       }
 
-      setIsImpersonating(impersonationStatus)
+      setIsImpersonating(!!apiSession?.impersonation)
 
       if (apiSession && apiSession.user) {
         if (failSafeTimer) clearTimeout(failSafeTimer)
@@ -247,7 +237,7 @@ export default function AbsenSholatPage() {
           divisi: apiSession.user.divisi || "Administrator",
           role: apiSession.user.role,
         })
-        fetchAbsensi(apiSession.user.id)
+        void fetchAbsensi(apiSession.user.id)
         return
       }
 

@@ -1,40 +1,32 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabaseServer"
 import { requireRole, getSession } from "@/lib/auth-server"
 import { v4 as uuidv4 } from "uuid"
 import QRCode from "qrcode"
 import type { Database } from "@/lib/supabase-types"
+import { withRequestMetrics } from "@/lib/request-metrics"
+import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 
-export async function POST(req: Request) {
+export const POST = withRequestMetrics(async function POST(req: NextRequest) {
   try {
-    console.log("[QR GENERATE API] Starting request...")
-    console.log("[QR GENERATE API] Request URL:", req.url)
-    console.log(
-      "[QR GENERATE API] Request headers:",
-      Object.fromEntries(req.headers.entries())
-    )
+    const rl = await checkRateLimitPreset({ req, scope: "qr-generate" })
+    if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
 
-    console.log("[QR GENERATE API] Checking session...")
     const session = await getSession()
-    console.log("[QR GENERATE API] Session data:", session)
+    if (!session?.id) throw new Error("Unauthorized")
 
-    console.log("[QR GENERATE API] Calling requireRole...")
     await requireRole(["admin", "superadmin", "panitia"] as const)
-    console.log("[QR GENERATE API] requireRole passed")
 
     const body = await req.json()
-    console.log("[QR GENERATE API] Request body:", body)
-
     const { panitia_id, expired_at } = body as Partial<
       Database["public"]["Tables"]["qr_token"]["Insert"]
     >
-    // Default to 10 minutes from now if no expired_at provided
+
     const finalExpiredAt =
       expired_at || new Date(Date.now() + 10 * 60 * 1000).toISOString()
     const token = `ROHIS-DZUHUR-${uuidv4()}`
     const supabase = await createClient()
 
-    console.log("[QR GENERATE API] Inserting into qr_token table...")
     const insertPayload: Database["public"]["Tables"]["qr_token"]["Insert"] = {
       token,
       aktif: true,
@@ -43,7 +35,6 @@ export async function POST(req: Request) {
     if (panitia_id !== null && panitia_id !== undefined) {
       insertPayload.panitia_id = panitia_id
     }
-    console.log("[QR GENERATE API] Insert payload:", insertPayload)
 
     const { data, error } = await supabase
       .from("qr_token")
@@ -51,18 +42,7 @@ export async function POST(req: Request) {
       .select()
       .single()
 
-    if (error) {
-      console.error("[QR GENERATE API] Supabase insert error:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        fullError: JSON.stringify(error),
-      })
-      throw error
-    }
-
-    console.log("[QR GENERATE API] Supabase insert successful, data:", data)
+    if (error) throw error
 
     const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL}/scan?token=${token}`
     const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
@@ -74,8 +54,6 @@ export async function POST(req: Request) {
       },
     })
 
-    console.log("[QR GENERATE API] QR code generated successfully")
-
     return NextResponse.json({
       success: true,
       token,
@@ -84,7 +62,6 @@ export async function POST(req: Request) {
       qrData: data,
     })
   } catch (error) {
-    console.error("[QR GENERATE API] Error caught:", error)
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -100,4 +77,4 @@ export async function POST(req: Request) {
       { status: 500 }
     )
   }
-}
+})

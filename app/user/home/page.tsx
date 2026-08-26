@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -22,11 +22,7 @@ import {
 import { ModeButton } from "@/components/mode-button"
 import { getActiveConfig, isOutsideAbsensiTime } from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
-import {
-  fetchSession,
-  isImpersonatingAsync,
-  clearAllLocalStorageSessions,
-} from "@/lib/auth-client"
+import { fetchSession, clearAllLocalStorageSessions } from "@/lib/auth-client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -115,56 +111,51 @@ export default function UserHomePage() {
   const [now, setNow] = useState<Date | null>(null)
   const [mounted, setMounted] = useState(false)
   const [isImpersonating, setIsImpersonating] = useState(false)
+  const isFetchingConfigRef = useRef(false)
+
+  const fetchConfig = useCallback(async () => {
+    if (isFetchingConfigRef.current) return
+    isFetchingConfigRef.current = true
+    try {
+      const res = await fetch("/api/config")
+      if (res.ok) {
+        const dbConfig = await res.json()
+        setConfig(dbConfig)
+        try {
+          localStorage.setItem(
+            "test_config_superadmin",
+            JSON.stringify(dbConfig)
+          )
+        } catch {
+          /* ignore quota errors */
+        }
+      }
+    } catch (err) {
+      console.error("Gagal load config dari DB:", err)
+    } finally {
+      isFetchingConfigRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     setMounted(true)
     setNow(new Date())
 
-    // Ambil config awal dari DB
-    const initConfig = async () => {
-      try {
-        const res = await fetch("/api/config")
-        if (res.ok) {
-          const dbConfig = await res.json()
-          setConfig(dbConfig)
-          localStorage.setItem(
-            "test_config_superadmin",
-            JSON.stringify(dbConfig)
-          )
-        }
-      } catch (err) {
-        console.error("Gagal load config dari DB:", err)
-      }
-    }
-    initConfig()
+    void fetchConfig()
 
-    // Sinkronisasi status absen dan waktu (lokal)
     const timeInterval = setInterval(() => {
       setNow(new Date())
     }, 1000)
 
-    // Sinkronisasi config dari DB secara periodik (setiap 5 detik)
-    const configInterval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/config")
-        if (res.ok) {
-          const dbConfig = await res.json()
-          setConfig(dbConfig)
-          localStorage.setItem(
-            "test_config_superadmin",
-            JSON.stringify(dbConfig)
-          )
-        }
-      } catch {
-        // silent error
-      }
-    }, 5000)
+    const configInterval = setInterval(() => {
+      void fetchConfig()
+    }, 60000)
 
     return () => {
       clearInterval(timeInterval)
       clearInterval(configInterval)
     }
-  }, [])
+  }, [fetchConfig])
 
   const isTimeAllowed =
     mounted && now ? !isOutsideAbsensiTime(now, config) : true
@@ -240,14 +231,13 @@ export default function UserHomePage() {
       }, 15000)
 
       const apiSession = await fetchSession()
-      const impersonationStatus = await isImpersonatingAsync()
 
       if (!isMounted) {
         if (failSafeTimer) clearTimeout(failSafeTimer)
         return
       }
 
-      setIsImpersonating(impersonationStatus)
+      setIsImpersonating(!!apiSession?.impersonation)
 
       if (apiSession && apiSession.user) {
         if (failSafeTimer) clearTimeout(failSafeTimer)
@@ -257,7 +247,7 @@ export default function UserHomePage() {
           kelas: apiSession.user.kelas || "Administrator",
           role: apiSession.user.role,
         })
-        fetchData(apiSession.user.id)
+        void fetchData(apiSession.user.id)
         return
       }
 

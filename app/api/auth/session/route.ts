@@ -1,7 +1,8 @@
 import { getFullSessionData } from "@/lib/auth-server"
 import { NextResponse } from "next/server"
+import { withRequestMetrics } from "@/lib/request-metrics"
 
-export async function GET() {
+export const GET = withRequestMetrics(async function GET() {
   try {
     const fullSession = await getFullSessionData()
     if (!fullSession) {
@@ -12,4 +13,4 @@ export async function GET() {
     console.error("[API /api/auth/session] Unhandled error:", err)
     return NextResponse.json({ user: null })
   }
-}
+})

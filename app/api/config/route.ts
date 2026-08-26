@@ -1,13 +1,18 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabaseServer"
 import {
   requireAdminSession,
   requireAuthenticatedSession,
 } from "@/lib/auth-server"
 import type { Database } from "@/lib/supabase-types"
+import { withRequestMetrics } from "@/lib/request-metrics"
+import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 
-export async function GET() {
+export const GET = withRequestMetrics(async function GET(req: NextRequest) {
   try {
+    const rl = await checkRateLimitPreset({ req, scope: "auth" })
+    if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
+
     await requireAuthenticatedSession()
     const supabase = await createClient()
 
@@ -78,10 +83,13 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(req: Request) {
+export const POST = withRequestMetrics(async function POST(req: NextRequest) {
   try {
+    const rl = await checkRateLimitPreset({ req, scope: "sensitive" })
+    if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
+
     await requireAdminSession()
     const body = await req.json()
     const supabase = await createClient()
@@ -123,4 +131,4 @@ export async function POST(req: Request) {
       { status: 500 }
     )
   }
-}
+})

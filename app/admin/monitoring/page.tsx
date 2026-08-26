@@ -227,7 +227,7 @@ export default function MonitoringPage() {
     // Auto refresh setiap 30 detik
     const interval = setInterval(() => {
       fetchData()
-    }, 10000)
+    }, 30000)
 
     return () => clearInterval(interval)
   }, [fetchData])
