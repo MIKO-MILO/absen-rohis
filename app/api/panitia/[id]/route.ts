@@ -5,8 +5,10 @@ import {
   requireAdminOrPanitiaSession,
 } from "@/lib/auth-server"
 import type { Database } from "@/lib/supabase-types"
+import { withRequestMetrics } from "@/lib/request-metrics"
+import { createAuditLog } from "@/lib/audit-log"
 
-export async function GET(
+export const GET = withRequestMetrics(async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -47,14 +49,14 @@ export async function GET(
       { status: 500 }
     )
   }
-}
+})
 
-export async function PUT(
+export const PUT = withRequestMetrics(async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const { id } = await params
     const body = await req.json()
     const { nama, divisi, jenis_kelamin, email, password } = body as Partial<
@@ -81,6 +83,15 @@ export async function PUT(
       )
     }
 
+    const typedData = data as { id: number; nama: string; divisi: string }
+    await createAuditLog({
+      actor,
+      action: "update_panitia",
+      targetType: "panitia",
+      targetId: typedData.id,
+      description: `${actor.nama} updated panitia ${typedData.nama} (${typedData.divisi})`,
+    })
+
     return NextResponse.json(data)
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
@@ -92,22 +103,40 @@ export async function PUT(
     console.error("PUT error:", error)
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
-}
+})
 
-export async function DELETE(
+export const DELETE = withRequestMetrics(async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const { id } = await params
     const targetId = isNaN(Number(id)) ? id : Number(id)
+    const numericTargetId = typeof targetId === "number" ? targetId : parseInt(targetId, 10)
     const supabase = await createClient()
+
+    const { data: existingData } = await supabase
+      .from("panitia")
+      .select("nama, divisi")
+      .eq("id", targetId)
+      .maybeSingle()
+
     const { error } = await supabase.from("panitia").delete().eq("id", targetId)
 
     if (error) {
       console.error("Supabase delete error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!isNaN(numericTargetId)) {
+      await createAuditLog({
+        actor,
+        action: "delete_panitia",
+        targetType: "panitia",
+        targetId: numericTargetId,
+        description: `${actor.nama} deleted panitia ${existingData?.nama ?? `id:${targetId}`} (${existingData?.divisi ?? "unknown"})`,
+      })
     }
 
     return NextResponse.json({ message: "Panitia deleted successfully" })
@@ -124,4 +153,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})

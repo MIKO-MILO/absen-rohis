@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabaseServer"
 import { requireAdminSession } from "@/lib/auth-server"
 import type { Admin } from "@/lib/supabase-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
+import { createAuditLog } from "@/lib/audit-log"
 
 export const GET = withRequestMetrics(async function GET(
   _req: Request,
@@ -51,7 +52,7 @@ export const PUT = withRequestMetrics(async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const { id } = await params
     const body = await req.json()
     const { username, password, nama, role } = body as Partial<Admin>
@@ -88,6 +89,14 @@ export const PUT = withRequestMetrics(async function PUT(
       )
     }
 
+    await createAuditLog({
+      actor,
+      action: "update_admin",
+      targetType: "admin",
+      targetId: data.id,
+      description: `${actor.nama} updated admin ${nama} (${role})`,
+    })
+
     return NextResponse.json(data as Admin)
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
@@ -106,14 +115,33 @@ export const DELETE = withRequestMetrics(async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const { id } = await params
     const targetId = isNaN(Number(id)) ? id : Number(id)
+    const numericTargetId = typeof targetId === "number" ? targetId : parseInt(targetId, 10)
+
     const supabase = await createClient()
+
+    const { data: existingData } = await supabase
+      .from("admin")
+      .select("nama, role")
+      .eq("id", targetId)
+      .maybeSingle()
+
     const { error } = await supabase.from("admin").delete().eq("id", targetId)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!isNaN(numericTargetId)) {
+      await createAuditLog({
+        actor,
+        action: "delete_admin",
+        targetType: "admin",
+        targetId: numericTargetId,
+        description: `${actor.nama} deleted admin ${existingData?.nama ?? `id:${targetId}`} (${existingData?.role ?? "unknown"})`,
+      })
     }
 
     return NextResponse.json({ message: "Admin deleted successfully" })

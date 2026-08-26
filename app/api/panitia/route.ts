@@ -5,6 +5,7 @@ import type { Database } from "@/lib/supabase-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
 import { safePagination, COST_SAFETY } from "@/lib/cost-safety"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
+import { createAuditLog } from "@/lib/audit-log"
 
 type PanitiaRow = Database["public"]["Tables"]["panitia"]["Row"]
 
@@ -83,7 +84,7 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     const rl = await checkRateLimitPreset({ req, scope: "sensitive" })
     if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
 
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const body = await req.json()
 
     let panitia: Array<
@@ -114,6 +115,17 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    for (const item of data ?? []) {
+      const typedItem = item as { id: number; nama: string; divisi: string }
+      await createAuditLog({
+        actor,
+        action: "create_panitia",
+        targetType: "panitia",
+        targetId: typedItem.id,
+        description: `${actor.nama} created panitia ${typedItem.nama} (${typedItem.divisi})`,
+      })
     }
 
     return NextResponse.json(data)

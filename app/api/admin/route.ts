@@ -2,8 +2,10 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabaseServer"
 import { requireAdminSession } from "@/lib/auth-server"
 import type { Database } from "@/lib/supabase-types"
+import { createAuditLog } from "@/lib/audit-log"
+import { withRequestMetrics } from "@/lib/request-metrics"
 
-export async function GET() {
+export const GET = withRequestMetrics(async function GET() {
   try {
     await requireAdminSession()
     const supabase = await createClient()
@@ -27,11 +29,11 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(req: Request) {
+export const POST = withRequestMetrics(async function POST(req: Request) {
   try {
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const body = await req.json()
     const { username, password, nama, role } = body as Partial<
       Database["public"]["Tables"]["admin"]["Insert"]
@@ -55,6 +57,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    await createAuditLog({
+      actor,
+      action: "create_admin",
+      targetType: "admin",
+      targetId: data.id,
+      description: `${actor.nama} created admin ${nama} (${role})`,
+    })
+
     return NextResponse.json(data)
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
@@ -66,4 +76,4 @@ export async function POST(req: Request) {
     console.error(error)
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
-}
+})

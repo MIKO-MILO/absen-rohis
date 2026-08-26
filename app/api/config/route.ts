@@ -7,6 +7,7 @@ import {
 import type { Database } from "@/lib/supabase-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
+import { createAuditLog } from "@/lib/audit-log"
 
 export const GET = withRequestMetrics(async function GET(req: NextRequest) {
   try {
@@ -90,7 +91,7 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     const rl = await checkRateLimitPreset({ req, scope: "sensitive" })
     if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
 
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const body = await req.json()
     const supabase = await createClient()
 
@@ -102,6 +103,10 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     if (fetchError && fetchError.code !== "PGRST116") {
       throw fetchError
     }
+
+    const changedKeys = Object.keys(body).filter(
+      (k) => JSON.stringify(existing?.config?.[k]) !== JSON.stringify(body[k])
+    )
 
     const configData: Database["public"]["Tables"]["system_settings"]["Row"] = {
       id: existing?.id ?? 1,
@@ -116,6 +121,13 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       .single()
 
     if (error) throw error
+
+    await createAuditLog({
+      actor,
+      action: "update_config",
+      targetType: "config",
+      description: `${actor.nama} updated config: ${changedKeys.length > 0 ? changedKeys.join(", ") : "no changes detected"}`,
+    })
 
     return NextResponse.json(data)
   } catch (error) {

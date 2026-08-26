@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabaseServer"
 import { requireAdminSession } from "@/lib/auth-server"
 import type { Database } from "@/lib/supabase-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
+import { createAuditLog } from "@/lib/audit-log"
 
 export const GET = withRequestMetrics(async function GET(
   _req: Request,
@@ -52,7 +53,7 @@ export const PUT = withRequestMetrics(async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const { id } = await params
     const body = await req.json()
     const { status } = body as Partial<
@@ -64,7 +65,14 @@ export const PUT = withRequestMetrics(async function PUT(
     }
 
     const targetId = isNaN(Number(id)) ? id : Number(id)
+    const numericTargetId = typeof targetId === "number" ? targetId : parseInt(targetId, 10)
     const supabase = await createClient()
+
+    const { data: beforeData } = await supabase
+      .from("absensi")
+      .select("id, user_id, status, users(nama)")
+      .eq("id", targetId)
+      .maybeSingle()
 
     const { data, error } = await supabase
       .from("absensi")
@@ -84,6 +92,18 @@ export const PUT = withRequestMetrics(async function PUT(
         { error: "Absensi tidak ditemukan" },
         { status: 404 }
       )
+    }
+
+    const beforeStatus = (beforeData as { status: string | null } | null)?.status
+    const userName = (beforeData as { users: { nama: string } | null } | null)?.users?.nama
+    if (beforeStatus !== status && !isNaN(numericTargetId)) {
+      await createAuditLog({
+        actor,
+        action: "approve_absensi",
+        targetType: "absensi",
+        targetId: numericTargetId,
+        description: `${actor.nama} changed attendance status ${userName ? `for ${userName} ` : ""}from ${beforeStatus ?? "null"} to ${status}`,
+      })
     }
 
     return NextResponse.json(data)

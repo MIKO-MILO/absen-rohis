@@ -5,6 +5,7 @@ import {
   requireAdminSession,
   requireAuthenticatedSession,
 } from "@/lib/auth-server"
+import type { SessionData } from "@/lib/auth-client"
 import { withRequestMetrics } from "@/lib/request-metrics"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 import { checkRateLimit } from "@/lib/rate-limit"
@@ -61,6 +62,7 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
     const isAdminUpdate = qr_token === "MANUAL_UPDATE"
     const targetUserId = Number(user_id)
     let adminSessionId: number | null = null
+    let actorForAudit: SessionData | null = null
 
     if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
       return Response.json({ error: "User ID tidak valid" }, { status: 400 })
@@ -70,6 +72,7 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
       // Update manual hanya boleh dilakukan oleh admin yang sudah terautentikasi.
       // ID admin selalu diambil dari sesi server, bukan dari request client.
       const adminSession = await requireAdminSession()
+      actorForAudit = adminSession
       if (!isValidDate(tanggal)) {
         return Response.json(
           { error: "Tanggal absensi tidak valid" },
@@ -88,6 +91,7 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
       adminSessionId = adminSession.id
     } else {
       const session = await requireAuthenticatedSession()
+      actorForAudit = session
 
       // ─── Rate Limiting (30 req/min per user, fail-open) ───────────────────
       const limitResult = await checkRateLimit({
@@ -311,6 +315,19 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
     // 🔒 Nonaktifkan QR setelah digunakan (1 orang 1 QR)
     if (!qr.is_simulation) {
       await supabase.from("qr_token").update({ aktif: false }).eq("id", qr.id)
+    }
+
+    // 📝 Log scan QR audit
+    if (actorForAudit) {
+      await createAuditLog({
+        actor: actorForAudit,
+        action: "scan_qr",
+        targetType: "absensi",
+        targetId: finalData?.id,
+        description: isAdminUpdate
+          ? `${actorForAudit.nama} manually recorded attendance for ${finalData?.users?.nama || `user:${targetUserId}`} (${mappedStatus})`
+          : `${actorForAudit.nama} scanned QR and marked attendance as ${mappedStatus}`,
+      })
     }
 
     return Response.json({

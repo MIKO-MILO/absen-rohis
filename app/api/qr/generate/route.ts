@@ -6,6 +6,7 @@ import QRCode from "qrcode"
 import type { Database } from "@/lib/supabase-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
+import { createAuditLog } from "@/lib/audit-log"
 
 export const POST = withRequestMetrics(async function POST(req: NextRequest) {
   try {
@@ -43,6 +44,13 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       .single()
 
     if (error) throw error
+
+    await createAuditLog({
+      actor: session,
+      action: "generate_qr",
+      targetType: null,
+      description: `${session.nama} generated QR token (${token.slice(0, 20)}...)`,
+    })
 
     const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL}/scan?token=${token}`
     const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
