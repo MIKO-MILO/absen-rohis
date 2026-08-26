@@ -254,21 +254,18 @@ export default function SystemMonitoringOverviewPage() {
                 : undefined
             }
             accent="info"
-            icon="📡"
           />
           <MonitoringStatCard
             label="Success Rate"
             value={loading ? "…" : `${(stats?.successRate ?? 100).toFixed(1)}%`}
             sublabel={`${fmtId(stats?.successCount ?? 0)} success`}
             accent="success"
-            icon="✔"
           />
           <MonitoringStatCard
             label="Error Rate"
             value={loading ? "…" : `${(stats?.errorRate ?? 0).toFixed(1)}%`}
             sublabel={`${fmtId(stats?.errorCount ?? 0)} failed requests`}
             accent={(stats?.errorCount ?? 0) > 0 ? "error" : "default"}
-            icon="⚠"
           />
           <MonitoringStatCard
             label="Avg Response Time"
@@ -277,7 +274,6 @@ export default function SystemMonitoringOverviewPage() {
             accent={
               (stats?.averageResponseTime ?? 0) > 500 ? "warning" : "default"
             }
-            icon="⏱"
           />
         </div>
 
