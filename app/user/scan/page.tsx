@@ -76,7 +76,8 @@ function ScanQRContent() {
         !user ||
         (user.role !== "siswa" &&
           user.role !== "admin" &&
-          user.role !== "superadmin")
+          user.role !== "superadmin" &&
+          user.role !== "panitia")
       ) {
         router.push("/")
         return
@@ -197,6 +198,7 @@ function ScanQRContent() {
 
       const res = await fetch("/api/qr/scan", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabaseServer"
 import { getOriginalSession, clearImpersonationCookie } from "@/lib/auth-server"
-import { createAuditLog } from "@/lib/audit-log"
+import { createAuditLog, type AuditTargetType } from "@/lib/audit-log"
 import { withRequestMetrics } from "@/lib/request-metrics"
 
 export const POST = withRequestMetrics(async function POST() {
@@ -16,14 +16,12 @@ export const POST = withRequestMetrics(async function POST() {
 
     const supabase = await createClient()
 
-    // 1. Find all active impersonation sessions for this admin
     const { data: activeSessions } = await supabase
       .from("impersonation_sessions")
       .select("*")
       .eq("admin_id", originalSession.id)
       .eq("active", true)
 
-    // 2. Mark them as ended
     if (activeSessions && activeSessions.length > 0) {
       const sessionIds = activeSessions.map((s) => s.id)
       await supabase
@@ -34,19 +32,20 @@ export const POST = withRequestMetrics(async function POST() {
         })
         .in("id", sessionIds)
 
-      // 3. Create audit log
       for (const session of activeSessions) {
+        const rawRole = session.target_role
+        const mappedType: AuditTargetType =
+          rawRole === "siswa" ? "siswa" : rawRole === "panitia" ? "panitia" : null
         await createAuditLog({
           actor: originalSession,
           action: "stop_impersonation",
-          targetType: session.target_role,
+          targetType: mappedType,
           targetId: session.target_user_id,
           description: `${originalSession.nama} stopped impersonating`,
         })
       }
     }
 
-    // 4. Clear the impersonation cookie
     await clearImpersonationCookie()
 
     return Response.json({

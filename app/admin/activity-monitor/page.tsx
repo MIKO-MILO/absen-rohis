@@ -328,10 +328,15 @@ export default function ActivityMonitorPage() {
         if (s) params.set("search", s)
 
         const res = await fetch(`/api/admin/activity-monitor?${params}`, {
+          credentials: "include",
           cache: "no-store",
         })
 
         if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            window.location.href = "/admin"
+            return
+          }
           const body = await res.json().catch(() => ({}))
           throw new Error(body?.error || `HTTP ${res.status}`)
         }
@@ -373,9 +378,15 @@ export default function ActivityMonitorPage() {
         if (opts.search) params.set("search", opts.search)
 
         const res = await fetch(`/api/admin/activity-monitor?${params}`, {
+          credentials: "include",
           cache: "no-store",
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            window.location.href = "/admin"
+          }
+          return
+        }
 
         const json = (await res.json()) as ApiResponse
 

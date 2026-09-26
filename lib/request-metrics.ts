@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabaseServer"
 import { COST_SAFETY } from "./cost-safety"
+import type { RequestMetricsInsert } from "./app-types"
 
 type HttpMethod =
   | "GET"
@@ -40,27 +41,6 @@ function categorizeEndpoint(path: string): string {
   return `api/${top}`
 }
 
-interface EndpointMetrics {
-  method: HttpMethod
-  route: string
-  endpoint_category: string
-  status_code: number
-  response_time_ms: number
-  total_requests: number
-  success_count: number
-  error_count: number
-  total_response_time_ms: number
-}
-
-function normalizeBucketKey(
-  dateStr: string,
-  hour: number,
-  route: string,
-  method: HttpMethod
-): string {
-  return `${dateStr}|${hour.toString().padStart(2, "0")}|${method}|${route}`
-}
-
 /**
  * Higher-order wrapper yang mencatat metrik request ke tabel request_metrics (hourly-bucketed).
  * ─── COST SAFETY NOTES ─────────────────────────────────────────────────────────
@@ -78,8 +58,6 @@ export function withRequestMetrics<T extends (...args: any[]) => Promise<any>>(h
       return handler(...args)
     }
 
-    // Sampling: hanya tulis metrik jika lolos sampling.
-    // Ini mencegah banjir write ke Supabase saat lonjakan traffic tiba-tiba.
     const shouldSample =
       cfg.samplingHighTrafficRate >= 1 ||
       Math.random() < cfg.samplingHighTrafficRate
@@ -91,8 +69,6 @@ export function withRequestMetrics<T extends (...args: any[]) => Promise<any>>(h
     const response = await handler(...args)
     const elapsed = performance.now() - start
 
-    // Non-blocking fire-and-forget: Never wait for metrics to finish,
-    // user response harus segera dikembalikan.
     void recordMetricsSafe({
       method: sanitizeMethod(req.method),
       route: categorizeEndpoint(req?.nextUrl?.pathname || req?.url || ""),
@@ -100,8 +76,7 @@ export function withRequestMetrics<T extends (...args: any[]) => Promise<any>>(h
       status: response?.status || 200,
       elapsed,
     }).catch((e) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _e = e;
+      void e
     })
 
     return response
@@ -125,53 +100,50 @@ async function recordMetricsSafe(input: {
     const total_requests = 1
     const success_count = status < 400 ? 1 : 0
     const error_count = status >= 400 ? 1 : 0
-    const response_time_ms = Math.max(0, Math.round(elapsed))
+    const total_response_time = Math.max(0, Math.round(elapsed))
 
-    const bucketKey = normalizeBucketKey(dateStr, hour, route, method)
+    const endpoint = route
+
     const supabase = await createClient()
 
-    // Upsert dengan arithmetic untuk bucket yang sama
-    const payload: EndpointMetrics = {
+    // Composite unique: bucket_date, bucket_hour, endpoint, method
+    const dbPayload: RequestMetricsInsert = {
+      bucket_date: dateStr,
+      bucket_hour: hour,
+      endpoint,
       method,
-      route,
-      endpoint_category: route,
-      status_code: status,
-      response_time_ms,
       total_requests,
       success_count,
       error_count,
-      total_response_time_ms: response_time_ms,
+      total_response_time,
     }
 
     const { error } = await supabase
       .from("request_metrics")
-      .upsert(
-        {
-          bucket_date: dateStr,
-          bucket_hour: hour,
-          bucket_key: bucketKey,
-          ...payload,
-        },
-        {
-          onConflict: "bucket_key",
-          ignoreDuplicates: false,
-        }
-      )
+      .upsert(dbPayload, {
+        onConflict: "bucket_date,bucket_hour,endpoint,method",
+        ignoreDuplicates: false,
+      })
       .select()
 
     if (error) {
-      // Jika upsert gagal (concurrent conflict / lock), fall back to INSERT
-      // single row sebagai counter per request (lebih murah compute & hindari retry).
+      // Fallback: INSERT baris unik dengan menambahkan timestamp agar unik
+      const uniqueEndpoint = `${endpoint}:${now.getTime().toString(36)}:${Math.random()
+        .toString(36)
+        .slice(2, 6)}`
+      const fallback: RequestMetricsInsert = {
+        bucket_date: dateStr,
+        bucket_hour: hour,
+        endpoint: uniqueEndpoint,
+        method,
+        total_requests,
+        success_count,
+        error_count,
+        total_response_time,
+      }
       await supabase
         .from("request_metrics")
-        .insert({
-          bucket_date: dateStr,
-          bucket_hour: hour,
-          bucket_key: `${bucketKey}|${now.getTime().toString(36)}|${Math.random()
-            .toString(36)
-            .slice(2, 6)}`,
-          ...payload,
-        })
+        .insert(fallback)
         .select()
     }
   } catch {

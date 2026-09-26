@@ -56,11 +56,12 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
     console.log("[LOGIN API] Admin data:", adminData)
 
     if (adminData && adminData.password === password) {
+      const roleVal = adminData.role ?? "admin"
       sessionData = {
         id: adminData.id,
-        username: adminData.username,
-        nama: adminData.nama,
-        role: adminData.role || "admin",
+        username: adminData.username ?? undefined,
+        nama: adminData.nama ?? "",
+        role: roleVal,
       }
       redirectUrl = "/admin/dashboard"
     } else {
@@ -76,9 +77,9 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
       if (panitiaData && panitiaData.password === password) {
         sessionData = {
           id: panitiaData.id,
-          nama: panitiaData.nama,
+          nama: panitiaData.nama ?? "",
           role: "panitia",
-          divisi: panitiaData.divisi,
+          divisi: panitiaData.divisi ?? undefined,
         }
         redirectUrl = "/rohis/home"
       } else {
@@ -94,9 +95,9 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
         if (userData && userData.password === password) {
           sessionData = {
             id: userData.id,
-            nama: userData.nama,
+            nama: userData.nama ?? "",
             role: "siswa",
-            kelas: userData.kelas,
+            kelas: userData.kelas ?? undefined,
           }
           redirectUrl = "/user/home"
         }

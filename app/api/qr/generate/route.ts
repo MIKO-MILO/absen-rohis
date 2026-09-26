@@ -8,6 +8,8 @@ import { withRequestMetrics } from "@/lib/request-metrics"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 import { createAuditLog } from "@/lib/audit-log"
 
+export const dynamic = "force-dynamic"
+
 export const POST = withRequestMetrics(async function POST(req: NextRequest) {
   try {
     const rl = await checkRateLimitPreset({ req, scope: "qr-generate" })

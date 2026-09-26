@@ -15,7 +15,10 @@ export const GET = withRequestMetrics(async function GET(
   try {
     await requireAdminOrPanitiaSession()
     const { id } = await params
-    const targetId = isNaN(Number(id)) ? id : Number(id)
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -58,10 +61,13 @@ export const PUT = withRequestMetrics(async function PUT(
   try {
     const actor = await requireAdminSession()
     const { id } = await params
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const body = await req.json()
     const { nama, kelas, jenis_kelamin, nis, email, password } =
       body as Partial<Database["public"]["Tables"]["users"]["Update"]>
-    const targetId = isNaN(Number(id)) ? id : Number(id)
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -82,13 +88,12 @@ export const PUT = withRequestMetrics(async function PUT(
       )
     }
 
-    const typedData = data as { id: number; nama: string; kelas: string | null }
     await createAuditLog({
       actor,
       action: "update_siswa",
       targetType: "siswa",
-      targetId: typedData.id,
-      description: `${actor.nama} updated siswa ${typedData.nama}${typedData.kelas ? ` (${typedData.kelas})` : ""}`,
+      targetId,
+      description: `${actor.nama} updated siswa ${nama ?? data.nama ?? ""}${kelas ?? data.kelas ? ` (${kelas ?? data.kelas ?? ""})` : ""}`,
     })
 
     return NextResponse.json(data)
@@ -111,8 +116,10 @@ export const DELETE = withRequestMetrics(async function DELETE(
   try {
     const actor = await requireAdminSession()
     const { id } = await params
-    const targetId = isNaN(Number(id)) ? id : Number(id)
-    const numericTargetId = typeof targetId === "number" ? targetId : parseInt(targetId, 10)
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const supabase = await createClient()
 
     const { data: existingData } = await supabase
@@ -128,15 +135,13 @@ export const DELETE = withRequestMetrics(async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    if (!isNaN(numericTargetId)) {
-      await createAuditLog({
-        actor,
-        action: "delete_siswa",
-        targetType: "siswa",
-        targetId: numericTargetId,
-        description: `${actor.nama} deleted siswa ${existingData?.nama ?? `id:${targetId}`}${existingData?.kelas ? ` (${existingData.kelas})` : ""}`,
-      })
-    }
+    await createAuditLog({
+      actor,
+      action: "delete_siswa",
+      targetType: "siswa",
+      targetId,
+      description: `${actor.nama} deleted siswa ${existingData?.nama ?? `id:${targetId}`}${existingData?.kelas ? ` (${existingData.kelas})` : ""}`,
+    })
 
     return NextResponse.json({ message: "User deleted successfully" })
   } catch (error) {

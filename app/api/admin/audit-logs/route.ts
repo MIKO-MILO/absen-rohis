@@ -4,9 +4,14 @@ import { createClient } from "@/lib/supabaseServer"
 import { withRequestMetrics } from "@/lib/request-metrics"
 import { safePagination, COST_SAFETY } from "@/lib/cost-safety"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
+import type { Database } from "@/lib/supabase-types"
+
+const VALID_ROLES: Array<
+  NonNullable<Database["public"]["Tables"]["admin"]["Row"]["role"]>
+> = ["superadmin", "admin"]
 
 const AUDIT_WITH_ADMIN_SELECT = `
-  id, admin_id, action, description, status_code, ip_address, user_agent, created_at,
+  id, admin_id, action, description, target_type, target_user_id, target_panitia_id, created_at,
   admin:admin_id ( nama, role )
 `
 
@@ -22,7 +27,6 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
     const search = searchParams.get("search") || ""
     const roleFilter = searchParams.get("role") || ""
     const actionFilter = searchParams.get("action") || ""
-    const statusCodeFilter = searchParams.get("statusCode") || ""
     const dateFrom = searchParams.get("dateFrom") || ""
     const dateTo = searchParams.get("dateTo") || ""
 
@@ -36,12 +40,13 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
     if (dateFrom) query = query.gte("created_at", dateFrom)
     if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59`)
     if (actionFilter) query = query.ilike("action", actionFilter)
-    if (statusCodeFilter) {
-      const sc = Number(statusCodeFilter)
-      if (Number.isFinite(sc)) query = query.eq("status_code", sc)
-    }
     if (roleFilter) {
-      query = query.eq("admin.role", roleFilter)
+      const roleTyped = roleFilter as NonNullable<
+        Database["public"]["Tables"]["admin"]["Row"]["role"]
+      >
+      if (VALID_ROLES.includes(roleTyped)) {
+        query = query.eq("admin.role", roleTyped)
+      }
     }
 
     if (search) {
@@ -65,11 +70,21 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
     }
 
     const finalData = (data ?? []).map((row) => {
-      const adminArr = (row as unknown as { admin?: Array<{ nama: string; role: string }> | null })
-        .admin
+      const adminArr = (
+        row as unknown as {
+          admin?: Array<{ nama: string | null; role: string | null }> | null
+        }
+      ).admin
       const adminObj = Array.isArray(adminArr) ? adminArr[0] : undefined
       return {
-        ...row,
+        id: row.id,
+        admin_id: row.admin_id,
+        action: row.action,
+        description: row.description,
+        target_type: row.target_type,
+        target_user_id: row.target_user_id,
+        target_panitia_id: row.target_panitia_id,
+        created_at: row.created_at,
         actor_id: row.admin_id,
         actor_name: adminObj?.nama ?? "—",
         actor_role: adminObj?.role ?? "admin",

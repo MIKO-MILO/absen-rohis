@@ -9,22 +9,9 @@ import {
   capResponseItems,
   withRequestDeduplication,
 } from "@/lib/cost-guard"
+import type { AuditLogRow as AuditRowDB } from "@/lib/app-types"
 
-interface AuditLogRow {
-  id: number
-  admin_id: number
-  action: string
-  target_type: string | null
-  target_user_id: number | null
-  description: string | null
-  created_at: string
-}
-
-interface AdminRow {
-  id: number
-  nama: string
-  role: string
-}
+type AuditLogRow = AuditRowDB
 
 interface AuditActivity {
   source: "audit"
@@ -96,7 +83,7 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
         let auditQuery = supabase
           .from("audit_logs")
           .select(
-            "id, admin_id, action, target_type, target_user_id, description, created_at"
+            "id, admin_id, action, target_type, target_user_id, target_panitia_id, description, created_at"
           )
           .gt("id", sinceId)
           .order("id", { ascending: true })
@@ -116,8 +103,8 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
         const adminIds = [
           ...new Set(
             (auditRows ?? [])
-              .map((r: AuditLogRow) => r.admin_id)
-              .filter(Boolean)
+              .map((r) => r.admin_id)
+              .filter((id): id is number => id !== null)
           ),
         ]
         let adminMap: Record<number, { nama: string; role: string }> = {}
@@ -127,35 +114,36 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
             .select("id, nama, role")
             .in("id", adminIds)
           adminMap = Object.fromEntries(
-            (admins ?? []).map((a: AdminRow) => [
+            (admins ?? []).map((a) => [
               a.id,
-              { nama: a.nama, role: a.role },
+              { nama: a.nama ?? "Unknown", role: a.role ?? "admin" },
             ])
-          )
+          ) as Record<number, { nama: string; role: string }>
         }
 
-        auditActivities = (auditRows ?? []).map((r: AuditLogRow) => {
-          const admin = adminMap[r.admin_id] ?? {
+        auditActivities = (auditRows ?? []).map((r) => {
+          const row = r as AuditLogRow
+          const admin = adminMap[row.admin_id] ?? {
             nama: "Unknown",
             role: "admin",
           }
           return {
             source: "audit" as const,
-            id: r.id,
-            timestamp: r.created_at,
+            id: row.id,
+            timestamp: row.created_at ?? new Date().toISOString(),
             actorName: admin.nama,
             actorRole: admin.role,
-            action: r.action,
-            targetType: r.target_type ?? null,
-            targetId: r.target_user_id ?? null,
-            description: r.description ?? null,
+            action: row.action,
+            targetType: row.target_type ?? null,
+            targetId: row.target_user_id ?? null,
+            description: row.description ?? null,
           }
         })
       } else {
         let auditQuery = supabase
           .from("audit_logs")
           .select(
-            "id, admin_id, action, target_type, target_user_id, description, created_at",
+            "id, admin_id, action, target_type, target_user_id, target_panitia_id, description, created_at",
             { count: "exact" }
           )
           .gte("created_at", startIso)
@@ -184,8 +172,8 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
         const adminIds = [
           ...new Set(
             (auditRows ?? [])
-              .map((r: AuditLogRow) => r.admin_id)
-              .filter(Boolean)
+              .map((r) => r.admin_id)
+              .filter((id): id is number => id !== null)
           ),
         ]
         let adminMap: Record<number, { nama: string; role: string }> = {}
@@ -195,28 +183,29 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
             .select("id, nama, role")
             .in("id", adminIds)
           adminMap = Object.fromEntries(
-            (admins ?? []).map((a: AdminRow) => [
+            (admins ?? []).map((a) => [
               a.id,
-              { nama: a.nama, role: a.role },
+              { nama: a.nama ?? "Unknown", role: a.role ?? "admin" },
             ])
-          )
+          ) as Record<number, { nama: string; role: string }>
         }
 
-        auditActivities = (auditRows ?? []).map((r: AuditLogRow) => {
-          const admin = adminMap[r.admin_id] ?? {
+        auditActivities = (auditRows ?? []).map((r) => {
+          const row = r as AuditLogRow
+          const admin = adminMap[row.admin_id] ?? {
             nama: "Unknown",
             role: "admin",
           }
           return {
             source: "audit" as const,
-            id: r.id,
-            timestamp: r.created_at,
+            id: row.id,
+            timestamp: row.created_at ?? new Date().toISOString(),
             actorName: admin.nama,
             actorRole: admin.role,
-            action: r.action,
-            targetType: r.target_type ?? null,
-            targetId: r.target_user_id ?? null,
-            description: r.description ?? null,
+            action: row.action,
+            targetType: row.target_type ?? null,
+            targetId: row.target_user_id ?? null,
+            description: row.description ?? null,
           }
         })
       }

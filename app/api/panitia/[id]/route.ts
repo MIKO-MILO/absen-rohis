@@ -15,7 +15,10 @@ export const GET = withRequestMetrics(async function GET(
   try {
     await requireAdminOrPanitiaSession()
     const { id } = await params
-    const targetId = isNaN(Number(id)) ? id : Number(id)
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -58,11 +61,14 @@ export const PUT = withRequestMetrics(async function PUT(
   try {
     const actor = await requireAdminSession()
     const { id } = await params
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const body = await req.json()
     const { nama, divisi, jenis_kelamin, email, password } = body as Partial<
       Database["public"]["Tables"]["panitia"]["Update"]
     >
-    const targetId = isNaN(Number(id)) ? id : Number(id)
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -83,13 +89,12 @@ export const PUT = withRequestMetrics(async function PUT(
       )
     }
 
-    const typedData = data as { id: number; nama: string; divisi: string }
     await createAuditLog({
       actor,
       action: "update_panitia",
       targetType: "panitia",
-      targetId: typedData.id,
-      description: `${actor.nama} updated panitia ${typedData.nama} (${typedData.divisi})`,
+      targetId,
+      description: `${actor.nama} updated panitia ${nama ?? data.nama ?? ""} (${divisi ?? data.divisi ?? ""})`,
     })
 
     return NextResponse.json(data)
@@ -112,8 +117,10 @@ export const DELETE = withRequestMetrics(async function DELETE(
   try {
     const actor = await requireAdminSession()
     const { id } = await params
-    const targetId = isNaN(Number(id)) ? id : Number(id)
-    const numericTargetId = typeof targetId === "number" ? targetId : parseInt(targetId, 10)
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const supabase = await createClient()
 
     const { data: existingData } = await supabase
@@ -129,15 +136,13 @@ export const DELETE = withRequestMetrics(async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    if (!isNaN(numericTargetId)) {
-      await createAuditLog({
-        actor,
-        action: "delete_panitia",
-        targetType: "panitia",
-        targetId: numericTargetId,
-        description: `${actor.nama} deleted panitia ${existingData?.nama ?? `id:${targetId}`} (${existingData?.divisi ?? "unknown"})`,
-      })
-    }
+    await createAuditLog({
+      actor,
+      action: "delete_panitia",
+      targetType: "panitia",
+      targetId,
+      description: `${actor.nama} deleted panitia ${existingData?.nama ?? `id:${targetId}`} (${existingData?.divisi ?? "unknown"})`,
+    })
 
     return NextResponse.json({ message: "Panitia deleted successfully" })
   } catch (error) {

@@ -47,8 +47,6 @@ interface ImportRow {
   pesan?: string
 }
 
-const DIVISI_OPTIONS = ["Rohis - 26"]
-
 const DUMMY_EMAIL_EXISTING = ["contoh@panitia.id"]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -88,11 +86,13 @@ function validateRow(
   return { ...base, status: "valid" }
 }
 
-function downloadTemplate() {
+function downloadTemplate(divisiOptions: string[] = []) {
+  const ex1 = divisiOptions[0] ?? "Acara"
+  const ex2 = divisiOptions[1] ?? "Humas"
   const csv = [
     "Nama,Divisi,Jenis_Kelamin,Email,Password",
-    "Contoh Panitia,Acara,Laki-laki,panitia1@panitia.id,123456",
-    "Contoh Panitia 2,Humas,Perempuan,panitia2@panitia.id,123456",
+    `Contoh Panitia,${ex1},Laki-laki,panitia1@panitia.id,123456`,
+    `Contoh Panitia 2,${ex2},Perempuan,panitia2@panitia.id,123456`,
   ].join("\n")
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
@@ -201,9 +201,11 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
 function ManualForm({
   onBack,
   onSuccess,
+  divisiOptions,
 }: {
   onBack: () => void
   onSuccess: () => void
+  divisiOptions: string[]
 }) {
   const [form, setForm] = useState<ManualFormType>({
     nama: "",
@@ -313,7 +315,7 @@ function ManualForm({
                     Pilih divisi...
                   </option>
 
-                  {DIVISI_OPTIONS.map((d) => (
+                  {divisiOptions.map((d) => (
                     <option key={d} value={d}>
                       {d}
                     </option>
@@ -411,9 +413,11 @@ function ManualForm({
 function ImportForm({
   onBack,
   onSuccess,
+  divisiOptions,
 }: {
   onBack: () => void
   onSuccess: (count: number) => void
+  divisiOptions: string[]
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -644,7 +648,7 @@ function ImportForm({
               </div>
             </div>
             <button
-              onClick={downloadTemplate}
+              onClick={() => downloadTemplate(divisiOptions)}
               className="flex items-center gap-1.5 rounded-xl bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-500/20"
             >
               <Download className="h-3.5 w-3.5" /> Template
@@ -1077,6 +1081,7 @@ export default function TambahPanitiaPage() {
   const router = useRouter()
   const [checkingSession, setCheckingSession] = useState(true)
   const [mode, setMode] = useState<Mode>("pilih")
+  const [divisiOptions, setDivisiOptions] = useState<string[]>([])
   const [success, setSuccess] = useState<{ show: boolean; count: number }>({
     show: false,
     count: 0,
@@ -1097,6 +1102,30 @@ export default function TambahPanitiaPage() {
 
     checkSession()
   }, [router])
+
+  // Fetch divisi untuk dropdown dari API /api/divisi (unique dari tabel panitia)
+  useEffect(() => {
+    const fetchDivisi = async () => {
+      try {
+        const res = await fetch("/api/divisi", { credentials: "include" })
+        if (!res.ok) {
+          const fallback = res.headers.get("x-fallback")
+          if (fallback !== "true") throw new Error(`HTTP ${res.status}`)
+        }
+        const data = await res.json()
+        if (Array.isArray(data.divisi) && data.divisi.length > 0) {
+          setDivisiOptions(data.divisi)
+        } else {
+          // Fallback ke default jika tabel panitia kosong
+          setDivisiOptions(["Rohis - 26"])
+        }
+      } catch (err) {
+        console.error("Gagal memuat daftar divisi:", err)
+        setDivisiOptions(["Rohis - 26"])
+      }
+    }
+    if (!checkingSession) fetchDivisi()
+  }, [checkingSession])
 
   const handleReset = () => {
     setMode("pilih")
@@ -1136,11 +1165,13 @@ export default function TambahPanitiaPage() {
           <ManualForm
             onBack={() => setMode("pilih")}
             onSuccess={() => setSuccess({ show: true, count: 1 })}
+            divisiOptions={divisiOptions}
           />
         ) : (
           <ImportForm
             onBack={() => setMode("pilih")}
             onSuccess={(count) => setSuccess({ show: true, count })}
+            divisiOptions={divisiOptions}
           />
         )}
       </div>

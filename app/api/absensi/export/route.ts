@@ -5,17 +5,15 @@ import type {
   AbsensiRecord,
   ExportConfig,
 } from "@/lib/exportAbsensi"
-import type { AbsensiWithUserSummary } from "@/lib/supabase-types"
+import type { AbsensiWithUserSummary } from "@/lib/app-types"
+import { normalizeUserRecord } from "@/lib/app-types"
 import fs from "fs"
 import path from "path"
 import sharp from "sharp"
 import { createClient } from "@/lib/supabaseServer"
 import { requireAdminSession } from "@/lib/auth-server"
 import { withRequestMetrics } from "@/lib/request-metrics"
-import {
-  checkRateLimitPreset,
-  rateLimitErrorResponse,
-} from "@/lib/rate-limit"
+import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 import {
   emergencyModeResponseIfActive,
   checkExportSafe,
@@ -46,8 +44,7 @@ async function getCachedLogo(
   const cached = LOGO_CACHE.get(cacheKey)
   if (cached) return cached
   try {
-    const fileName =
-      key === "left" ? "LOGO GRAFIKA.png" : "LOGO ROHIS.png"
+    const fileName = key === "left" ? "LOGO GRAFIKA.png" : "LOGO ROHIS.png"
     const logoPath = path.join(cwd, "public", "images", fileName)
     if (!fs.existsSync(logoPath)) return undefined
     const buf = fs.readFileSync(logoPath)
@@ -100,8 +97,7 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
 
     await requireAdminSession()
     const { searchParams } = new URL(req.url)
-    const kelas =
-      searchParams.get("kelas") ?? "X TEKNIK LOGISTIK (TL) - A"
+    const kelas = searchParams.get("kelas") ?? "X TEKNIK LOGISTIK (TL) - A"
     const tahun = searchParams.get("tahun") ?? "2025/2026"
     const bulan = searchParams.get("bulan")
       ? Number(searchParams.get("bulan"))
@@ -122,7 +118,15 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
       // Default export: bulan sekarang (cap)
       const now = new Date()
       dateStart = new Date(now.getFullYear(), now.getMonth(), 1)
-      dateEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      dateEnd = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      )
     } else {
       // exportAllDates: tetap cap 90 hari default (safety)
       const now = new Date()
@@ -195,10 +199,8 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
           )
         }
 
-        buffer = await withSlowQuerySampling(
-          "absensi-export",
-          "export",
-          () => exportAllClassesExcel(allClassesData, baseConfig)
+        buffer = await withSlowQuerySampling("absensi-export", "export", () =>
+          exportAllClassesExcel(allClassesData, baseConfig)
         )
       } else {
         // NOTE: Fix N+1 duplicate user fetch — fetch once, reuse.
@@ -211,13 +213,7 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
           "absensi-export",
           "select",
           () =>
-            fetchAbsensiByClass(
-              kelas,
-              bulan,
-              tahunBulan,
-              supabase,
-              usersData
-            )
+            fetchAbsensiByClass(kelas, bulan, tahunBulan, supabase, usersData)
         )
 
         const rowSafety = checkExportSafe({
@@ -225,14 +221,11 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
         })
         if (!rowSafety.ok) return exportTooLargeResponse(rowSafety.message)
 
-        buffer = await withSlowQuerySampling(
-          "absensi-export",
-          "export",
-          () =>
-            exportAbsensiExcel(usersData, absensiData, {
-              ...baseConfig,
-              kelas,
-            })
+        buffer = await withSlowQuerySampling("absensi-export", "export", () =>
+          exportAbsensiExcel(usersData, absensiData, {
+            ...baseConfig,
+            kelas,
+          })
         )
       }
     } catch (err) {
@@ -294,14 +287,16 @@ async function fetchUsersByClass(
     throw error
   }
 
-  return (data as Array<UserRecord>) ?? []
+  return (data ?? []).map((raw) => normalizeUserRecord(raw))
 }
 
 async function fetchAbsensiByClass(
   kelas: string,
   bulan: number | undefined,
   tahunBulan: number | undefined,
-  supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never,
+  supabase: ReturnType<typeof createClient> extends Promise<infer T>
+    ? T
+    : never,
   // Accept already-fetched users to avoid duplicate queries (fix N+1)
   prefetchedUsers?: UserRecord[]
 ): Promise<AbsensiRecord[]> {
@@ -318,9 +313,7 @@ async function fetchAbsensiByClass(
 
   if (bulan && tahunBulan) {
     const firstDay = `${tahunBulan}-${String(bulan).padStart(2, "0")}-01`
-    const lastDay = new Date(tahunBulan, bulan, 0)
-      .toISOString()
-      .split("T")[0]
+    const lastDay = new Date(tahunBulan, bulan, 0).toISOString().split("T")[0]
     query = query.gte("tanggal", firstDay).lte("tanggal", lastDay)
   }
 
@@ -334,21 +327,24 @@ async function fetchAbsensiByClass(
   const typedData = data as unknown as Array<AbsensiWithUserSummary>
 
   return typedData
-    .filter((item) => item.users)
+    .filter(
+      (item) => item.users && item.user_id !== null && item.status !== null
+    )
     .map((item) => {
-      const userData = Array.isArray(item.users)
-        ? item.users[0]
-        : item.users
+      const userData = Array.isArray(item.users) ? item.users[0] : item.users
       return {
         user_id: item.user_id,
         status: item.status,
-        nis: userData?.nis ?? "",
+        nis:
+          userData?.nis !== null && userData?.nis !== undefined
+            ? String(userData.nis)
+            : "",
         nama: userData?.nama ?? "",
         jenis_kelamin: userData?.jenis_kelamin ?? "L",
         waktu: item.waktu ?? "",
         tanggal: item.tanggal ?? "",
         kelas: userData?.kelas ?? "",
-      }
+      } as AbsensiRecord
     })
 }
 
@@ -365,21 +361,17 @@ async function fetchAllClassesData(
 
   if (usersError) throw usersError
 
-  const typedAllUsers = allUsers as unknown as Array<UserRecord>
+  const typedAllUsers = (allUsers ?? []).map((raw) => normalizeUserRecord(raw))
 
   const uniqueClasses = [
     ...new Set(typedAllUsers.map((u) => u.kelas as string)),
   ].sort()
 
-  let absensiQuery = supabase
-    .from("absensi")
-    .select(ABSENSI_FETCH_COLUMNS)
+  let absensiQuery = supabase.from("absensi").select(ABSENSI_FETCH_COLUMNS)
 
   if (bulan && tahunBulan) {
     const firstDay = `${tahunBulan}-${String(bulan).padStart(2, "0")}-01`
-    const lastDay = new Date(tahunBulan, bulan, 0)
-      .toISOString()
-      .split("T")[0]
+    const lastDay = new Date(tahunBulan, bulan, 0).toISOString().split("T")[0]
     absensiQuery = absensiQuery.gte("tanggal", firstDay).lte("tanggal", lastDay)
   } else {
     // Jika tanpa filter tanggal exportAllDates, cap 90 hari BACK dari hari ini.
@@ -400,10 +392,11 @@ async function fetchAllClassesData(
 
   // Index absensi by user_id for fast lookup
   const absensiByUserIdMap = new Map<
-    string | number,
+    number,
     Array<(typeof typedAllAbsensi)[number]>
   >()
   for (const row of typedAllAbsensi ?? []) {
+    if (row.user_id === null) continue
     const list = absensiByUserIdMap.get(row.user_id) ?? []
     list.push(row)
     absensiByUserIdMap.set(row.user_id, list)
@@ -421,18 +414,22 @@ async function fetchAllClassesData(
     const userIdsInClass = new Set(classUsers.map((u) => u.id))
     const classAbsensi: AbsensiRecord[] = []
     for (const item of typedAllAbsensi ?? []) {
-      if (!userIdsInClass.has(item.user_id)) continue
+      if (item.user_id === null || !userIdsInClass.has(item.user_id)) continue
       if (!item.users) continue
+      if (item.status === null) continue
       const userData = Array.isArray(item.users) ? item.users[0] : item.users
       classAbsensi.push({
         user_id: item.user_id,
         status: item.status,
-        nis: userData?.nis ?? "",
+        nis:
+          userData?.nis !== null && userData?.nis !== undefined
+            ? String(userData.nis)
+            : "",
         nama: userData?.nama ?? "",
         jenis_kelamin: userData?.jenis_kelamin ?? "L",
         waktu: item.waktu ?? "",
         tanggal: item.tanggal ?? "",
-      })
+      } as AbsensiRecord)
     }
     result.push({ kelas: k, users: classUsers, absensi: classAbsensi })
   }

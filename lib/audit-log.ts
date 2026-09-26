@@ -1,4 +1,4 @@
-import { createClient } from "./supabaseServer"
+import { createServiceClient } from "./supabaseServer"
 import { type SessionData } from "./auth-client"
 
 export type AuditAction =
@@ -13,6 +13,8 @@ export type AuditAction =
   | "create_siswa"
   | "update_siswa"
   | "delete_siswa"
+  | "create_kelas"
+  | "delete_kelas"
   | "generate_qr"
   | "update_config"
   | "start_impersonation"
@@ -38,20 +40,21 @@ export interface CreateAuditLogParams {
 
 let cachedFallbackAdminId: number | null = null
 
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+type SupabaseClient = Awaited<ReturnType<typeof createServiceClient>>
 
 async function getFallbackAdminId(
   supabase: SupabaseClient
 ): Promise<number | null> {
   if (cachedFallbackAdminId !== null) return cachedFallbackAdminId
   try {
-    const { data } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
       .from("admin")
       .select("id")
       .order("id", { ascending: true })
       .limit(1)
       .maybeSingle()
-    if (data?.id) {
+    if (data && typeof data.id === "number") {
       cachedFallbackAdminId = data.id
       return data.id
     }
@@ -69,7 +72,10 @@ export async function createAuditLog(
 ): Promise<void> {
   try {
     const { actor, action, targetType, targetId, description } = params
-    const supabase = await createClient()
+    // Pakai service role bypass RLS karena audit_logs biasanya tidak punya
+    // policy INSERT untuk role anon/public, dan insert dilakukan oleh API
+    // route handler yang sudah memverifikasi auth via requireAdminSession dll.
+    const supabase = await createServiceClient()
 
     let roleExtra = ` (${actor.role})`
     if (actor.role === "siswa") {
@@ -91,7 +97,8 @@ export async function createAuditLog(
       if (fbId !== null) resolvedAdminId = fbId
     }
 
-    const { error } = await supabase.from("audit_logs").insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from("audit_logs").insert({
       admin_id: resolvedAdminId,
       action,
       target_user_id: targetId ?? null,

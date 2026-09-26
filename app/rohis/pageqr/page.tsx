@@ -50,7 +50,7 @@ interface AbsensiResponse {
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const QR_LIFETIME_SECONDS = 60 // QR expired setelah 60 detik
+const QR_LIFETIME_SECONDS = 10 * 60 // QR default 10 menit, sesuai halaman admin
 
 // ─── Dummy live absen ────────────────────────────────────────────────────────
 
@@ -168,6 +168,7 @@ export default function GenerateQRPage() {
       const expiredAt = new Date(Date.now() + QR_LIFETIME_SECONDS * 1000)
       const res = await fetch("/api/qr/generate", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -204,7 +205,9 @@ export default function GenerateQRPage() {
       const session = await getEffectiveUserAsync()
       if (!session) return
 
-      const res = await fetch(`/api/absensi?panitia_id=${session.id}`)
+      const res = await fetch(`/api/absensi?panitia_id=${session.id}`, {
+        credentials: "include",
+      })
       if (!res.ok) return
 
       const data = await res.json()
@@ -241,20 +244,13 @@ export default function GenerateQRPage() {
               waktu: latest[0].waktu,
             })
             setStatus("success")
-            setCountdown(0)
 
             setTimeout(() => {
               if (isMounted.current) {
                 setScanSuccess(null)
-                handleGenerate()
+                setStatus(token ? "active" : "expired")
               }
             }, 2500)
-
-            setTimeout(() => {
-              if (isMounted.current) {
-                router.push("/rohis/home")
-              }
-            }, 3000)
           }
           lastAbsenIdRef.current = newestId
         }
@@ -264,7 +260,7 @@ export default function GenerateQRPage() {
     } finally {
       isFetchingLiveAbsen.current = false
     }
-  }, [handleGenerate, router])
+  }, [token])
 
   useEffect(() => {
     const init = async () => {

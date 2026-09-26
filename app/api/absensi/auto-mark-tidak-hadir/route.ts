@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabaseServer"
 import { requireAdminSession } from "@/lib/auth-server"
 import { getGlobalConfig } from "@/lib/server-config"
-import type { Database } from "@/lib/supabase-types"
+import type { AbsensiInsert } from "@/lib/app-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
 import {
   costGuardObserveRequest,
@@ -61,7 +61,6 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     const today = now.toISOString().split("T")[0]
     const supabase = await createClient()
 
-    // ─── Cron Guard Lock: mencegah 2+ request bersamaan memproses tanggal sama ──
     const lock = await cronTryClaimLock(
       supabase,
       `auto-mark-tidak-hadir:${today}`,
@@ -86,9 +85,9 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Tidak ada user ditemukan" })
     }
 
-    const typedAllUsers = allUsers as Array<
-      Database["public"]["Tables"]["users"]["Row"]
-    >
+    type UserIdRow = { id: number }
+
+    const typedAllUsers = allUsers as Array<UserIdRow>
 
     const { data: absensiHariIni, error: absensiError } =
       await withSlowQuerySampling(
@@ -104,12 +103,13 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
 
     if (absensiError) throw absensiError
 
-    const typedAbsensiHariIni = absensiHariIni as Array<
-      Database["public"]["Tables"]["absensi"]["Row"]
-    >
+    type AbsensiUserIdRow = { user_id: number | null }
+    const typedAbsensiHariIni = absensiHariIni as Array<AbsensiUserIdRow>
 
     const userIdsAbsenHariIni = new Set(
-      typedAbsensiHariIni?.map((a) => a.user_id) || []
+      typedAbsensiHariIni
+        ?.map((a) => a.user_id)
+        .filter((id): id is number => id !== null) || []
     )
     const usersBelumAbsen = typedAllUsers.filter(
       (u) => !userIdsAbsenHariIni.has(u.id)
@@ -122,7 +122,6 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       })
     }
 
-    // ─── Bulk safety: jika > BULK_MAX_ROWS, proses CHUNKED ─────────────
     const bulkCheck = checkBulkSafe(usersBelumAbsen.length)
     const chunkSize = bulkCheck.ok
       ? Math.max(1, usersBelumAbsen.length)
@@ -133,9 +132,7 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
 
     while (chunkCursor < usersBelumAbsen.length) {
       const chunk = usersBelumAbsen.slice(chunkCursor, chunkCursor + chunkSize)
-      const absensiToUpsert: Array<
-        Omit<Database["public"]["Tables"]["absensi"]["Row"], "id">
-      > = chunk.map((user) => ({
+      const absensiToUpsert: AbsensiInsert[] = chunk.map((user) => ({
         user_id: user.id,
         tanggal: today,
         waktu: "14:00:00",

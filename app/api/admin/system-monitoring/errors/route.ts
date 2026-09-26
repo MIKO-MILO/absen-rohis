@@ -12,7 +12,15 @@ type SortKey =
   | "endpoint"
 type SortDir = "asc" | "desc"
 
-const METHODS_ALLOWED = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+const METHODS_ALLOWED = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "OPTIONS",
+  "HEAD",
+]
 
 function parseDateSafe(v: string | null): Date | null {
   if (!v) return null
@@ -34,7 +42,10 @@ export async function GET(req: NextRequest) {
     const sortKey = (searchParams.get("sort") as SortKey) ?? "error_count"
     const sortDir = (searchParams.get("dir") as SortDir) ?? "desc"
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
-    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get("limit") || "20", 10)))
+    const limit = Math.max(
+      1,
+      Math.min(100, parseInt(searchParams.get("limit") || "20", 10))
+    )
 
     // ─── 1. Resolve date range ──────────────────────────────────────────────
     const now = new Date()
@@ -59,16 +70,38 @@ export async function GET(req: NextRequest) {
         if (!f || !t) {
           return NextResponse.json(
             { error: "Parameter from/to tidak valid untuk custom range" },
-            { status: 400 },
+            { status: 400 }
           )
         }
-        startDate = new Date(f.getFullYear(), f.getMonth(), f.getDate(), 0, 0, 0)
-        endDate = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 23, 59, 59, 999)
+        startDate = new Date(
+          f.getFullYear(),
+          f.getMonth(),
+          f.getDate(),
+          0,
+          0,
+          0
+        )
+        endDate = new Date(
+          t.getFullYear(),
+          t.getMonth(),
+          t.getDate(),
+          23,
+          59,
+          59,
+          999
+        )
         break
       }
       case "today":
       default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+        startDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          0,
+          0,
+          0
+        )
         endDate = now
         break
     }
@@ -92,8 +125,8 @@ export async function GET(req: NextRequest) {
         p_start_hour: filterHourStart,
         p_end_hour: filterHourEnd,
         p_is_same_day: isSameDay,
-        p_method: method,
-        p_search: search,
+        p_method: method ?? "",
+        p_search: search ?? "",
         p_sort_key: sortKey,
         p_sort_dir: sortDir,
         p_page: page,
@@ -114,8 +147,16 @@ export async function GET(req: NextRequest) {
       averageResponseTime: number
     }
 
-    type DBRow = { endpoint: string; method: string; total_requests?: number; success_count?: number; error_count?: number; error_rate?: number; avg_response_time?: number };
-const list: EnrichedRow[] = (dbRows ?? []).map((r: DBRow) => ({
+    type DBRow = {
+      endpoint: string
+      method: string
+      total_requests?: number
+      success_count?: number
+      error_count?: number
+      error_rate?: number
+      avg_response_time?: number
+    }
+    const list: EnrichedRow[] = (dbRows ?? []).map((r: DBRow) => ({
       endpoint: r.endpoint,
       method: r.method,
       totalRequests: Number(r.total_requests || 0),
@@ -125,7 +166,11 @@ const list: EnrichedRow[] = (dbRows ?? []).map((r: DBRow) => ({
       averageResponseTime: Number(r.avg_response_time || 0),
     }))
 
-    const total = dbRows && dbRows.length > 0 ? Number(dbRows[0].total_count || 0) : 0
+    type DBRowWithTotal = DBRow & { total_count?: number }
+    const total =
+      dbRows && dbRows.length > 0
+        ? Number((dbRows[0] as DBRowWithTotal).total_count || 0)
+        : 0
     const totalPages = Math.max(1, Math.ceil(total / limit))
     const safePage = Math.min(page, totalPages)
 
@@ -160,7 +205,7 @@ const list: EnrichedRow[] = (dbRows ?? []).map((r: DBRow) => ({
         error: "Gagal mengambil error metrics",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

@@ -209,9 +209,9 @@ async function fetchTargetUserFromDB(
 
       return {
         id: userData.id,
-        nama: userData.nama,
+        nama: userData.nama ?? "",
         role: "siswa",
-        kelas: userData.kelas,
+        kelas: userData.kelas ?? undefined,
       }
     } else {
       const { data: panitiaData, error } = await supabase
@@ -224,9 +224,9 @@ async function fetchTargetUserFromDB(
 
       return {
         id: panitiaData.id,
-        nama: panitiaData.nama,
+        nama: panitiaData.nama ?? "",
         role: "panitia",
-        divisi: panitiaData.divisi,
+        divisi: panitiaData.divisi ?? undefined,
       }
     }
   } catch (err) {

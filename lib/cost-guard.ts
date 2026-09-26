@@ -77,7 +77,8 @@ export function getCostGuardStatus(): CostGuardStatus {
   // digunakan untuk flagging, BUKAN satu-satunya protection).
   const stats = getInstanceStats()
   if (stats.failureActiveCooling) return "protected"
-  if (stats.windowRequestCount > SETTINGS.requestLimitPerWindow * 0.8) return "warning"
+  if (stats.windowRequestCount > SETTINGS.requestLimitPerWindow * 0.8)
+    return "warning"
   return "normal"
 }
 
@@ -98,16 +99,17 @@ export function isEmergencyMode(): boolean {
  * - Users/Panitia/Admin (auth)
  * - Config (GET non-sensitif)
  */
-export function isFeatureAllowed(feature:
-  | "system-monitoring"
-  | "metrics-write"
-  | "audit-heavy-query"
-  | "export-large"
-  | "cleanup-job"
-  | "auto-mark"
-  | "impersonation"
-  | "bulk-insert"
-  | "cron"
+export function isFeatureAllowed(
+  feature:
+    | "system-monitoring"
+    | "metrics-write"
+    | "audit-heavy-query"
+    | "export-large"
+    | "cleanup-job"
+    | "auto-mark"
+    | "impersonation"
+    | "bulk-insert"
+    | "cron"
 ): boolean {
   if (!SETTINGS.enabled) return true
   if (!SETTINGS.emergency) return true
@@ -128,7 +130,9 @@ export function isFeatureAllowed(feature:
   }
 }
 
-export function emergencyModeResponseIfActive(req: NextRequest): NextResponse | null {
+export function emergencyModeResponseIfActive(
+  req: NextRequest
+): NextResponse | null {
   if (!isEmergencyMode()) return null
   const path = req.nextUrl?.pathname ?? ""
   const isMonitoringHeavy =
@@ -201,7 +205,10 @@ function getInstanceStats(): InstanceStats {
     _instanceStats.windowRequestCount = 0
   }
   // Cooldown expire reset
-  if (_instanceStats.failureActiveCooling && now > _instanceStats.failureCoolUntil) {
+  if (
+    _instanceStats.failureActiveCooling &&
+    now > _instanceStats.failureCoolUntil
+  ) {
     _instanceStats.failureActiveCooling = false
     _instanceStats.failureCount = 0
     _instanceStats.failureStart = 0
@@ -234,9 +241,7 @@ export interface ExportSafetyInput {
 
 export function checkExportSafe(
   input: ExportSafetyInput
-):
-  | { ok: true }
-  | { ok: false; status: 413 | 400; message: string } {
+): { ok: true } | { ok: false; status: 413 | 400; message: string } {
   if (!SETTINGS.enabled) return { ok: true }
   const maxRows = SETTINGS.exportMaxRows
   const maxDays = SETTINGS.exportMaxDateRangeDays
@@ -344,35 +349,90 @@ export function circuitBreakerReportFailure(kind: string): void {
 // Catatan: Penyimpanan dilakukan ke Supabase agar konsisten antar serverless instance.
 // Namun jika Supabase gagal, CRON masih boleh dijalankan (fail-open) tapi warn log.
 
-export interface CronGuardClaimInput {
-  supabaseClient: {
-    from: (t: string) => unknown
-    rpc?: (fn: string, p: Record<string, unknown>) => unknown
+import type { Database } from "./supabase-types"
+import type { SupabaseClient } from "@supabase/supabase-js"
+
+type TypedSupabase = SupabaseClient<Database>
+
+// Catatan: Tabel `cron_jobs` saat ini BELUM ada di generated types (belum di-migrate).
+// Semua akses ke tabel ini dibungkus try/catch dengan fail-open policy.
+// Jika migration cron_jobs sudah dilakukan, hapus cast `as unknown as` di bawah.
+
+interface CronJobsRow {
+  job_key: string
+  locked_at: string | null
+  locked_by: string | null
+  last_heartbeat_at: string | null
+}
+
+type CronJobsClient = {
+  from: {
+    (table: "cron_jobs"): {
+      update: (fields: Partial<CronJobsRow>) => {
+        eq: (
+          col: keyof CronJobsRow | "job_key" | "locked_by",
+          val: unknown
+        ) => {
+          eq: (
+            col: keyof CronJobsRow | "job_key" | "locked_by",
+            val: unknown
+          ) => {
+            lt: (col: string, val: string) => Promise<unknown>
+          }
+          is: (
+            col: string,
+            val: null
+          ) => {
+            lt: (col: string, val: string) => Promise<unknown>
+          }
+        }
+      }
+      upsert: (
+        values: CronJobsRow | CronJobsRow[],
+        opts?: { onConflict?: string; ignoreDuplicates?: boolean }
+      ) => {
+        select: () => {
+          maybeSingle: () => Promise<{
+            data: CronJobsRow | null
+            error: { message: string } | null
+          }>
+        }
+      }
+    }
   }
-  jobKey: string
-  maxDurationSeconds: number
 }
 
 export async function cronTryClaimLock(
-  supabaseClient: {
-    from: (t: string) => unknown
-    rpc?: (fn: string, p: Record<string, unknown>) => unknown
-  },
+  supabaseClient: TypedSupabase,
   jobKey: string,
   maxDurationSeconds = SETTINGS.maxCronOverlapSeconds
 ): Promise<{ acquired: boolean; release: () => Promise<void> }> {
-  if (!SETTINGS.enabled) return { acquired: true, release: async () => { } }
+  if (!SETTINGS.enabled) return { acquired: true, release: async () => {} }
   try {
     const now = new Date()
-    const safeClient = supabaseClient as ReturnType<
-      (typeof import("./supabaseServer"))["createClient"]
-    > extends Promise<infer T>
-      ? T
-      : never
+    const safeClient = supabaseClient as unknown as TypedSupabase &
+      CronJobsClient
 
     // 1. Coba expire lock jadul
     try {
-      await safeClient
+      const expireClient = safeClient as unknown as {
+        from: (t: string) => {
+          update: (payload: unknown) => {
+            eq: (
+              col: string,
+              val: unknown
+            ) => {
+              is: (
+                col: string,
+                val: null
+              ) => {
+                lt: (col: string, val: string) => Promise<unknown>
+              }
+            }
+          }
+        }
+      }
+      await expireClient
         .from("cron_jobs")
         .update({ locked_by: null, locked_at: null })
         .eq("job_key", jobKey)
@@ -389,30 +449,72 @@ export async function cronTryClaimLock(
     const unlockKey = `${jobKey}-${Date.now().toString(36)}-${Math.random()
       .toString(36)
       .slice(2, 8)}`
-    const { data, error } = await safeClient
-      .from("cron_jobs")
-      .upsert(
-        {
-          job_key: jobKey,
-          locked_at: now.toISOString(),
-          locked_by: unlockKey,
-          last_heartbeat_at: now.toISOString(),
-        },
-        { onConflict: "job_key", ignoreDuplicates: false }
-      )
-      .select()
-      .maybeSingle()
 
-    void data
-    if (error) {
-      console.warn("[Cost Guard][Cron] Gagal claim lock, fallback allow:", error.message)
-      return { acquired: true, release: async () => { } }
+    const cronPayload: CronJobsRow = {
+      job_key: jobKey,
+      locked_at: now.toISOString(),
+      locked_by: unlockKey,
+      last_heartbeat_at: now.toISOString(),
+    }
+
+    const result = await (async () => {
+      try {
+        const rpcClient = supabaseClient as unknown as {
+          from: (t: string) => {
+            upsert: (
+              v: unknown,
+              o: { onConflict: string; ignoreDuplicates: boolean }
+            ) => {
+              select: () => {
+                maybeSingle: () => Promise<{
+                  data: unknown
+                  error: { message: string } | null
+                }>
+              }
+            }
+          }
+        }
+        return await rpcClient
+          .from("cron_jobs")
+          .upsert(cronPayload, {
+            onConflict: "job_key",
+            ignoreDuplicates: false,
+          })
+          .select()
+          .maybeSingle()
+      } catch (e) {
+        return {
+          data: null,
+          error: { message: e instanceof Error ? e.message : String(e) },
+        }
+      }
+    })()
+
+    void result.data
+    if (result.error) {
+      console.warn(
+        "[Cost Guard][Cron] Gagal claim lock, fallback allow:",
+        result.error.message
+      )
+      return { acquired: true, release: async () => {} }
     }
 
     const release = async () => {
       try {
         try {
-          await safeClient
+          const rpcClient = supabaseClient as unknown as {
+            from: (t: string) => {
+              update: (f: Record<string, unknown>) => {
+                eq: (
+                  col: string,
+                  val: unknown
+                ) => {
+                  eq: (col: string, val: unknown) => Promise<unknown>
+                }
+              }
+            }
+          }
+          await rpcClient
             .from("cron_jobs")
             .update({ locked_by: null, locked_at: null })
             .eq("job_key", jobKey)
@@ -426,8 +528,11 @@ export async function cronTryClaimLock(
     }
     return { acquired: true, release }
   } catch (err) {
-    console.warn("[Cost Guard][Cron] Lock claim exception, fallback allow:", err)
-    return { acquired: true, release: async () => { } }
+    console.warn(
+      "[Cost Guard][Cron] Lock claim exception, fallback allow:",
+      err
+    )
+    return { acquired: true, release: async () => {} }
   }
 }
 
@@ -446,7 +551,10 @@ export async function withSlowQuerySampling<T>(
   } finally {
     const elapsed = Date.now() - start
     if (elapsed > SETTINGS.slowQueryMs) {
-      if (SETTINGS.slowQuerySampleRate >= 1 || Math.random() < SETTINGS.slowQuerySampleRate) {
+      if (
+        SETTINGS.slowQuerySampleRate >= 1 ||
+        Math.random() < SETTINGS.slowQuerySampleRate
+      ) {
         console.warn(
           `[Cost Guard][Slow Query] endpoint=${endpointName} op=${operation} duration=${elapsed}ms threshold=${SETTINGS.slowQueryMs}ms`
         )
@@ -485,10 +593,7 @@ export function heavyEndpointBusyResponse(cooldownSeconds = 60) {
 }
 
 export function exportTooLargeResponse(message: string) {
-  return NextResponse.json(
-    { success: false, message },
-    { status: 413 }
-  )
+  return NextResponse.json({ success: false, message }, { status: 413 })
 }
 
 export function getSettingsSnapshot() {
@@ -525,4 +630,3 @@ export async function withRequestDeduplication(
   dedupCache.set(key, promise)
   return promise.then((res) => res.clone())
 }
-

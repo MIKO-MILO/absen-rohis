@@ -12,7 +12,10 @@ export async function GET(req: NextRequest) {
     const severityFilter = searchParams.get("severity") || "all" // all, info, warning, error
     const search = searchParams.get("search")?.trim().toLowerCase() || ""
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
-    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get("limit") || "20", 10)))
+    const limit = Math.max(
+      1,
+      Math.min(100, parseInt(searchParams.get("limit") || "20", 10))
+    )
 
     // ─── 1. Fetch Audit Logs if applicable ────────────────────────────────────
     let combinedLogs: Array<{
@@ -28,9 +31,11 @@ export async function GET(req: NextRequest) {
 
     if (typeFilter === "all" || typeFilter === "admin") {
       // Fetch admins map for names
-      const { data: admins } = await supabase.from("admin").select("id, nama, role")
+      const { data: admins } = await supabase
+        .from("admin")
+        .select("id, nama, role")
       const adminMap = Object.fromEntries(
-        (admins ?? []).map((a) => [a.id, { nama: a.nama, role: a.role }]),
+        (admins ?? []).map((a) => [a.id, { nama: a.nama, role: a.role }])
       )
 
       const { data: auditData, error: auditErr } = await supabase
@@ -44,14 +49,14 @@ export async function GET(req: NextRequest) {
           const admin = adminMap[log.admin_id]
           const actorName = admin?.nama ?? "System"
           const description = log.description || ""
-          
+
           let severity: "INFO" | "WARNING" | "ERROR" = "INFO"
           if (log.action?.includes("delete")) severity = "WARNING"
           if (log.action?.includes("impersonate")) severity = "WARNING"
 
           combinedLogs.push({
             id: `audit_${log.id}`,
-            timestamp: log.created_at,
+            timestamp: log.created_at ?? new Date().toISOString(),
             type: "ADMIN_ACTION",
             source: actorName,
             action: String(log.action || "action").toUpperCase(),
@@ -92,7 +97,7 @@ export async function GET(req: NextRequest) {
 
           combinedLogs.push({
             id: `metric_${m.id}`,
-            timestamp: m.updated_at || fakeIso,
+            timestamp: m.updated_at ?? fakeIso,
             type: "API_METRIC",
             source: m.endpoint,
             action: String(m.method || "GET").toUpperCase(),
@@ -105,11 +110,16 @@ export async function GET(req: NextRequest) {
     }
 
     // ─── 3. Sort Chronologically ──────────────────────────────────────────────
-    combinedLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    combinedLogs.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    )
 
     // ─── 4. Filter post-load ──────────────────────────────────────────────────
     if (severityFilter !== "all") {
-      combinedLogs = combinedLogs.filter((l) => l.severity.toLowerCase() === severityFilter)
+      combinedLogs = combinedLogs.filter(
+        (l) => l.severity.toLowerCase() === severityFilter
+      )
     }
 
     if (search) {
@@ -117,7 +127,7 @@ export async function GET(req: NextRequest) {
         (l) =>
           l.source.toLowerCase().includes(search) ||
           l.action.toLowerCase().includes(search) ||
-          l.details.toLowerCase().includes(search),
+          l.details.toLowerCase().includes(search)
       )
     }
 
@@ -155,7 +165,7 @@ export async function GET(req: NextRequest) {
         error: "Gagal mengambil system logs",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

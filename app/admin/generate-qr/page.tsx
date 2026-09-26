@@ -139,6 +139,7 @@ export default function GenerateQRPage() {
       console.log("[GENERATE QR] Calling API /api/qr/generate...")
       const res = await fetch("/api/qr/generate", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           panitia_id: auth.role === "panitia" ? auth.id : null,
@@ -310,7 +311,7 @@ export default function GenerateQRPage() {
 
           {/* ── Right: QR Display ── */}
           <div className="lg:col-span-3">
-            <div className="flex min-h-[400px] flex-col items-center justify-center gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex min-h-100 flex-col items-center justify-center gap-5 rounded-2xl border border-border bg-card p-6 shadow-sm">
               {!session ? (
                 <div className="flex flex-col items-center gap-4 py-8">
                   <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-muted">

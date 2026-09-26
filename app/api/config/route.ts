@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabaseServer"
+import { createServiceClient } from "@/lib/supabaseServer"
 import {
   requireAdminSession,
   requireAuthenticatedSession,
 } from "@/lib/auth-server"
 import type { Database } from "@/lib/supabase-types"
+import type { Json } from "@/lib/supabase-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 import { createAuditLog } from "@/lib/audit-log"
+import { DEFAULT_CONFIG, type TestConfig } from "@/lib/client-config"
+
+export const dynamic = "force-dynamic"
 
 export const GET = withRequestMetrics(async function GET(req: NextRequest) {
   try {
@@ -15,9 +19,11 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
     if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
 
     await requireAuthenticatedSession()
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as unknown as any
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("system_settings")
       .select("*")
       .single()
@@ -26,33 +32,16 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
       throw error
     }
 
-    const defaultConfig = {
-      PAKSA_REALTIME: true,
-      CEK_GPS: false,
-      MAX_JARAK_GPS: 500,
-      ZOOM_GPS: 16,
-      LOGIN_OTP: false,
-      AUTO_SIGN_OUT: 20000,
-      SIMULASI_HARI: 5,
-      SIMULASI_TANGGAL: "2025-04-04",
-      KODE_OTP: "123456",
-      PANITIA_NAMA: "Aditya Dimas Pratama",
-      PANITIA_DIVISI: "Divisi Kerohanian",
-      ENABLE_SIMULATION: false,
-      ENABLE_OTP: false,
-      ENABLE_FORGOT_SIGN_IN: true,
-      SEKOLAH_NAMA: "SMK NEGERI 4 KOTA MALANG",
-      SEKOLAH_KOTA: "Malang",
-      APP_VERSION: "1.0.0",
-    }
-
     if (!data) {
-      return NextResponse.json(defaultConfig)
+      return NextResponse.json({ ...DEFAULT_CONFIG })
     }
 
-    const config = { ...defaultConfig, ...data.config }
+    const merged: TestConfig = {
+      ...DEFAULT_CONFIG,
+      ...(data.config as Partial<TestConfig>),
+    }
 
-    return NextResponse.json(config)
+    return NextResponse.json(merged)
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -62,25 +51,7 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
     }
     console.error(error)
     return NextResponse.json(
-      {
-        PAKSA_REALTIME: true,
-        CEK_GPS: false,
-        MAX_JARAK_GPS: 500,
-        ZOOM_GPS: 16,
-        LOGIN_OTP: false,
-        AUTO_SIGN_OUT: 20000,
-        SIMULASI_HARI: 5,
-        SIMULASI_TANGGAL: "2025-04-04",
-        KODE_OTP: "123456",
-        PANITIA_NAMA: "Aditya Dimas Pratama",
-        PANITIA_DIVISI: "Divisi Kerohanian",
-        ENABLE_SIMULATION: false,
-        ENABLE_OTP: false,
-        ENABLE_FORGOT_SIGN_IN: true,
-        SEKOLAH_NAMA: "SMK NEGERI 4 KOTA MALANG",
-        SEKOLAH_KOTA: "Malang",
-        APP_VERSION: "1.0.0",
-      },
+      { error: "Gagal mengambil config", ...DEFAULT_CONFIG },
       { status: 500 }
     )
   }
@@ -92,10 +63,25 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
 
     const actor = await requireAdminSession()
-    const body = await req.json()
-    const supabase = await createClient()
+    const rawBody = (await req.json()) as Partial<TestConfig> &
+      Record<string, unknown>
 
-    const { data: existing, error: fetchError } = await supabase
+    const supabase = await createServiceClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as unknown as any
+
+    const body: Partial<TestConfig> = Object.keys(DEFAULT_CONFIG).reduce(
+      (acc, k) => {
+        const key = k as keyof TestConfig
+        if (rawBody[key] !== undefined) {
+          acc[key] = rawBody[key] as TestConfig[typeof key]
+        }
+        return acc
+      },
+      {} as Partial<TestConfig>
+    )
+
+    const { data: existing, error: fetchError } = await db
       .from("system_settings")
       .select("*")
       .single()
@@ -104,23 +90,62 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       throw fetchError
     }
 
-    const changedKeys = Object.keys(body).filter(
-      (k) => JSON.stringify(existing?.config?.[k]) !== JSON.stringify(body[k])
-    )
-
-    const configData: Database["public"]["Tables"]["system_settings"]["Row"] = {
-      id: existing?.id ?? 1,
-      config: { ...existing?.config, ...body },
-      updated_at: new Date().toISOString(),
+    const currentMerged: TestConfig = {
+      ...DEFAULT_CONFIG,
+      ...((existing?.config ?? {}) as Partial<TestConfig>),
     }
 
-    const { data, error } = await supabase
-      .from("system_settings")
-      .upsert(configData)
-      .select()
-      .single()
+    const changedKeys = Object.keys(body).filter(
+      (k) =>
+        JSON.stringify(currentMerged[k as keyof TestConfig]) !==
+        JSON.stringify(body[k as keyof TestConfig])
+    )
 
-    if (error) throw error
+    const finalConfig: TestConfig = { ...currentMerged, ...body }
+
+    type SettingsRow = Database["public"]["Tables"]["system_settings"]["Row"]
+    let upserted: SettingsRow | null = null
+
+    if (existing) {
+      const updatePayload = {
+        config: finalConfig as unknown as Json,
+        updated_at: new Date().toISOString(),
+      }
+
+      const { data, error } = await db
+        .from("system_settings")
+        .update(updatePayload)
+        .eq("id", existing.id)
+        .select()
+        .maybeSingle()
+
+      if (error) {
+        console.error("[CONFIG SAVE] Supabase UPDATE error:", error)
+        throw new Error(
+          `DB Update Error (${error.code}): ${error.message}${error.details ? " — " + error.details : ""}${error.hint ? " (" + error.hint + ")" : ""}`
+        )
+      }
+      upserted = data
+    } else {
+      const insertPayload = {
+        config: finalConfig as unknown as Json,
+        updated_at: new Date().toISOString(),
+      }
+
+      const { data, error } = await db
+        .from("system_settings")
+        .insert(insertPayload)
+        .select()
+        .maybeSingle()
+
+      if (error) {
+        console.error("[CONFIG SAVE] Supabase INSERT error:", error)
+        throw new Error(
+          `DB Insert Error (${error.code}): ${error.message}${error.details ? " — " + error.details : ""}${error.hint ? " (" + error.hint + ")" : ""}`
+        )
+      }
+      upserted = data
+    }
 
     await createAuditLog({
       actor,
@@ -129,7 +154,7 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       description: `${actor.nama} updated config: ${changedKeys.length > 0 ? changedKeys.join(", ") : "no changes detected"}`,
     })
 
-    return NextResponse.json(data)
+    return NextResponse.json({ success: true, data: upserted, changedKeys })
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -137,9 +162,11 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     if (error instanceof Error && error.message === "Forbidden") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
-    console.error(error)
+    console.error("[CONFIG ROUTE ERROR]:", error)
+    const detailMsg =
+      error instanceof Error ? error.message : "Unknown DB/config error"
     return NextResponse.json(
-      { error: "Failed to save config" },
+      { error: "Failed to save config", details: detailMsg },
       { status: 500 }
     )
   }

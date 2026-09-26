@@ -12,7 +12,10 @@ export const GET = withRequestMetrics(async function GET(
   try {
     await requireAdminSession()
     const { id } = await params
-    const targetId = isNaN(Number(id)) ? id : Number(id)
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -55,6 +58,10 @@ export const PUT = withRequestMetrics(async function PUT(
   try {
     const actor = await requireAdminSession()
     const { id } = await params
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const body = await req.json()
     const { status } = body as Partial<
       Database["public"]["Tables"]["absensi"]["Update"]
@@ -64,8 +71,6 @@ export const PUT = withRequestMetrics(async function PUT(
       return NextResponse.json({ error: "Status wajib diisi" }, { status: 400 })
     }
 
-    const targetId = isNaN(Number(id)) ? id : Number(id)
-    const numericTargetId = typeof targetId === "number" ? targetId : parseInt(targetId, 10)
     const supabase = await createClient()
 
     const { data: beforeData } = await supabase
@@ -95,13 +100,13 @@ export const PUT = withRequestMetrics(async function PUT(
     }
 
     const beforeStatus = (beforeData as { status: string | null } | null)?.status
-    const userName = (beforeData as { users: { nama: string } | null } | null)?.users?.nama
-    if (beforeStatus !== status && !isNaN(numericTargetId)) {
+    const userName = (beforeData as { users: { nama: string | null } | null } | null)?.users?.nama
+    if (beforeStatus !== status) {
       await createAuditLog({
         actor,
         action: "approve_absensi",
         targetType: "absensi",
-        targetId: numericTargetId,
+        targetId,
         description: `${actor.nama} changed attendance status ${userName ? `for ${userName} ` : ""}from ${beforeStatus ?? "null"} to ${status}`,
       })
     }
@@ -129,7 +134,10 @@ export const DELETE = withRequestMetrics(async function DELETE(
   try {
     await requireAdminSession()
     const { id } = await params
-    const targetId = isNaN(Number(id)) ? id : Number(id)
+    const targetId = Number(id)
+    if (!Number.isInteger(targetId)) {
+      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 })
+    }
     const supabase = await createClient()
 
     const { error } = await supabase.from("absensi").delete().eq("id", targetId)

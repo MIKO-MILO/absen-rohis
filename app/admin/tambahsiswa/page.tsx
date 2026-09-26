@@ -45,7 +45,8 @@ interface ImportRow {
   pesan?: string
 }
 
-const KELAS_OPTIONS = [
+// Fallback kelas untuk template/example jika tabel classes kosong
+const KELAS_FALLBACK_EXAMPLES = [
   "X RPL A",
   "X RPL B",
   "X RPL C",
@@ -58,6 +59,7 @@ const KELAS_OPTIONS = [
   "XII IPS 2",
   "XII RPL B",
 ]
+void KELAS_FALLBACK_EXAMPLES
 
 const DUMMY_NIS_EXISTING = ["22001", "22002", "22003"]
 
@@ -113,11 +115,13 @@ function validateRow(
   return { ...base, status: "valid" }
 }
 
-function downloadTemplate() {
+function downloadTemplate(classes: string[] = []) {
+  const ex1 = classes[0] ?? "X RPL A"
+  const ex2 = classes[1] ?? "XI IPA 1"
   const csv = [
     "Nama,NIS,Kelas,Jenis_Kelamin",
-    "Contoh Siswa,22100,X RPL A,Laki-laki",
-    "Contoh Siswi,22101,XI IPA 1,Perempuan",
+    `Contoh Siswa,22100,${ex1},Laki-laki`,
+    `Contoh Siswi,22101,${ex2},Perempuan`,
   ].join("\n")
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
@@ -417,6 +421,7 @@ function ManualForm({
 function ImportForm({
   onBack,
   onSuccess,
+  classes,
 }: {
   onBack: () => void
   onSuccess: (count: number) => void
@@ -660,7 +665,7 @@ function ImportForm({
               </div>
             </div>
             <button
-              onClick={downloadTemplate}
+              onClick={() => downloadTemplate(classes)}
               className="flex items-center gap-1.5 rounded-xl bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-500 transition-colors hover:bg-blue-500/20"
             >
               <Download className="h-3.5 w-3.5" /> Template
@@ -706,7 +711,7 @@ function ImportForm({
                 className="h-11 w-full appearance-none rounded-xl border border-border bg-muted/50 px-4 pr-10 text-sm text-foreground focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
                 <option value="">Pilih kelas...</option>
-                {KELAS_OPTIONS.map((k) => (
+                {classes.map((k) => (
                   <option key={k} value={k}>
                     {k}
                   </option>
@@ -1164,7 +1169,10 @@ export default function TambahSiswaPage() {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const res = await fetch("/api/classes")
+        const res = await fetch("/api/classes", {
+          credentials: "include",
+          cache: "no-store",
+        })
         const data = await res.json()
         if (data.classes) setClasses(data.classes)
       } catch (err) {

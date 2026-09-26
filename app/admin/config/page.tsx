@@ -176,18 +176,30 @@ export default function SuperadminConfigPage() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await fetch("/api/config")
+        const res = await fetch("/api/config", {
+          credentials: "include",
+          cache: "no-store",
+        })
         if (res.ok) {
           const dbConfig = await res.json()
-          setConfig(dbConfig)
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(dbConfig))
+          // Hanya ambil field yang sesuai TestConfig, abaikan field DB legacy lain
+          const cleanConfig = Object.keys(DEFAULT_CONFIG).reduce((acc, k) => {
+            const key = k as keyof TestConfig
+            acc[key] =
+              dbConfig[key] !== undefined ? dbConfig[key] : DEFAULT_CONFIG[key]
+            return acc
+          }, {} as Partial<TestConfig>) as TestConfig
+          setConfig(cleanConfig)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanConfig))
+        } else if (res.status === 401 || res.status === 403) {
+          router.push("/admin")
         }
       } catch (err) {
         console.error("Gagal mengambil config dari DB:", err)
       }
     }
     fetchConfig()
-  }, [])
+  }, [router])
 
   const showToast = (message: string) => {
     setToast({ visible: true, message })
@@ -208,6 +220,7 @@ export default function SuperadminConfigPage() {
       // Simpan ke database via API
       const res = await fetch("/api/config", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       })
@@ -215,7 +228,15 @@ export default function SuperadminConfigPage() {
       const result = await res.json()
 
       if (!res.ok) {
-        throw new Error(result.error || "Gagal menyimpan ke database")
+        if (res.status === 401 || res.status === 403) {
+          router.push("/admin")
+          return
+        }
+        const detailMessage =
+          result?.details && result.details !== result.error
+            ? `${result.error}: ${result.details}`
+            : result.error || "Gagal menyimpan ke database"
+        throw new Error(detailMessage)
       }
 
       // Tetap simpan ke localStorage sebagai backup/local cache

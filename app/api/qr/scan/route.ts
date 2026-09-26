@@ -11,6 +11,8 @@ import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { createAuditLog } from "@/lib/audit-log"
 
+export const dynamic = "force-dynamic"
+
 function isValidDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false
@@ -22,43 +24,41 @@ function isValidDate(value: unknown): value is string {
   )
 }
 
+interface QRToken {
+  id: string | number
+  token?: string
+  aktif: boolean
+  panitia_id: string | number | null
+  expired_at?: string
+  is_simulation?: boolean
+}
+
+interface AbsensiInsertResponse {
+  id: number
+  users: {
+    nama: string
+  } | null
+}
+
+interface AbsensiPayload {
+  user_id?: string | number
+  tanggal?: string
+  waktu: string
+  status: string
+  panitia_id?: string | number | null
+  admin_id?: string | number | null
+}
+
 export const POST = withRequestMetrics(async function POST(req: Request) {
   const rl = await checkRateLimitPreset({ req, scope: "qr-scan" })
   if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
-
-  interface QRToken {
-    id: string | number
-    token?: string
-    aktif: boolean
-    panitia_id: string | number | null
-    expired_at?: string
-    is_simulation?: boolean
-  }
-
-  interface AbsensiInsertResponse {
-    id: number
-    users: {
-      nama: string
-    } | null
-  }
-
-  interface AbsensiPayload {
-    user_id?: string | number
-    tanggal?: string
-    waktu: string
-    status: string
-    panitia_id?: string | number | null
-    admin_id?: string | number | null
-  }
 
   try {
     const body = await req.json()
     const { token, status, user_id, qr_token, tanggal } = body
 
-    // Ambil config global dari DB
     const config = await getGlobalConfig()
 
-    // Flag untuk update manual oleh admin
     const isAdminUpdate = qr_token === "MANUAL_UPDATE"
     const targetUserId = Number(user_id)
     let adminSessionId: number | null = null
@@ -68,9 +68,9 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
       return Response.json({ error: "User ID tidak valid" }, { status: 400 })
     }
 
+    let isAdminTestingScan = false
+
     if (isAdminUpdate) {
-      // Update manual hanya boleh dilakukan oleh admin yang sudah terautentikasi.
-      // ID admin selalu diambil dari sesi server, bukan dari request client.
       const adminSession = await requireAdminSession()
       actorForAudit = adminSession
       if (!isValidDate(tanggal)) {
@@ -87,11 +87,22 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
         return Response.json({ error: "Status tidak valid" }, { status: 400 })
       }
 
-      // Simpan nilai tepercaya untuk dipakai saat insert atau update.
       adminSessionId = adminSession.id
     } else {
       const session = await requireAuthenticatedSession()
       actorForAudit = session
+
+      isAdminTestingScan =
+        (session.role === "admin" ||
+          session.role === "superadmin" ||
+          session.role === "panitia") &&
+        session.id === targetUserId
+
+      if (!isAdminTestingScan) {
+        if (session.role !== "siswa" || session.id !== targetUserId) {
+          return Response.json({ error: "Forbidden" }, { status: 403 })
+        }
+      }
 
       // ─── Rate Limiting (30 req/min per user, fail-open) ───────────────────
       const limitResult = await checkRateLimit({
@@ -120,9 +131,6 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
         )
       }
 
-      if (session.role !== "siswa" || session.id !== targetUserId) {
-        return Response.json({ error: "Forbidden" }, { status: 403 })
-      }
       if (!token || (status !== "hadir" && status !== "berhalangan")) {
         return Response.json(
           { error: "Token atau status tidak valid" },
@@ -134,7 +142,6 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
     let qr: QRToken
 
     if (isAdminUpdate) {
-      // 🛠️ Bypass untuk update manual oleh admin
       qr = {
         id: "admin-update",
         aktif: true,
@@ -149,8 +156,6 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
         )
       }
 
-      // 🛠️ Bypass untuk mode simulasi pengembangan
-      // Cari satu panitia ID yang ada di DB agar insert absensi tidak gagal (foreign key)
       const { data: dummyPanitia } = await supabase
         .from("panitia")
         .select("id")
@@ -164,7 +169,6 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
         is_simulation: true,
       }
     } else {
-      // 🔍 cek QR asli di DB
       const { data, error: qrError } = await supabase
         .from("qr_token")
         .select("*")
@@ -194,7 +198,34 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
       )
     }
 
-    // 🕒 Cek Batasan Waktu (Jumat 12:00 - 14:00)
+    // ── Test scan bypass untuk Admin/Panitia yang tidak ada di tabel users ──
+    if (isAdminTestingScan && !isAdminUpdate) {
+      const { data: userExists } = await supabase
+        .from("users")
+        .select("id, nama")
+        .eq("id", targetUserId)
+        .maybeSingle()
+
+      if (!userExists) {
+        const ses = actorForAudit
+        if (ses) {
+          await createAuditLog({
+            actor: ses,
+            action: "scan_qr",
+            targetType: null,
+            description: `${ses.nama} tested QR scan (admin bypass — no DB insert) — status: ${status}`,
+          })
+        }
+
+        return Response.json({
+          success: true,
+          message: "Testing scan berhasil (bypass)",
+          nama: actorForAudit?.nama || "Admin",
+          _test: true,
+        })
+      }
+    }
+
     const now = new Date()
     if (!isAdminUpdate && !isWithinTimeRestriction(now, config)) {
       const day = now.getDay()
@@ -218,14 +249,12 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
     const targetDate =
       isAdminUpdate && tanggal ? tanggal : now.toISOString().split("T")[0]
 
-    // Format waktu ke HH:mm:ss (Postgres TIME format)
     const waktu = [
       now.getHours().toString().padStart(2, "0"),
       now.getMinutes().toString().padStart(2, "0"),
       now.getSeconds().toString().padStart(2, "0"),
     ].join(":")
 
-    // Map "berhalangan" ke "haid" (sesuai ENUM database kita)
     const mappedStatus =
       status === "berhalangan"
         ? "haid"
@@ -233,7 +262,6 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
           ? "tidak_hadir"
           : "hadir"
 
-    // 🔍 Cek apakah sudah ada data absensi untuk user ini di tanggal tersebut
     const { data: existingAbsensi } = await supabase
       .from("absensi")
       .select("id")
@@ -244,18 +272,14 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
     let resultData, resultError
 
     if (existingAbsensi) {
-      // 📝 Jika sudah ada, lakukan UPDATE
       const updatePayload: AbsensiPayload = {
         waktu,
         status: mappedStatus,
       }
 
-      // Jika admin yang merubah, tambahkan admin_id
       if (isAdminUpdate) {
         updatePayload.admin_id = adminSessionId
-        // Jangan merubah panitia_id jika sudah ada (sesuai request user)
       } else {
-        // Jika scan normal, update panitia_id dari QR
         updatePayload.panitia_id = qr.panitia_id
       }
 
@@ -275,7 +299,6 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
       resultData = updateData
       resultError = updateError
     } else {
-      // ➕ Jika belum ada, lakukan INSERT
       const insertPayload: AbsensiPayload = {
         user_id: targetUserId,
         tanggal: targetDate,
@@ -284,7 +307,6 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
         panitia_id: qr.panitia_id,
       }
 
-      // Jika admin yang merubah, tambahkan admin_id
       if (isAdminUpdate) {
         insertPayload.admin_id = adminSessionId
       }
@@ -312,12 +334,10 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
 
     const finalData = resultData as AbsensiInsertResponse
 
-    // 🔒 Nonaktifkan QR setelah digunakan (1 orang 1 QR)
-    if (!qr.is_simulation) {
+    if (!qr.is_simulation && config.ENABLE_ONE_TIME_SCAN) {
       await supabase.from("qr_token").update({ aktif: false }).eq("id", qr.id)
     }
 
-    // 📝 Log scan QR audit
     if (actorForAudit) {
       await createAuditLog({
         actor: actorForAudit,
