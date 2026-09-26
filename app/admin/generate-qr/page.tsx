@@ -77,6 +77,83 @@ export default function GenerateQRPage() {
     setMounted(true)
   }, [])
 
+  // Polling: untuk panitia, cek status QR aktif setiap 1 detik.
+  // Trigger redirect jika:
+  //   a) aktif === false  ATAU
+  //   b) used_by_absensi === true  ATAU
+  //   c) absensi_count_after_qr > 0  ATAU
+  //   d) absensi_count_today > 0
+  // Dengan 4 lapis trigger ini pasti ke-detect meskipun update `aktif` gagal.
+  const scanPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isFetchingRef = useRef(false)
+  const [pollingBadge, setPollingBadge] = useState<string>("")
+  useEffect(() => {
+    if (scanPollRef.current) clearInterval(scanPollRef.current)
+    if (!session) return
+
+    console.log("[GENERATE QR] Polling dimulai untuk session.id=", session.id)
+    setPollingBadge("menunggu scan...")
+    scanPollRef.current = setInterval(async () => {
+      if (isFetchingRef.current) return
+      try {
+        isFetchingRef.current = true
+        console.log(
+          "[GENERATE QR] Polling /api/qr/status?id=" + session.id + "..."
+        )
+        const res = await fetch(`/api/qr/status?id=${session.id}`, {
+          credentials: "include",
+        })
+        console.log("[GENERATE QR] Polling status:", res.status, "ok?", res.ok)
+        if (res.status === 401 || res.status === 403) {
+          if (scanPollRef.current) clearInterval(scanPollRef.current)
+          window.location.href = "/admin"
+          return
+        }
+        if (res.status === 404) {
+          if (scanPollRef.current) clearInterval(scanPollRef.current)
+          window.location.href = "/admin"
+          return
+        }
+        if (res.ok) {
+          const payload = await res.json()
+          console.log("[GENERATE QR] Polling payload:", payload)
+
+          setPollingBadge(
+            `aktif:${payload.db_aktif ?? "?"} | count:${
+              payload.absensi_count_after_qr ?? 0
+            }`
+          )
+
+          const used =
+            payload.aktif === false ||
+            payload.used_by_absensi === true ||
+            (typeof payload.absensi_count_after_qr === "number" &&
+              payload.absensi_count_after_qr > 0)
+
+          if (used) {
+            console.log(
+              "[GENERATE QR] TRIGGER REDIRECT (payload.aktif=",
+              payload.aktif,
+              ", absensi_count_after_qr=",
+              payload.absensi_count_after_qr,
+              ") → ke /admin"
+            )
+            if (scanPollRef.current) clearInterval(scanPollRef.current)
+            window.location.href = "/admin"
+          }
+        }
+      } catch (pollErr: unknown) {
+        console.error("[GENERATE QR] Polling error:", pollErr)
+      } finally {
+        isFetchingRef.current = false
+      }
+    }, 1000)
+
+    return () => {
+      if (scanPollRef.current) clearInterval(scanPollRef.current)
+    }
+  }, [session])
+
   // Check session on mount
   useEffect(() => {
     const checkSession = async () => {
@@ -329,11 +406,16 @@ export default function GenerateQRPage() {
               ) : (
                 <>
                   {/* Status */}
-                  <div className="flex w-full items-center justify-between">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
                       <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                       Sholat Dzuhur
                     </span>
+                    {pollingBadge ? (
+                      <span className="rounded-full border border-border bg-muted/40 px-3 py-1 font-mono text-[10px] font-bold text-muted-foreground">
+                        {pollingBadge}
+                      </span>
+                    ) : null}
                     {isExpired ? (
                       <span className="rounded-full border border-destructive/20 bg-destructive/10 px-3 py-1 text-xs font-bold text-destructive">
                         Kedaluwarsa

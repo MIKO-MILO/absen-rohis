@@ -4,6 +4,7 @@ import { requireAdminSession } from "@/lib/auth-server"
 import { getGlobalConfig } from "@/lib/server-config"
 import type { AbsensiInsert } from "@/lib/app-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
+import { createAuditLog } from "@/lib/audit-log"
 import {
   costGuardObserveRequest,
   emergencyModeResponseIfActive,
@@ -32,13 +33,15 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
   if (cb.open) {
     const cd = Math.max(
       1,
-      Math.ceil(((cb.retryAt?.getTime() ?? Date.now() + 60_000) - Date.now()) / 1000)
+      Math.ceil(
+        ((cb.retryAt?.getTime() ?? Date.now() + 60_000) - Date.now()) / 1000
+      )
     )
     return heavyEndpointBusyResponse(cd)
   }
 
   try {
-    await requireAdminSession()
+    const actor = await requireAdminSession()
     const config = await getGlobalConfig()
 
     if (!config.ENABLE_FORGOT_SIGN_IN) {
@@ -67,16 +70,11 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       600
     )
 
-    const { data: allUsers, error: usersError } =
-      await withSlowQuerySampling(
-        "auto-mark:users",
-        "select",
-        () =>
-          supabase
-            .from("users")
-            .select("id")
-            .limit(100_000)
-      )
+    const { data: allUsers, error: usersError } = await withSlowQuerySampling(
+      "auto-mark:users",
+      "select",
+      () => supabase.from("users").select("id").limit(100_000)
+    )
 
     if (usersError) throw usersError
 
@@ -90,15 +88,12 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     const typedAllUsers = allUsers as Array<UserIdRow>
 
     const { data: absensiHariIni, error: absensiError } =
-      await withSlowQuerySampling(
-        "auto-mark:absensi-today",
-        "select",
-        () =>
-          supabase
-            .from("absensi")
-            .select("user_id")
-            .eq("tanggal", today)
-            .limit(100_000)
+      await withSlowQuerySampling("auto-mark:absensi-today", "select", () =>
+        supabase
+          .from("absensi")
+          .select("user_id")
+          .eq("tanggal", today)
+          .limit(100_000)
       )
 
     if (absensiError) throw absensiError
@@ -123,9 +118,7 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     }
 
     const bulkCheck = checkBulkSafe(usersBelumAbsen.length)
-    const chunkSize = bulkCheck.ok
-      ? Math.max(1, usersBelumAbsen.length)
-      : 200
+    const chunkSize = bulkCheck.ok ? Math.max(1, usersBelumAbsen.length) : 200
 
     let totalSuccess = 0
     let chunkCursor = 0
@@ -140,15 +133,14 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
         panitia_id: null,
       }))
 
-      const { error: upsertError } =
-        await withSlowQuerySampling(
-          "auto-mark:upsert-chunk",
-          "insert",
-          () =>
-            supabase
-              .from("absensi")
-              .upsert(absensiToUpsert, { onConflict: "user_id,tanggal" })
-        )
+      const { error: upsertError } = await withSlowQuerySampling(
+        "auto-mark:upsert-chunk",
+        "insert",
+        () =>
+          supabase
+            .from("absensi")
+            .upsert(absensiToUpsert, { onConflict: "user_id,tanggal" })
+      )
 
       if (upsertError) throw upsertError
       totalSuccess += chunk.length
@@ -156,6 +148,13 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
     }
 
     await lock.release()
+
+    await createAuditLog({
+      actor,
+      action: "auto_mark_tidak_hadir",
+      targetType: "absensi",
+      description: `${actor.nama} menjalankan auto-mark-tidak-hadir: ${totalSuccess} user ditandai pada tanggal ${today}`,
+    })
 
     return NextResponse.json({
       success: true,

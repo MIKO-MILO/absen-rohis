@@ -1,5 +1,7 @@
 "use client"
 
+import { useRef, useState, useEffect, useCallback } from "react"
+
 interface Bucket {
   bucketLabel: string
   totalRequests: number
@@ -10,26 +12,71 @@ interface Bucket {
 
 interface Props {
   data: Bucket[]
-  height?: number
   /** Render error line overlay */
   showErrors?: boolean
+  className?: string
 }
 
 /**
- * Inline SVG line/area chart.
- * Mengikuti pola existing BarChart di dashboard (inline SVG, no lib deps).
+ * Fully responsive inline SVG line/area chart.
+ * Uses ResizeObserver to dynamically size the SVG viewBox
+ * so the chart looks great on mobile, tablet, desktop, and ultrawide.
  */
-export function RequestLineChart({ data, height = 240, showErrors = true }: Props) {
-  const width = 800
-  const padding = { top: 16, right: 16, bottom: 36, left: 44 }
+export function RequestLineChart({
+  data,
+  showErrors = true,
+  className,
+}: Props) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [dimensions, setDimensions] = useState({ width: 600, height: 260 })
+
+  // Observe container size and recalculate SVG dimensions
+  const updateDimensions = useCallback(() => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const w = Math.max(300, Math.round(rect.width))
+    // Responsive height: more square-ish on mobile, wider ratio on desktop
+    const h = w < 480 ? Math.round(w * 0.6) : w < 768 ? Math.round(w * 0.45) : Math.round(w * 0.35)
+    const clampedH = Math.max(180, Math.min(h, 400))
+    setDimensions({ width: w, height: clampedH })
+  }, [])
+
+  useEffect(() => {
+    updateDimensions()
+    const el = containerRef.current
+    if (!el) return
+
+    const ro = new ResizeObserver(() => updateDimensions())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [updateDimensions])
+
+  const { width, height } = dimensions
+
+  // Adaptive padding & font sizes based on width
+  const isSmall = width < 480
+  const isMedium = width < 768
+  const fontSize = isSmall ? 9 : isMedium ? 10 : 12
+  const legendFontSize = isSmall ? 9 : isMedium ? 10 : 12
+  const dotRadius = isSmall ? 2.5 : 3.2
+  const padding = {
+    top: isSmall ? 28 : 32,
+    right: isSmall ? 12 : 20,
+    bottom: isSmall ? 28 : 36,
+    left: isSmall ? 36 : isMedium ? 42 : 52,
+  }
+
   const innerW = width - padding.left - padding.right
   const innerH = height - padding.top - padding.bottom
 
   if (!data || data.length === 0) {
     return (
       <div
-        className="w-full flex items-center justify-center text-slate-400 text-sm border border-dashed rounded-lg border-slate-200 dark:border-slate-600"
-        style={{ height }}
+        ref={containerRef}
+        className={
+          "flex w-full items-center justify-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-400 dark:border-slate-600 " +
+          (className ?? "aspect-[16/7] min-h-[180px] max-h-[400px]")
+        }
       >
         Belum ada data request untuk periode ini.
       </div>
@@ -41,40 +88,48 @@ export function RequestLineChart({ data, height = 240, showErrors = true }: Prop
 
   const pointsReq = data.map((d, i) => {
     const x = padding.left + (data.length === 1 ? innerW / 2 : i * stepX)
-    const y =
-      padding.top +
-      innerH -
-      (d.totalRequests / maxReq) * innerH
+    const y = padding.top + innerH - (d.totalRequests / maxReq) * innerH
     return { x, y, d }
   })
+
   const areaPath =
     `M ${pointsReq[0].x} ${padding.top + innerH} ` +
     pointsReq.map((p) => `L ${p.x} ${p.y}`).join(" ") +
     ` L ${pointsReq[pointsReq.length - 1].x} ${padding.top + innerH} Z`
-  const linePath = pointsReq.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ")
+  const linePath = pointsReq
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+    .join(" ")
 
   const pointsErr = data.map((d, i) => {
     const x = padding.left + (data.length === 1 ? innerW / 2 : i * stepX)
-    const y =
-      padding.top +
-      innerH -
-      (d.errorCount / maxReq) * innerH
+    const y = padding.top + innerH - (d.errorCount / maxReq) * innerH
     return { x, y }
   })
   const errPath = pointsErr
     .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
     .join(" ")
 
-  const yTicks = 4
-  const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) => Math.round((maxReq / yTicks) * i))
+  const yTicks = isSmall ? 3 : 4
+  const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) =>
+    Math.round((maxReq / yTicks) * i)
+  )
 
-  const labelEvery = Math.max(1, Math.ceil(data.length / 12))
+  // Adaptive X label frequency based on chart width & data points
+  const maxLabels = isSmall ? 6 : isMedium ? 8 : 13
+  const labelEvery = Math.max(1, Math.ceil(data.length / maxLabels))
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div
+      ref={containerRef}
+      className={
+        "w-full " +
+        (className ?? "aspect-[16/7] min-h-[180px] max-h-[400px]")
+      }
+    >
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-auto min-w-130"
+        preserveAspectRatio="xMidYMid meet"
+        className="block h-full w-full"
         role="img"
         aria-label="Request activity chart"
       >
@@ -100,13 +155,13 @@ export function RequestLineChart({ data, height = 240, showErrors = true }: Prop
                 y1={y}
                 y2={y}
                 stroke="#e2e8f0"
-                strokeDasharray="3 3"
+                strokeDasharray="4 4"
               />
               <text
                 x={padding.left - 8}
-                y={y + 3}
+                y={y + 4}
                 textAnchor="end"
-                fontSize="10"
+                fontSize={fontSize}
                 fill="#94a3b8"
               >
                 {v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
@@ -121,41 +176,46 @@ export function RequestLineChart({ data, height = 240, showErrors = true }: Prop
           d={linePath}
           fill="none"
           stroke="url(#rmReqLine)"
-          strokeWidth="2.2"
+          strokeWidth={isSmall ? 2 : 2.6}
           strokeLinejoin="round"
           strokeLinecap="round"
         />
 
         {/* Error overlay */}
-        {showErrors &&
-          data.some((d) => d.errorCount > 0) && (
-            <path
-              d={errPath}
-              fill="none"
-              stroke="#e11d48"
-              strokeWidth="1.8"
-              strokeDasharray="4 3"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              opacity="0.85"
-            />
-          )}
+        {showErrors && data.some((d) => d.errorCount > 0) && (
+          <path
+            d={errPath}
+            fill="none"
+            stroke="#e11d48"
+            strokeWidth={isSmall ? 1.6 : 2.2}
+            strokeDasharray="5 4"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+        )}
 
         {/* Dots */}
         {pointsReq.map((p, i) => {
-          if (data.length <= 24 && i % labelEvery !== 0 && i !== pointsReq.length - 1) return null
+          if (
+            data.length <= 24 &&
+            i % labelEvery !== 0 &&
+            i !== pointsReq.length - 1
+          )
+            return null
           return (
             <circle
               key={i}
               cx={p.x}
               cy={p.y}
-              r="2.6"
+              r={dotRadius}
               fill="#356b60"
               stroke="#fff"
-              strokeWidth="1"
+              strokeWidth="1.4"
             >
               <title>
-                {p.d.bucketLabel}: {p.d.totalRequests.toLocaleString("id-ID")} req · {p.d.errorCount} err
+                {p.d.bucketLabel}: {p.d.totalRequests.toLocaleString("id-ID")}{" "}
+                req · {p.d.errorCount} err
               </title>
             </circle>
           )
@@ -169,9 +229,9 @@ export function RequestLineChart({ data, height = 240, showErrors = true }: Prop
             <text
               key={i}
               x={x}
-              y={height - 14}
+              y={height - (isSmall ? 6 : 12)}
               textAnchor="middle"
-              fontSize="10"
+              fontSize={fontSize}
               fill="#64748b"
             >
               {d.bucketLabel}
@@ -179,19 +239,28 @@ export function RequestLineChart({ data, height = 240, showErrors = true }: Prop
           )
         })}
 
-        {/* Legend */}
-        <g transform={`translate(${padding.left}, ${padding.top})`}>
+        {/* Legend — centered at top */}
+        <g transform={`translate(${width / 2 - (showErrors && data.some((d) => d.errorCount > 0) ? 100 : 55)}, 8)`}>
           <g transform="translate(0,0)">
-            <rect width="12" height="3" y="5" fill="url(#rmReqLine)" />
-            <text x="18" y="9" fontSize="10" fill="#475569">Total Requests</text>
+            <rect width="14" height="3.5" y="4" rx="1" fill="url(#rmReqLine)" />
+            <text x="18" y="9" fontSize={legendFontSize} fill="#475569">
+              Total Requests
+            </text>
           </g>
-          {showErrors &&
-            data.some((d) => d.errorCount > 0) && (
-              <g transform="translate(140,0)">
-                <rect width="12" height="2" y="5.5" fill="#e11d48" strokeDasharray="4 3" />
-                <text x="18" y="9" fontSize="10" fill="#475569">Errors</text>
-              </g>
-            )}
+          {showErrors && data.some((d) => d.errorCount > 0) && (
+            <g transform="translate(120,0)">
+              <rect
+                width="14"
+                height="2.5"
+                y="4.5"
+                rx="1"
+                fill="#e11d48"
+              />
+              <text x="18" y="9" fontSize={legendFontSize} fill="#475569">
+                Errors
+              </text>
+            </g>
+          )}
         </g>
       </svg>
     </div>

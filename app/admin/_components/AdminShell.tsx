@@ -49,6 +49,7 @@ type NavLinkItem = {
 type NavChildLink = {
   label: string
   href: string
+  exact?: boolean
   superadminOnly?: boolean
   disabled?: boolean
   badge?: string
@@ -86,7 +87,7 @@ const NAV_ITEMS: NavItem[] = [
     superadminOnly: true,
     badge: "NEW",
     children: [
-      { label: "Overview", href: "/admin/system-monitoring" },
+      { label: "Overview", href: "/admin/system-monitoring", exact: true },
       { label: "Request Monitor", href: "/admin/system-monitoring/requests" },
       {
         label: "Error Monitor",
@@ -152,8 +153,10 @@ const SidebarContent = ({
     const init: Record<string, boolean> = {}
     for (const item of NAV_ITEMS) {
       if (item.kind === "group") {
-        const hasActiveChild = item.children.some(
-          (c) => pathname === c.href || pathname.startsWith(c.href + "/")
+        const hasActiveChild = item.children.some((c) =>
+          c.exact
+            ? pathname === c.href
+            : pathname === c.href || pathname.startsWith(c.href + "/")
         )
         if (hasActiveChild) init[item.label] = true
       }
@@ -274,11 +277,12 @@ const SidebarContent = ({
           // ── Group item ──────────────────────────────────────────────
           const Icon = item.icon
           const expanded = !!openGroups[item.label]
-          const hasActiveChild = item.children.some((c) =>
-            !c.superadminOnly || adminRole === "superadmin"
-              ? pathname === c.href || pathname.startsWith(c.href + "/")
-              : false
-          )
+          const hasActiveChild = item.children.some((c) => {
+            if (c.superadminOnly && adminRole !== "superadmin") return false
+            return c.exact
+              ? pathname === c.href
+              : pathname === c.href || pathname.startsWith(c.href + "/")
+          })
           const visibleChildren = item.children.filter(
             (c) => !c.superadminOnly || adminRole === "superadmin"
           )
@@ -318,9 +322,10 @@ const SidebarContent = ({
               {expanded && (
                 <div className="flex flex-col gap-0.5 py-1 pr-2 pl-7">
                   {visibleChildren.map((child) => {
-                    const active =
-                      pathname === child.href ||
-                      pathname.startsWith(child.href + "/")
+                    const active = child.exact
+                      ? pathname === child.href
+                      : pathname === child.href ||
+                        pathname.startsWith(child.href + "/")
                     return (
                       <button
                         key={child.label}

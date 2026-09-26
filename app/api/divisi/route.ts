@@ -5,6 +5,7 @@ import {
   requireAuthenticatedSession,
 } from "@/lib/auth-server"
 import type { Database } from "@/lib/supabase-types"
+import { createAuditLog } from "@/lib/audit-log"
 
 type PanitiaInsert =
   Database["public"]["Tables"]["panitia"]["Insert"]
@@ -94,7 +95,7 @@ export async function GET(_req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    await requireAdminSession()
+    const actor = await requireAdminSession()
 
     const body = (await req.json()) as {
       divisi?: string
@@ -137,9 +138,20 @@ export async function POST(req: NextRequest) {
       throw error
     }
 
+    const inserted = (data ?? []) as PanitiaRow[]
+    const targetId = inserted[0]?.id ?? undefined
+
+    await createAuditLog({
+      actor,
+      action: "create_divisi",
+      targetType: "panitia",
+      targetId: typeof targetId === "number" ? targetId : undefined,
+      description: `${actor.nama} membuat divisi baru: ${divisi}`,
+    })
+
     return NextResponse.json({
       message: "Divisi berhasil ditambahkan",
-      data: data as PanitiaRow[],
+      data: inserted,
     })
   } catch (error) {
     if (

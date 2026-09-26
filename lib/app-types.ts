@@ -38,8 +38,12 @@ export type RequestMetricsInsert =
 
 export type SystemSettingsRow =
   Database["public"]["Tables"]["system_settings"]["Row"]
-export type SystemSettingsInsert =
-  Database["public"]["Tables"]["system_settings"]["Insert"]
+export type SystemSettingsInsert = Omit<
+  Database["public"]["Tables"]["system_settings"]["Insert"],
+  "id"
+> & { id?: number }
+export type SystemSettingsUpdate =
+  Database["public"]["Tables"]["system_settings"]["Update"]
 
 export type RateLimitBucketsRow =
   Database["public"]["Tables"]["rate_limit_buckets"]["Row"]

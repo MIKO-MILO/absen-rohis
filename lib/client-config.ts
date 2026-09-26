@@ -18,7 +18,7 @@ export interface TestConfig {
 
 export const DEFAULT_CONFIG: TestConfig = {
   ENABLE_SIMULATION: false,
-  ENABLE_ONE_TIME_SCAN: false,
+  ENABLE_ONE_TIME_SCAN: true,
   ENABLE_TIME_RESTRICTION: true,
   ENABLE_FORGOT_SIGN_IN: true,
   EXPORT_ALL_DATES: false,

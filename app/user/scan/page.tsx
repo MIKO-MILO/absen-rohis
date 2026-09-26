@@ -97,6 +97,7 @@ function ScanQRContent() {
   const [pilihan, setPilihan] = useState<AbsenPilihan>(null)
   const [confirmed, setConfirmed] = useState<AbsenPilihan>(null)
   const [absenNama, setAbsenNama] = useState<string>("")
+  const [successRedirect, setSuccessRedirect] = useState<string>("/user/home")
 
   const stopScanning = useCallback(() => {
     if (codeReaderRef.current) {
@@ -212,6 +213,10 @@ function ScanQRContent() {
       const data = await res.json()
 
       if (!res.ok) {
+        if (data.redirectTo) {
+          window.location.href = data.redirectTo
+          return
+        }
         throw new Error(data.error || "Gagal absen")
       }
 
@@ -219,10 +224,17 @@ function ScanQRContent() {
       setConfirmed(pilihan)
       setScanState("success")
 
-      // Otomatis pindah ke home setelah 3 detik
-      // setTimeout(() => {
-      //   router.push("/user/home")
-      // }, 3000)
+      const scannRole = session.role
+      const redirectTarget =
+        scannRole === "admin" ||
+        scannRole === "superadmin" ||
+        scannRole === "panitia"
+          ? "/admin"
+          : "/user/home"
+      setSuccessRedirect(redirectTarget)
+      setTimeout(() => {
+        router.push(redirectTarget)
+      }, 3000)
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Terjadi kesalahan saat absen"
@@ -525,7 +537,7 @@ function ScanQRContent() {
 
                 <div className="mt-2 w-full space-y-4">
                   <Button
-                    onClick={() => router.push("/user/home")}
+                    onClick={() => router.push(successRedirect)}
                     className={`h-14 w-full rounded-2xl text-base font-bold text-white shadow-xl transition-all active:scale-95 ${cfg.btnClass}`}
                   >
                     Kembali ke Beranda

@@ -267,7 +267,7 @@ export default function MonitoringPage() {
         item.nama.toLowerCase().includes(search.toLowerCase()) ||
         item.nis.toString().includes(search) ||
         item.kelas.toLowerCase().includes(search.toLowerCase())
-      const matchesKelas = item.kelas === filterKelas
+      const matchesKelas = filterKelas ? item.kelas === filterKelas : true
       const matchTab =
         TAB_TO_STATUS[activeTab] === null ||
         item.status === TAB_TO_STATUS[activeTab]

@@ -10,6 +10,7 @@ import { withRequestMetrics } from "@/lib/request-metrics"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { createAuditLog } from "@/lib/audit-log"
+import { createServiceClient } from "@/lib/supabaseServer"
 
 export const dynamic = "force-dynamic"
 
@@ -177,7 +178,10 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
 
       if (qrError || !data) {
         return Response.json(
-          { error: "QR Code tidak valid atau sudah dihapus" },
+          {
+            error: "QR Code tidak valid atau sudah dihapus",
+            redirectTo: "/admin",
+          },
           { status: 400 }
         )
       }
@@ -186,14 +190,17 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
 
     if (!qr.aktif) {
       return Response.json(
-        { error: "QR Code ini sudah dinonaktifkan" },
+        {
+          error: "QR Code ini sudah dinonaktifkan / sudah dipakai sebelumnya.",
+          redirectTo: "/admin",
+        },
         { status: 400 }
       )
     }
 
     if (qr.expired_at && new Date() > new Date(qr.expired_at)) {
       return Response.json(
-        { error: "QR Code sudah kadaluarsa" },
+        { error: "QR Code sudah kadaluarsa", redirectTo: "/admin" },
         { status: 400 }
       )
     }
@@ -334,8 +341,30 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
 
     const finalData = resultData as AbsensiInsertResponse
 
-    if (!qr.is_simulation && config.ENABLE_ONE_TIME_SCAN) {
-      await supabase.from("qr_token").update({ aktif: false }).eq("id", qr.id)
+    const isPanitiaQR = qr.panitia_id !== null && qr.panitia_id !== undefined
+    if (!qr.is_simulation && (isPanitiaQR || config.ENABLE_ONE_TIME_SCAN)) {
+      try {
+        const serviceSupabase = await createServiceClient()
+        const { error: updateQR } = await serviceSupabase
+          .from("qr_token")
+          .update({ aktif: false })
+          .eq("id", Number(qr.id))
+        if (updateQR) {
+          console.error("[SCAN QR] Gagal nonaktifkan QR token:", updateQR)
+        } else {
+          console.log(
+            "[SCAN QR] Berhasil nonaktifkan QR token id:",
+            qr.id,
+            "isPanitiaQR:",
+            isPanitiaQR
+          )
+        }
+      } catch (svcErr: unknown) {
+        console.error(
+          "[SCAN QR] Exception saat nonaktifkan QR via service client:",
+          svcErr
+        )
+      }
     }
 
     if (actorForAudit) {

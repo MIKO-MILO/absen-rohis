@@ -93,19 +93,24 @@ export default function GenerateQRPage() {
   const router = useRouter()
   const [checkingSession, setCheckingSession] = useState(true)
   const [token, setToken] = useState<string>("")
+  const [qrDataId, setQrDataId] = useState<number | null>(null)
   const [countdown, setCountdown] = useState(() => QR_LIFETIME_SECONDS)
   const [status, setStatus] = useState<QRStatus>("active")
   const [absenList, setAbsenList] = useState<AbsenRecord[]>([])
   const [scanSuccess, setScanSuccess] = useState<ScanSuccessData | null>(null)
   const lastAbsenIdRef = useRef<number | null>(null)
   const lastTokenRef = useRef<string>("")
+  const lastQrIdRef = useRef<number | null>(null)
   const progress = (countdown / QR_LIFETIME_SECONDS) * 100
   const isWarning = countdown <= 15
   const isExpired = status === "expired"
   const isSuccess = status === "success"
   const isMounted = useRef(true)
   const isFetchingLiveAbsen = useRef(false)
+  const isFetchingQRStatusRef = useRef(false)
+  const redirectTriggeredRef = useRef(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const qrStatusPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Check session on mount
   useEffect(() => {
@@ -155,10 +160,25 @@ export default function GenerateQRPage() {
     }, 1000)
   }, [])
 
+  // ─── Redirect helper (pasti hanya sekali) ────────────────────────────────
+  const triggerRedirectHome = useCallback(() => {
+    if (redirectTriggeredRef.current) return
+    redirectTriggeredRef.current = true
+    console.log(
+      "[PAGEQR] 🔴 TRIGGER REDIRECT ke /rohis/home (sudah ada yang absen)"
+    )
+    // Bersihkan interval
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (qrStatusPollRef.current) clearInterval(qrStatusPollRef.current)
+    // Hard redirect agar 100% pindah halaman (bukan cuma client nav)
+    window.location.href = "/rohis/home"
+  }, [])
+
   // ─── Generate QR baru ─────────────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
     try {
       if (isMounted.current) setStatus("generating")
+      redirectTriggeredRef.current = false
 
       const session = await getEffectiveUserAsync()
       if (!session) {
@@ -187,6 +207,19 @@ export default function GenerateQRPage() {
       if (isMounted.current) {
         setToken(data.token)
         lastTokenRef.current = data.token
+        const idNum =
+          typeof data.qrData?.id === "number"
+            ? data.qrData.id
+            : Number(data.qrData?.id)
+        if (Number.isInteger(idNum) && idNum > 0) {
+          setQrDataId(idNum)
+          lastQrIdRef.current = idNum
+          console.log("[PAGEQR] Simpan qrDataId:", idNum)
+        } else {
+          setQrDataId(null)
+          lastQrIdRef.current = null
+        }
+        lastAbsenIdRef.current = null
         startTimer()
       }
     } catch (err: unknown) {
@@ -238,6 +271,13 @@ export default function GenerateQRPage() {
             lastAbsenIdRef.current !== null &&
             newestId !== lastAbsenIdRef.current
           ) {
+            console.log(
+              "[PAGEQR] ✅ DETECT ABSEN BARU (id=",
+              newestId,
+              ", nama:",
+              latest[0].nama,
+              ") — akan redirect 2,5 detik lagi"
+            )
             setScanSuccess({
               nama: latest[0].nama,
               kelas: latest[0].kelas,
@@ -245,12 +285,23 @@ export default function GenerateQRPage() {
             })
             setStatus("success")
 
+            // ✨ Ini PENTING: setelah success overlay tampil 2,5 detik, langsung pindah ke home
             setTimeout(() => {
-              if (isMounted.current) {
-                setScanSuccess(null)
-                setStatus(token ? "active" : "expired")
-              }
+              triggerRedirectHome()
             }, 2500)
+          } else if (
+            lastAbsenIdRef.current === null &&
+            latest.length > 0 &&
+            session.role === "panitia"
+          ) {
+            // Kasus halaman baru saja dimuat tapi ternyata sudah ada absen masuk
+            // (panitia generate lalu refresh / pindah tab) — kita TIDAK auto redirect
+            // biarkan panitia lihat data dulu, tapi simpan ref agar tidak false-positive.
+            console.log(
+              "[PAGEQR] Load awal ada absensi (count=" +
+                latest.length +
+                "), skip redirect karena bukan scan event live."
+            )
           }
           lastAbsenIdRef.current = newestId
         }
@@ -260,7 +311,7 @@ export default function GenerateQRPage() {
     } finally {
       isFetchingLiveAbsen.current = false
     }
-  }, [token])
+  }, [triggerRedirectHome])
 
   useEffect(() => {
     const init = async () => {
@@ -273,6 +324,57 @@ export default function GenerateQRPage() {
     const interval = setInterval(fetchLiveAbsen, 5000)
     return () => clearInterval(interval)
   }, [fetchLiveAbsen])
+
+  // ─── Fallback polling: cek /api/qr/status setiap 1 detik (backup) ────────
+  //     Bila karena apapun live-absensi tidak mendeteksi (RLS/caching),
+  //     trigger dari sini via aktif=false / absensi_count>0.
+  useEffect(() => {
+    if (qrStatusPollRef.current) clearInterval(qrStatusPollRef.current)
+    if (!qrDataId) return
+
+    console.log(
+      "[PAGEQR] Fallback /api/qr/status polling START untuk id=",
+      qrDataId
+    )
+    qrStatusPollRef.current = setInterval(async () => {
+      if (redirectTriggeredRef.current) return
+      if (isFetchingQRStatusRef.current) return
+      try {
+        isFetchingQRStatusRef.current = true
+        const res = await fetch(`/api/qr/status?id=${qrDataId}`, {
+          credentials: "include",
+        })
+        if (res.status === 401 || res.status === 403 || res.status === 404) {
+          triggerRedirectHome()
+          return
+        }
+        if (res.ok) {
+          const payload = await res.json()
+          const used =
+            payload.aktif === false ||
+            payload.used_by_absensi === true ||
+            (typeof payload.absensi_count_after_qr === "number" &&
+              payload.absensi_count_after_qr > 0)
+          if (used) {
+            console.log(
+              "[PAGEQR] Fallback detect QR sudah dipakai (payload:",
+              payload,
+              ") → trigger redirect"
+            )
+            triggerRedirectHome()
+          }
+        }
+      } catch (err: unknown) {
+        console.error("[PAGEQR] Fallback polling error:", err)
+      } finally {
+        isFetchingQRStatusRef.current = false
+      }
+    }, 1000)
+
+    return () => {
+      if (qrStatusPollRef.current) clearInterval(qrStatusPollRef.current)
+    }
+  }, [qrDataId, triggerRedirectHome])
 
   // ── Progress bar width ───────────────────────────────────────────────────
 

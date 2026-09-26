@@ -6,12 +6,18 @@ import {
 } from "@/lib/auth-server"
 import type { Database } from "@/lib/supabase-types"
 import type { Json } from "@/lib/supabase-types"
+import type {
+  SystemSettingsInsert,
+  SystemSettingsUpdate,
+} from "@/lib/app-types"
 import { withRequestMetrics } from "@/lib/request-metrics"
 import { checkRateLimitPreset, rateLimitErrorResponse } from "@/lib/rate-limit"
 import { createAuditLog } from "@/lib/audit-log"
 import { DEFAULT_CONFIG, type TestConfig } from "@/lib/client-config"
 
 export const dynamic = "force-dynamic"
+
+type SystemSettingsRow = Database["public"]["Tables"]["system_settings"]["Row"]
 
 export const GET = withRequestMetrics(async function GET(req: NextRequest) {
   try {
@@ -20,10 +26,8 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
 
     await requireAuthenticatedSession()
     const supabase = await createServiceClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const db = supabase as unknown as any
 
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from("system_settings")
       .select("*")
       .single()
@@ -67,8 +71,6 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       Record<string, unknown>
 
     const supabase = await createServiceClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const db = supabase as unknown as any
 
     const body: Partial<TestConfig> = Object.keys(DEFAULT_CONFIG).reduce(
       (acc, k) => {
@@ -81,7 +83,7 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       {} as Partial<TestConfig>
     )
 
-    const { data: existing, error: fetchError } = await db
+    const { data: existing, error: fetchError } = await supabase
       .from("system_settings")
       .select("*")
       .single()
@@ -103,16 +105,15 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
 
     const finalConfig: TestConfig = { ...currentMerged, ...body }
 
-    type SettingsRow = Database["public"]["Tables"]["system_settings"]["Row"]
-    let upserted: SettingsRow | null = null
+    let upserted: SystemSettingsRow | null = null
 
     if (existing) {
-      const updatePayload = {
+      const updatePayload: SystemSettingsUpdate = {
         config: finalConfig as unknown as Json,
         updated_at: new Date().toISOString(),
       }
 
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from("system_settings")
         .update(updatePayload)
         .eq("id", existing.id)
@@ -127,14 +128,16 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       }
       upserted = data
     } else {
-      const insertPayload = {
+      const insertPayload: SystemSettingsInsert = {
         config: finalConfig as unknown as Json,
         updated_at: new Date().toISOString(),
       }
 
-      const { data, error } = await db
+      type DbInsert = Database["public"]["Tables"]["system_settings"]["Insert"]
+
+      const { data, error } = await supabase
         .from("system_settings")
-        .insert(insertPayload)
+        .insert(insertPayload as DbInsert)
         .select()
         .maybeSingle()
 

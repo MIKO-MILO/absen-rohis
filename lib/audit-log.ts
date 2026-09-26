@@ -1,5 +1,6 @@
 import { createServiceClient } from "./supabaseServer"
 import { type SessionData } from "./auth-client"
+import type { AuditLogInsert } from "./app-types"
 
 export type AuditAction =
   | "login"
@@ -21,6 +22,9 @@ export type AuditAction =
   | "stop_impersonation"
   | "scan_qr"
   | "approve_absensi"
+  | "create_divisi"
+  | "auto_mark_tidak_hadir"
+  | "system_cleanup"
 
 export type AuditTargetType =
   | "admin"
@@ -47,8 +51,7 @@ async function getFallbackAdminId(
 ): Promise<number | null> {
   if (cachedFallbackAdminId !== null) return cachedFallbackAdminId
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("admin")
       .select("id")
       .order("id", { ascending: true })
@@ -97,15 +100,15 @@ export async function createAuditLog(
       if (fbId !== null) resolvedAdminId = fbId
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any).from("audit_logs").insert({
+    const payload: AuditLogInsert = {
       admin_id: resolvedAdminId,
       action,
       target_user_id: targetId ?? null,
       target_type: targetType ?? null,
       description: finalDescription,
       created_at: new Date().toISOString(),
-    })
+    }
+    const { error } = await supabase.from("audit_logs").insert(payload)
 
     if (error) {
       console.error(

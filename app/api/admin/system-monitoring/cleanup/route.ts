@@ -1,11 +1,12 @@
 import { NextResponse, NextRequest } from "next/server"
 import { createClient } from "@/lib/supabaseServer"
 import { requireSuperadminSession } from "@/lib/auth-server"
+import { createAuditLog } from "@/lib/audit-log"
 
 export async function POST(req: NextRequest) {
   try {
     // 1. Authorization: Superadmin-only
-    await requireSuperadminSession()
+    const actor = await requireSuperadminSession()
     const supabase = await createClient()
 
     // 2. Parse & Validate retentionDays
@@ -33,6 +34,15 @@ export async function POST(req: NextRequest) {
     )
 
     if (error) throw error
+
+    const deletedCount = typeof data === "number" ? data : 0
+
+    await createAuditLog({
+      actor,
+      action: "system_cleanup",
+      targetType: null,
+      description: `${actor.nama} menjalankan system monitoring cleanup (retention=${retentionDays}d, deleted=${deletedCount})`,
+    })
 
     return NextResponse.json({
       success: true,
