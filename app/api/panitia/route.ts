@@ -63,7 +63,7 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
     listQuery = listQuery.limit(HARD_LIST_LIMIT)
     const { data, error } = await listQuery
     if (error) throw error
-    return NextResponse.json(data as unknown as PanitiaRow[])
+    return NextResponse.json((data ?? []) as unknown as PanitiaRow[])
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

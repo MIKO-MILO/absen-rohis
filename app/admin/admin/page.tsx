@@ -93,7 +93,7 @@ export default function DataAdminPage() {
         if (!isMounted) return
 
         if (isMounted) {
-          setData(result)
+          setData(Array.isArray(result) ? result : [])
         }
       } catch (err) {
         console.error(err)

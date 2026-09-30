@@ -187,7 +187,11 @@ export default function UserHomePage() {
       const res = await fetch(`/api/absensi?user_id=${userId}`)
       const result = await res.json()
 
-      const formatted: RiwayatItem[] = (result as AbsensiResponse[])
+      const riwayatInput: AbsensiResponse[] = Array.isArray(result)
+        ? result
+        : []
+
+      const formatted: RiwayatItem[] = riwayatInput
         .map((r) => {
           let rawStatus = (r.status || "").trim().toLowerCase()
           if (rawStatus === "tidak hadir") rawStatus = "tidak_hadir"
