@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react"
@@ -134,7 +133,6 @@ export default function MonitoringPage() {
     new Date().toISOString().split("T")[0]
   )
   const [selectedSort, setSelectedSort] = useState("nama-asc")
-  const [, setRefreshing] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportAllClasses, setExportAllClasses] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
@@ -144,17 +142,27 @@ export default function MonitoringPage() {
 
   // Check session on mount
   useEffect(() => {
+    let frameId: number | null = null
+
     const checkSession = () => {
       const adminSession = localStorage.getItem("admin_session")
       const panitiaSession = localStorage.getItem("panitia_session")
+
       if (!adminSession && !panitiaSession) {
         router.push("/admin")
         return
       }
+
       setCheckingSession(false)
     }
 
-    checkSession()
+    frameId = window.requestAnimationFrame(checkSession)
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
   }, [router])
 
   // ── Dynamic Row Calculation ────────────────────────────────────────────────
@@ -166,9 +174,14 @@ export default function MonitoringPage() {
       const estimatedRows = Math.max(5, Math.floor(availableHeight / rowHeight))
       setPerPage(estimatedRows)
     }
-    calculateRows()
+
+    const frameId = window.requestAnimationFrame(calculateRows)
     window.addEventListener("resize", calculateRows)
-    return () => window.removeEventListener("resize", calculateRows)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.removeEventListener("resize", calculateRows)
+    }
   }, [])
 
   useEffect(() => {
@@ -179,7 +192,6 @@ export default function MonitoringPage() {
   }, [])
 
   const fetchData = useCallback(async () => {
-    setRefreshing(true)
     try {
       const [usersRes, absensiRes, classesRes] = await Promise.all([
         fetch("/api/users"),
@@ -216,20 +228,25 @@ export default function MonitoringPage() {
     } finally {
       if (isMounted.current) {
         setLoading(false)
-        setRefreshing(false)
       }
     }
   }, [selectedDate, filterKelas])
 
   useEffect(() => {
-    fetchData()
-
-    // Auto refresh setiap 30 detik
     const interval = setInterval(() => {
       fetchData()
     }, 30000)
 
     return () => clearInterval(interval)
+  }, [fetchData])
+
+  // Initial data load is triggered after the component has committed.
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      fetchData()
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
   }, [fetchData])
 
   const monitoringData = useMemo(() => {
@@ -340,8 +357,6 @@ export default function MonitoringPage() {
 
   const handleStatusChange = async (userId: number, newStatus: AbsenStatus) => {
     try {
-      setRefreshing(true)
-
       const sessionStr = localStorage.getItem("admin_session")
       const session = sessionStr ? JSON.parse(sessionStr) : null
       const adminId = session?.id || null
@@ -368,8 +383,6 @@ export default function MonitoringPage() {
     } catch (err: unknown) {
       console.error(err)
       alert(err instanceof Error ? err.message : "Terjadi kesalahan")
-    } finally {
-      setRefreshing(false)
     }
   }
 
@@ -921,7 +934,7 @@ export default function MonitoringPage() {
 
       {/* Export Modal */}
       <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
-        <DialogContent className="inset-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-none p-0 shadow-2xl sm:top-1/2 sm:left-1/2 sm:h-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2.5rem]">
+        <DialogContent className="inset-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-none p-0 shadow-2xl [scrollbar-width:none] sm:top-1/2 sm:left-1/2 sm:h-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2.5rem] [&::-webkit-scrollbar]:hidden">
           <div className="p-6 md:p-8">
             <DialogHeader className="mb-6">
               <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">

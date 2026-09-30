@@ -886,7 +886,7 @@ export default function DataAbsenPage() {
 
       {/* Export Modal */}
       <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
-        <DialogContent className="inset-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-none p-0 shadow-2xl sm:top-1/2 sm:left-1/2 sm:h-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2.5rem]">
+        <DialogContent className="inset-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-none p-0 shadow-2xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:top-1/2 sm:left-1/2 sm:h-auto sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2.5rem]">
           <div className="p-6 md:p-8">
             <DialogHeader className="mb-6">
               <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">

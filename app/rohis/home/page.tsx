@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
@@ -27,6 +26,9 @@ import {
 } from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
 import { fetchSession, clearAllLocalStorageSessions } from "@/lib/auth-client"
+import { usePanitiaSessionGuard } from "@/lib/use-panitia-session-guard"
+import { SessionInvalidatedModal } from "@/components/SessionInvalidatedModal"
+import { LogoutConfirmModal } from "@/components/LogoutConfirmModal"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -94,14 +96,18 @@ const getHari = (tanggal: string) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AbsenSholatPage() {
   const router = useRouter()
+
+  // Guard: auto-logout jika data panitia diubah oleh admin
+  const { showModal: showSessionModal, handleLogout: handleSessionLogout } =
+    usePanitiaSessionGuard()
   const [config, setConfig] = useState<TestConfig>(getActiveConfig())
   const [data, setData] = useState<RiwayatItem[]>([])
   const [loading, setLoading] = useState(true)
   const [panitia, setPanitia] = useState<PanitiaSession | null>(null)
   const [now, setNow] = useState<Date | null>(null)
-  const [mounted, setMounted] = useState(false)
   const [isImpersonating, setIsImpersonating] = useState(false)
   const isFetchingConfigRef = useRef(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   async function handleLogout() {
     if (isImpersonating) {
@@ -149,10 +155,10 @@ export default function AbsenSholatPage() {
   }, [])
 
   useEffect(() => {
-    setMounted(true)
-    setNow(new Date())
-
-    void fetchConfig()
+    const frameId = window.requestAnimationFrame(() => {
+      setNow(new Date())
+      void fetchConfig()
+    })
 
     const timeInterval = setInterval(() => {
       setNow(new Date())
@@ -163,6 +169,7 @@ export default function AbsenSholatPage() {
     }, 60000)
 
     return () => {
+      window.cancelAnimationFrame(frameId)
       clearInterval(timeInterval)
       clearInterval(configInterval)
     }
@@ -308,14 +315,30 @@ export default function AbsenSholatPage() {
     }
   }, [router, fetchAbsensi])
 
+  const isMounted = now !== null
+
   const isTimeAllowed =
-    mounted && now ? !isOutsideAbsensiTime(now, config) : true
+    isMounted && now ? !isOutsideAbsensiTime(now, config) : true
+
   const isRestrictionEnabled = config.ENABLE_TIME_RESTRICTION
 
-  const shouldDisableButton = mounted && isRestrictionEnabled && !isTimeAllowed
+  const shouldDisableButton =
+    isMounted && isRestrictionEnabled && !isTimeAllowed
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">
+      <SessionInvalidatedModal
+        open={showSessionModal}
+        onLogout={handleSessionLogout}
+      />
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        onConfirm={() => {
+          setShowLogoutConfirm(false)
+          handleLogout()
+        }}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
       <ImpersonationBanner />
       {/* ── Header Banner ── */}
       <div
@@ -385,7 +408,7 @@ export default function AbsenSholatPage() {
                 <ModeButton />
 
                 <DropdownMenuItem
-                  onClick={handleLogout}
+                  onClick={() => setShowLogoutConfirm(true)}
                   disabled={isImpersonating}
                   className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium ${
                     isImpersonating
@@ -424,17 +447,22 @@ export default function AbsenSholatPage() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => router.push("/rohis/pageqr")}
-            disabled={mounted ? shouldDisableButton : false}
+            disabled={isMounted ? shouldDisableButton : false}
             className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-base font-bold transition-all duration-200 ${
-              mounted && shouldDisableButton
+              isMounted && shouldDisableButton
                 ? "cursor-not-allowed bg-muted text-muted-foreground"
                 : "bg-[linear-gradient(135deg,#0d9488_0%,#0891b2_100%)] text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98]"
             }`}
           >
             <QrCode
-              className={`h-6 w-6 ${mounted && shouldDisableButton ? "text-muted-foreground" : "text-white"}`}
+              className={`h-6 w-6 ${
+                isMounted && shouldDisableButton
+                  ? "text-muted-foreground"
+                  : "text-white"
+              }`}
             />
-            {!mounted ? (
+
+            {!isMounted ? (
               <span className="text-sm font-semibold">Generate QR Code</span>
             ) : isRestrictionEnabled && !isTimeAllowed ? (
               <span className="px-2 text-center text-xs font-semibold">
@@ -449,7 +477,7 @@ export default function AbsenSholatPage() {
             )}
           </Button>
 
-          {!mounted ? (
+          {!isMounted ? (
             <p className="text-center text-xs text-muted-foreground">
               Klik untuk membuat QR Code absensi siswa
             </p>

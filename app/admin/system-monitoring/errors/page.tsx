@@ -114,7 +114,7 @@ function ErrorMonitorContent() {
   const [dir, setDir] = useState<SortDir>(initialDir)
   const [from, setFrom] = useState<string>(initialFrom)
   const [to, setTo] = useState<string>(initialTo)
-  const [includeAll, setIncludeAll] = useState<boolean>(initialIncludeAll)
+  const [includeAll] = useState<boolean>(initialIncludeAll)
 
   const [resp, setResp] = useState<Response | null>(null)
   const [loading, setLoading] = useState(true)
@@ -218,8 +218,7 @@ function ErrorMonitorContent() {
     startTransition(() => {
       router.replace(`/admin/system-monitoring/errors?${qs}`, { scroll: false })
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, method, debouncedSearch, page, limit, sort, dir, from, to])
+  }, [range, method, debouncedSearch, page, limit, sort, dir, from, to, buildQueryStr, router])
 
   const rows = useMemo(() => resp?.data ?? [], [resp])
   const pagination = resp?.pagination ?? {
@@ -300,7 +299,7 @@ function ErrorMonitorContent() {
 
         {/* ── Summary stats ── */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-5 shadow-xs dark:border-rose-900/40 dark:from-rose-950/20 dark:to-slate-800/60">
+          <div className="rounded-xl border border-rose-200 bg-linear-to-br from-rose-50 to-white p-5 shadow-xs dark:border-rose-900/40 dark:from-rose-950/20 dark:to-slate-800/60">
             <p className="text-xs font-semibold tracking-wider text-rose-700 uppercase dark:text-rose-400">
               Total Failed Requests
             </p>
@@ -311,7 +310,7 @@ function ErrorMonitorContent() {
               Dari total {fmtId(totals.req)} request yang difilter
             </p>
           </div>
-          <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5 shadow-xs dark:border-amber-900/40 dark:from-amber-950/20 dark:to-slate-800/60">
+          <div className="rounded-xl border border-amber-200 bg-linear-to-br from-amber-50 to-white p-5 shadow-xs dark:border-amber-900/40 dark:from-amber-950/20 dark:to-slate-800/60">
             <p className="text-xs font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-400">
               Highest Error Rate
             </p>
@@ -322,7 +321,7 @@ function ErrorMonitorContent() {
               Batas aman sistem: &lt; 5%
             </p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-xs dark:border-slate-700 dark:from-slate-800/80 dark:to-slate-800/60">
+          <div className="rounded-xl border border-slate-200 bg-linear-to-br from-slate-50 to-white p-5 shadow-xs dark:border-slate-700 dark:from-slate-800/80 dark:to-slate-800/60">
             <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
               Most Errant Endpoint
             </p>

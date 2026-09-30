@@ -163,14 +163,12 @@ export default function LoginPage() {
 
       const result = await res.json()
 
+      if (!res.ok) {
+        throw new Error(result.error || "Email atau password salah")
+      }
+
       console.log("[LOGIN PAGE] Full API response:", result)
       console.log("[LOGIN PAGE] User object from response:", result.user)
-      console.log("[LOGIN PAGE] result.user.kelas:", result.user.kelas)
-      console.log("[LOGIN PAGE] result.user.divisi:", result.user.divisi)
-
-      if (!res.ok) {
-        throw new Error(result.error || "Login gagal")
-      }
 
       // Tentukan key session berdasarkan role
       const sessionKey =

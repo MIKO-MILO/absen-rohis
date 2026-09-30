@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 "use client"
 
 import { useEffect, useRef, useState, useCallback, Suspense } from "react"
@@ -17,10 +15,16 @@ import {
 import { BrowserQRCodeReader } from "@zxing/library"
 import { getActiveConfig } from "@/lib/client-config"
 import { getEffectiveUserAsync } from "@/lib/auth-client"
+import { useSiswaSessionGuard } from "@/lib/use-siswa-session-guard"
+import { SessionInvalidatedModal } from "@/components/SessionInvalidatedModal"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type ScanState = "idle" | "scanning" | "pilih" | "success" | "error"
+type ScanState = "idle" | "scanning" | "scanned" | "pilih" | "success" | "error"
 type AbsenPilihan = "hadir" | "berhalangan" | null
+
+interface TorchMediaTrackConstraintSet extends MediaTrackConstraintSet {
+  torch?: boolean
+}
 
 const PILIHAN_CONFIG = {
   hadir: {
@@ -60,11 +64,16 @@ const PILIHAN_CONFIG = {
 // ─── Page ────────────────────────────────────────────────────────────────────
 function ScanQRContent() {
   const router = useRouter()
+
+  // Guard: auto-logout jika data siswa diubah oleh admin
+  const { showModal: showSessionModal, handleLogout: handleSessionLogout } =
+    useSiswaSessionGuard()
   const [checkingSession, setCheckingSession] = useState(true)
   const config = getActiveConfig()
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const codeReaderRef = useRef<BrowserQRCodeReader | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const searchParams = useSearchParams()
   const [token, setToken] = useState<string | null>(searchParams.get("token"))
 
@@ -98,76 +107,219 @@ function ScanQRContent() {
   const [confirmed, setConfirmed] = useState<AbsenPilihan>(null)
   const [absenNama, setAbsenNama] = useState<string>("")
   const [successRedirect, setSuccessRedirect] = useState<string>("/user/home")
+  const [retryKey, setRetryKey] = useState(0)
 
   const stopScanning = useCallback(() => {
     if (codeReaderRef.current) {
-      codeReaderRef.current.reset()
+      try {
+        codeReaderRef.current.reset()
+      } catch {}
+      codeReaderRef.current = null
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause()
+      } catch {}
+      videoRef.current.srcObject = null
+    }
     setCameraReady(false)
   }, [])
 
-  // ── Setelah scan berhasil → tampilkan modal pilihan ─────────────────────────
+  // ── Setelah scan berhasil → freeze frame + animasi, baru tampilkan pilihan ──
   const handleScanSuccess = useCallback(() => {
+    // Capture frame terakhir dari video ke canvas (freeze effect)
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (video && canvas && video.readyState >= 2) {
+      canvas.width = video.videoWidth || video.clientWidth
+      canvas.height = video.videoHeight || video.clientHeight
+      const ctx = canvas.getContext("2d")
+      if (ctx) ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    }
+
     stopScanning()
     setPilihan(null)
-    setScanState("pilih")
+    setScanState("scanned")
+    setTimeout(() => setScanState("pilih"), 3000)
   }, [stopScanning])
 
   // ── Camera & Scan ──
   const startScanning = useCallback(
-    async (mode: "environment" | "user") => {
+    async (mode: "environment" | "user", signal: AbortSignal) => {
       setScanState("scanning")
       setCameraReady(false)
       setErrorMsg("")
 
-      if (!codeReaderRef.current) {
-        codeReaderRef.current = new BrowserQRCodeReader()
+      // Bersihkan resource lama dengan aman sebelum buka yang baru
+      if (codeReaderRef.current) {
+        try {
+          codeReaderRef.current.reset()
+        } catch {}
+        codeReaderRef.current = null
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+      }
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause()
+        } catch {}
+        videoRef.current.removeAttribute("src")
+        videoRef.current.load()
+        videoRef.current.srcObject = null
       }
 
       try {
-        const devices = await codeReaderRef.current.listVideoInputDevices()
-        const selectedDevice =
-          devices.find((d: MediaDeviceInfo) =>
-            mode === "environment"
-              ? d.label.toLowerCase().includes("back") ||
-                d.label.toLowerCase().includes("rear")
-              : d.label.toLowerCase().includes("front")
-          ) || devices[0]
+        const constraints: MediaStreamConstraints = {
+          video: { facingMode: { ideal: mode } },
+          audio: false,
+        }
+        const stream = await navigator.mediaDevices.getUserMedia(constraints)
 
-        if (!selectedDevice) throw new Error("Kamera tidak ditemukan")
+        if (signal.aborted) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
 
-        await codeReaderRef.current.decodeFromVideoDevice(
-          selectedDevice.deviceId,
-          videoRef.current!,
+        streamRef.current = stream
+
+        const videoEl = videoRef.current
+        if (!videoEl) {
+          stream.getTracks().forEach((t) => t.stop())
+          streamRef.current = null
+          throw new Error("Video element tidak tersedia")
+        }
+
+        // Pastikan atribut autoplay & muted sebelum assign srcObject
+        videoEl.setAttribute("playsinline", "true")
+        videoEl.setAttribute("webkit-playsinline", "true")
+        videoEl.muted = true
+        videoEl.playsInline = true
+        videoEl.srcObject = stream
+
+        // Tunggu metadata video siap sebelum mencoba play()
+        await new Promise<void>((resolve) => {
+          const v = videoEl
+          let settled = false
+
+          const finish = () => {
+            if (settled) return
+            settled = true
+            v.removeEventListener("loadedmetadata", onLoaded)
+            v.removeEventListener("error", onErr)
+            signal.removeEventListener("abort", onAbort)
+            resolve()
+          }
+
+          const onLoaded = () => finish()
+          const onErr = () => finish()
+          const onAbort = () => finish()
+
+          v.addEventListener("loadedmetadata", onLoaded, { once: true })
+          v.addEventListener("error", onErr, { once: true })
+          signal.addEventListener("abort", onAbort, { once: true })
+
+          // Fallback jika event tidak pernah fire (sudah siap / timeout)
+          if (v.readyState >= 1) {
+            finish()
+          } else {
+            setTimeout(finish, 2000)
+          }
+        })
+
+        if (signal.aborted) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+
+        // Play video — ignore "interrupted" errors karna bukan critical failure
+        try {
+          const playPromise = videoEl.play()
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {})
+          }
+        } catch {}
+
+        // Tunggu event playing sebagai konfirmasi visual sudah berjalan
+        await new Promise<void>((resolve) => {
+          const v = videoEl
+          let settled = false
+
+          const finish = () => {
+            if (settled) return
+            settled = true
+            v.removeEventListener("playing", onPlaying)
+            v.removeEventListener("error", onErr)
+            signal.removeEventListener("abort", onAbort)
+            resolve()
+          }
+
+          const onPlaying = () => finish()
+          const onErr = () => finish()
+          const onAbort = () => finish()
+
+          v.addEventListener("playing", onPlaying, { once: true })
+          v.addEventListener("error", onErr, { once: true })
+          signal.addEventListener("abort", onAbort, { once: true })
+
+          if (v.readyState >= 4 && !v.paused && v.currentTime > 0) {
+            finish()
+          } else {
+            setTimeout(finish, 1500)
+          }
+        })
+
+        if (signal.aborted) return
+
+        if (!codeReaderRef.current) {
+          codeReaderRef.current = new BrowserQRCodeReader()
+        }
+
+        await codeReaderRef.current.decodeFromStream(
+          stream,
+          videoEl,
           (result) => {
+            if (signal.aborted) return
             if (result) {
               const text = result.getText()
               console.log("Scanned text:", text)
 
-              // 1. Cek apakah ini URL (misal scan dari kamera HP biasa lalu buka di app)
               if (text.includes("token=")) {
-                const url = new URL(text)
-                const t = url.searchParams.get("token")
-                if (t && t.startsWith("ROHIS-DZUHUR-")) {
-                  setToken(t)
-                  handleScanSuccess()
-                }
-              }
-              // 2. Cek apakah ini raw token dengan prefix
-              else if (text.startsWith("ROHIS-DZUHUR-")) {
+                try {
+                  const url = new URL(text)
+                  const t = url.searchParams.get("token")
+                  if (t && t.startsWith("ROHIS-DZUHUR-")) {
+                    setToken(t)
+                    handleScanSuccess()
+                  }
+                } catch {}
+              } else if (text.startsWith("ROHIS-DZUHUR-")) {
                 setToken(text)
                 handleScanSuccess()
               }
             }
           }
         )
-        setCameraReady(true)
+
+        if (!signal.aborted) setCameraReady(true)
       } catch (err: unknown) {
+        if (signal.aborted) return
         console.error(err)
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop())
+          streamRef.current = null
+        }
+        if (videoRef.current) {
+          try {
+            videoRef.current.pause()
+          } catch {}
+          videoRef.current.srcObject = null
+        }
         setScanState("error")
         const msg =
           err instanceof Error
@@ -180,13 +332,29 @@ function ScanQRContent() {
   )
 
   useEffect(() => {
-    if (token) {
-      handleScanSuccess()
-    } else {
-      startScanning(facingMode)
+    const controller = new AbortController()
+
+    const frameId = window.requestAnimationFrame(() => {
+      if (token) {
+        handleScanSuccess()
+      } else {
+        void startScanning(facingMode, controller.signal)
+      }
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      controller.abort()
+      stopScanning()
     }
-    return () => stopScanning()
-  }, [facingMode, startScanning, stopScanning, token, handleScanSuccess])
+  }, [
+    facingMode,
+    token,
+    retryKey,
+    handleScanSuccess,
+    startScanning,
+    stopScanning,
+  ])
 
   // ─── Konfirmasi pilihan ───────────────────────────────────────────────────────
   const handleKonfirmasi = async () => {
@@ -251,16 +419,23 @@ function ScanQRContent() {
   const handleRetry = () => {
     setErrorMsg("")
     setToken(null)
-    startScanning(facingMode)
+    setRetryKey((k) => k + 1)
   }
 
   const toggleTorch = useCallback(async () => {
-    // Torch handling with zxing is limited, but we can try via stream
     if (streamRef.current) {
       const track = streamRef.current.getVideoTracks()[0]
+
+      if (!track) return
+
       try {
-        // @ts-ignore
-        await track.applyConstraints({ advanced: [{ torch: !torch }] })
+        const constraints: MediaTrackConstraints & {
+          advanced?: TorchMediaTrackConstraintSet[]
+        } = {
+          advanced: [{ torch: !torch }],
+        }
+
+        await track.applyConstraints(constraints)
         setTorch((p) => !p)
       } catch {}
     }
@@ -287,6 +462,10 @@ function ScanQRContent() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black">
+      <SessionInvalidatedModal
+        open={showSessionModal}
+        onLogout={handleSessionLogout}
+      />
       {/* Camera feed */}
       <video
         ref={videoRef}
@@ -294,6 +473,21 @@ function ScanQRContent() {
         playsInline
         muted
       />
+
+      {/* Freeze frame canvas — tampil hanya saat state scanned */}
+      <canvas
+        ref={canvasRef}
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-100 ${
+          scanState === "scanned"
+            ? "opacity-100"
+            : "pointer-events-none opacity-0"
+        }`}
+      />
+
+      {/* Dim overlay saat animasi scan berhasil */}
+      {scanState === "scanned" && (
+        <div className="absolute inset-0 bg-black/70 transition-opacity duration-300" />
+      )}
 
       {/* Top bar — sembunyikan saat pilih/success */}
       {(scanState === "scanning" || scanState === "error") && (
@@ -404,6 +598,57 @@ function ScanQRContent() {
                 </p>
               </div>
             )}
+          </>
+        )}
+
+        {/* ── SCAN SUCCESS ANIMATION ── */}
+        {scanState === "scanned" && (
+          <>
+            {/* ── Scan sweep line ── */}
+            <div
+              className="pointer-events-none absolute inset-x-0 h-0.5 bg-teal-400/80"
+              style={{
+                boxShadow: "0 0 12px 4px rgba(20,184,166,0.6)",
+                animation: "qr-sweep 0.5s ease-in-out forwards",
+              }}
+            />
+
+            {/* ── Center checkmark ── */}
+            <div className="relative z-10 flex flex-col items-center gap-4">
+              <div
+                className="flex h-20 w-20 items-center justify-center rounded-full bg-teal-500/20 ring-2 ring-teal-400/60"
+                style={{
+                  animation:
+                    "qr-check-pop 0.45s cubic-bezier(.17,.67,.48,1.4) 0.3s both",
+                }}
+              >
+                <svg viewBox="0 0 52 52" className="h-10 w-10" fill="none">
+                  <polyline
+                    points="13,27 22,37 39,16"
+                    stroke="#2dd4bf"
+                    strokeWidth="4.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="65"
+                    strokeDashoffset="65"
+                    style={{
+                      animation: "qr-check-draw 0.35s ease-out 0.45s forwards",
+                    }}
+                  />
+                </svg>
+              </div>
+              <div
+                className="text-center"
+                style={{ animation: "qr-check-pop 0.4s ease-out 0.5s both" }}
+              >
+                <p className="text-lg font-black tracking-wide text-white">
+                  QR Terdeteksi
+                </p>
+                <p className="mt-0.5 text-xs text-teal-300/80">
+                  Memuat pilihan...
+                </p>
+              </div>
+            </div>
           </>
         )}
 

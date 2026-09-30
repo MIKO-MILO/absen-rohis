@@ -36,6 +36,13 @@ const LOGO_CACHE = new Map<
   { base64: string; width?: number; height?: number }
 >()
 
+function toLocalDateString(d: Date): string {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
 async function getCachedLogo(
   key: "left" | "right",
   cwd: string
@@ -234,7 +241,7 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
     }
 
     // Safety cap response buffer size: >10MB suggests something wrong
-    if (buffer.length > 25 * 1024 * 1024) {
+    if (buffer.length > 50 * 1024 * 1024) {
       return exportTooLargeResponse(
         `File hasil export terlalu besar (${Math.round(buffer.length / (1024 * 1024))}MB). Persempit filter tanggal atau pecah per kelas.`
       )
@@ -313,7 +320,7 @@ async function fetchAbsensiByClass(
 
   if (bulan && tahunBulan) {
     const firstDay = `${tahunBulan}-${String(bulan).padStart(2, "0")}-01`
-    const lastDay = new Date(tahunBulan, bulan, 0).toISOString().split("T")[0]
+    const lastDay = toLocalDateString(new Date(tahunBulan, bulan, 0))
     query = query.gte("tanggal", firstDay).lte("tanggal", lastDay)
   }
 
@@ -371,21 +378,19 @@ async function fetchAllClassesData(
 
   if (bulan && tahunBulan) {
     const firstDay = `${tahunBulan}-${String(bulan).padStart(2, "0")}-01`
-    const lastDay = new Date(tahunBulan, bulan, 0).toISOString().split("T")[0]
+    const lastDay = toLocalDateString(new Date(tahunBulan, bulan, 0))
     absensiQuery = absensiQuery.gte("tanggal", firstDay).lte("tanggal", lastDay)
   } else {
     // Jika tanpa filter tanggal exportAllDates, cap 90 hari BACK dari hari ini.
     const threshold = new Date()
     threshold.setDate(threshold.getDate() - 90)
-    absensiQuery = absensiQuery.gte(
-      "tanggal",
-      threshold.toISOString().split("T")[0]
-    )
+    absensiQuery = absensiQuery.gte("tanggal", toLocalDateString(threshold))
   }
 
   const { data: allAbsensi, error: absensiError } = await absensiQuery
   if (absensiError) {
     console.error("Supabase absensi error:", absensiError)
+    throw absensiError
   }
 
   const typedAllAbsensi = allAbsensi as unknown as Array<AbsensiWithUserSummary>

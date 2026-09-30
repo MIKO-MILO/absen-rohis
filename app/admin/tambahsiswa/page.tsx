@@ -578,8 +578,8 @@ function ImportForm({
   )
 
   const handleImport = async () => {
-    // Import hanya rows yang ada di selectedNIS (valid)
-    const rowsToImport = rows.filter(
+    // Import hanya rows yang ada di selectedNIS (valid) dan sesuai filter aktif
+    const rowsToImport = filteredRows.filter(
       (r) => r.status === "valid" && selectedNIS.has(r.nis)
     )
     if (!rowsToImport.length) return
@@ -613,10 +613,10 @@ function ImportForm({
     }
   }
 
-  const validCount = rows.filter((r) => r.status === "valid").length
+  const validCount = filteredRows.filter((r) => r.status === "valid").length
   const duplikatCount = rows.filter((r) => r.status === "duplikat").length
   const errorCount = rows.filter((r) => r.status === "error").length
-  const selectedCount = rows.filter(
+  const selectedCount = filteredRows.filter(
     (r) => r.status === "valid" && selectedNIS.has(r.nis)
   ).length
 

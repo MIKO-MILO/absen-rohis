@@ -356,8 +356,8 @@ export default function ActivityMonitorPage() {
         setInitialLoading(false)
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+
+    [range, search]
   )
 
   const doPoll = useCallback(
@@ -432,8 +432,7 @@ export default function ActivityMonitorPage() {
       await doFullLoad({ range, search })
     }
     void run()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doFullLoad])
+  }, [doFullLoad, range, search])
 
   useEffect(() => {
     if (isAtBottom && logLines.length > 0) scrollToBottom("smooth")

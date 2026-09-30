@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -406,13 +405,11 @@ export function AdminShell({
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const redirecting = useRef(false)
-  const [mounted, setMounted] = useState(false)
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [admin, setAdmin] = useState<SessionData | null>(null)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
     let cancelled = false
     const failSafeTimer = setTimeout(() => {
       if (!cancelled) {
@@ -470,14 +467,6 @@ export function AdminShell({
     localStorage.removeItem("panitia_session")
     localStorage.removeItem("siswa_session")
     window.location.href = "/admin"
-  }
-
-  if (!mounted) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    )
   }
 
   if (!isAuthorized) {
@@ -559,14 +548,12 @@ export function AdminShell({
                 })()}
               </h1>
               <p className="hidden text-[10px] text-muted-foreground sm:block">
-                {mounted
-                  ? new Date().toLocaleDateString("id-ID", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })
-                  : ""}
+                {new Date().toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
               </p>
             </div>
           </div>

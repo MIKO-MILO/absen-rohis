@@ -18,6 +18,8 @@ import {
 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { getEffectiveUserAsync } from "@/lib/auth-client"
+import { usePanitiaSessionGuard } from "@/lib/use-panitia-session-guard"
+import { SessionInvalidatedModal } from "@/components/SessionInvalidatedModal"
 
 // ─── Install: npm install qrcode ─────────────────────────────────────────────
 // import QRCode from "qrcode";
@@ -91,6 +93,10 @@ function QRCanvas({ token, size = 220 }: { token: string; size?: number }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function GenerateQRPage() {
   const router = useRouter()
+
+  // Guard: auto-logout jika data panitia diubah oleh admin
+  const { showModal: showSessionModal, handleLogout: handleSessionLogout } =
+    usePanitiaSessionGuard()
   const [checkingSession, setCheckingSession] = useState(true)
   const [token, setToken] = useState<string>("")
   const [qrDataId, setQrDataId] = useState<number | null>(null)
@@ -391,6 +397,10 @@ export default function GenerateQRPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">
+      <SessionInvalidatedModal
+        open={showSessionModal}
+        onLogout={handleSessionLogout}
+      />
       {/* ── Header ── */}
       <div
         className="relative w-full max-w-md overflow-hidden rounded-b-[2rem] px-5 pt-10 pb-7 shadow-lg shadow-teal-900/10"

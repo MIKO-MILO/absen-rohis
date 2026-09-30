@@ -873,14 +873,14 @@ export default function DataSiswaPage() {
               <Button
                 variant="outline"
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 rounded-2xl border-border py-6 font-semibold"
+                className="rounded-2x flex-1 border-border py-6 font-semibold"
               >
                 Batal
               </Button>
               <Button
                 variant="destructive"
                 onClick={confirmDelete}
-                className="flex-1 rounded-2xl bg-red-600 font-semibold hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                className="rounded-2x flex-1 bg-red-600 py-6 font-semibold text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
               >
                 Hapus
               </Button>

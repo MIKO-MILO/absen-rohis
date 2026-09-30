@@ -16,6 +16,13 @@ import ExcelJS from "exceljs"
 //   getActiveConfig,
 // } from "@/lib/test-config"
 
+function toLocalDateString(d: Date): string {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
@@ -73,21 +80,32 @@ const STATUS_MAP: Record<string, string> = {
   hadir: "H",
   Hadir: "H",
   H: "H",
+  h: "H",
   haid: "I",
   Haid: "I",
   izin: "I",
   Izin: "I",
   I: "I",
+  i: "I",
+  berhalangan: "I",
+  Berhalangan: "I",
   tidak_hadir: "A",
   "tidak hadir": "A",
   "Tidak Hadir": "A",
+  "TIDAK HADIR": "A",
   sakit: "A",
   Sakit: "A",
+  SAKIT: "A",
+  S: "A",
+  s: "A",
   alpha: "A",
   Alpha: "A",
+  ALPHA: "A",
   alfa: "A",
   Alfa: "A",
+  ALFA: "A",
   A: "A",
+  a: "A",
 }
 
 /**
@@ -283,7 +301,7 @@ function getAllDatesInMonth(bulan: number, tahun: number): string[] {
 
   const currentDay = new Date(firstDay)
   while (currentDay <= lastDay) {
-    dates.push(currentDay.toISOString().split("T")[0])
+    dates.push(toLocalDateString(currentDay))
     currentDay.setDate(currentDay.getDate() + 1)
   }
 
@@ -305,7 +323,7 @@ function getFridaysInMonth(bulan: number, tahun: number): string[] {
 
   // Tambahkan semua Jumat sampai akhir bulan
   while (currentDay <= lastDay) {
-    fridays.push(currentDay.toISOString().split("T")[0])
+    fridays.push(toLocalDateString(currentDay))
     currentDay.setDate(currentDay.getDate() + 7)
   }
 
@@ -396,7 +414,7 @@ function processData(
       for (let i = 0; i < 4; i++) {
         const d = new Date(thisFriday)
         d.setDate(thisFriday.getDate() + i * 7)
-        dateSet.add(d.toISOString().split("T")[0])
+        dateSet.add(toLocalDateString(d))
       }
     }
 
@@ -427,7 +445,7 @@ function processData(
     })
   }
 
-  console.log('DEBUG dates:', dates);
+  console.log("DEBUG dates:", dates)
 
   // Absensi per user
   const byUser: Record<number, Record<string, string>> = {}
@@ -435,9 +453,14 @@ function processData(
     if (!byUser[rec.user_id]) byUser[rec.user_id] = {}
     byUser[rec.user_id][rec.tanggal] =
       STATUS_MAP[rec.status.toLowerCase()] ?? rec.status
-    console.log('DEBUG rec:', rec, 'mapped to:', STATUS_MAP[rec.status.toLowerCase()] ?? rec.status);
+    console.log(
+      "DEBUG rec:",
+      rec,
+      "mapped to:",
+      STATUS_MAP[rec.status.toLowerCase()] ?? rec.status
+    )
   }
-  console.log('DEBUG byUser:', byUser);
+  console.log("DEBUG byUser:", byUser)
 
   let laki = 0,
     perempuan = 0
@@ -447,7 +470,7 @@ function processData(
     const originalAbsen = byUser[u.id] ?? {}
     for (const d of dates) {
       let s = originalAbsen[d.date] ?? ""
-      console.log('DEBUG user:', u.nama, 'date:', d.date, 'original s:', s);
+      console.log("DEBUG user:", u.nama, "date:", d.date, "original s:", s)
       if (s !== "H" && s !== "I") {
         s = "A"
       }
@@ -460,7 +483,7 @@ function processData(
       else if (s === "I") jml.I++
       else jml.A++
     }
-    console.log('DEBUG user:', u.nama, 'jml:', jml);
+    console.log("DEBUG user:", u.nama, "jml:", jml)
 
     // Ambil jenis_kelamin dari user record, bukan dari absensi
     const lp = u.jenis_kelamin?.toLowerCase().startsWith("p") ? "P" : "L"

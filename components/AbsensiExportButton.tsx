@@ -90,7 +90,12 @@ export function AbsensiExportButton({
         ...(config.EXPORT_ALL_DATES && { export_all_dates: "true" }),
       })
       const res = await fetch(`/api/absensi/export?${params}`)
-      if (!res.ok) throw new Error(`Export gagal: ${res.statusText}`)
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null)
+        throw new Error(
+          errBody?.message || errBody?.error || `Export gagal: ${res.status} ${res.statusText}`
+        )
+      }
 
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)

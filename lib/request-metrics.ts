@@ -183,7 +183,6 @@ async function recordMetricsSafe(input: {
           total_response_time: incRt,
         })
       if (insertErr) {
-        // eslint-disable-next-line no-console
         console.warn(
           "[request-metrics] insert fallback juga gagal:",
           insertErr.message

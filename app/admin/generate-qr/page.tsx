@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -72,11 +71,6 @@ export default function GenerateQRPage() {
   const mins = Math.floor(secondsLeft / 60)
   const secs = secondsLeft % 60
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
   // Polling: untuk panitia, cek status QR aktif setiap 1 detik.
   // Trigger redirect jika:
   //   a) aktif === false  ATAU
@@ -92,7 +86,6 @@ export default function GenerateQRPage() {
     if (!session) return
 
     console.log("[GENERATE QR] Polling dimulai untuk session.id=", session.id)
-    setPollingBadge("menunggu scan...")
     scanPollRef.current = setInterval(async () => {
       if (isFetchingRef.current) return
       try {
@@ -173,14 +166,12 @@ export default function GenerateQRPage() {
     checkSession()
   }, [router])
 
-  const todayStr = mounted
-    ? new Date().toLocaleDateString("id-ID", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : ""
+  const todayStr = new Date().toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
 
   // countdown
   useEffect(() => {

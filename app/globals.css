@@ -133,3 +133,45 @@
     @apply font-sans;
   }
 }
+
+/* ── QR Scan success animations ── */
+@keyframes scanline {
+  0%   { top: 0; }
+  50%  { top: calc(100% - 2px); }
+  100% { top: 0; }
+}
+
+/* Sweep line dari atas ke bawah sekali */
+@keyframes qr-sweep {
+  0%   { top: 0%;   opacity: 1; }
+  90%  { top: 100%; opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* Titik targeting muncul dari skala 0 */
+@keyframes qr-dot-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Corner bracket slide masuk */
+@keyframes qr-corner-in {
+  0%   { transform: scale(0.4); opacity: 0; }
+  70%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Checkmark circle pop */
+@keyframes qr-check-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  80%  { transform: scale(0.93); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Checkmark stroke draw */
+@keyframes qr-check-draw {
+  0%   { stroke-dashoffset: 65; }
+  100% { stroke-dashoffset: 0; }
+}

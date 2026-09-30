@@ -24,7 +24,7 @@ export type SupabaseServiceClient = SupabaseClient<Database>
  * ============================================
  *
  * Menggunakan:
- * NEXT_PUBLIC_SUPABASE_ANON_KEY
+ * SUPABASE_ANON_KEY
  *
  * Client ini mengikuti session/cookie user
  * dan RLS Supabase.
@@ -34,11 +34,11 @@ export async function createClient(): Promise<SupabaseServerClient> {
     const cookieStore = await cookies()
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const anonKey = process.env.SUPABASE_ANON_KEY
 
     if (!url || !anonKey) {
       console.error(
-        "[SUPABASE] NEXT_PUBLIC_SUPABASE_URL atau NEXT_PUBLIC_SUPABASE_ANON_KEY belum diset."
+        "[SUPABASE] NEXT_PUBLIC_SUPABASE_URL atau SUPABASE_ANON_KEY belum diset."
       )
 
       throw new Error("Supabase environment variables are not configured")
@@ -98,7 +98,7 @@ export async function createClient(): Promise<SupabaseServerClient> {
  * di Client Component / browser.
  *
  * Graceful fallback:
- *   Jika SUPABASE_SERVICE_ROLE_KEY tidak diset, coba pakai NEXT_PUBLIC_SUPABASE_ANON_KEY
+ *   Jika SUPABASE_SERVICE_ROLE_KEY tidak diset, coba pakai SUPABASE_ANON_KEY
  *   sebagai pengganti (dengan warning). Fitur yang butuh bypass RLS kemungkinan
  *   akan diblokir policy, tapi aplikasi TIDAK crash 500 — cocok untuk fase dev
  *   ketika environment belum lengkap.
@@ -107,7 +107,7 @@ export async function createServiceClient(): Promise<SupabaseServiceClient> {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const anonKey = process.env.SUPABASE_ANON_KEY
 
     if (!url) {
       console.error("[SUPABASE] NEXT_PUBLIC_SUPABASE_URL belum diset.")
@@ -119,16 +119,16 @@ export async function createServiceClient(): Promise<SupabaseServiceClient> {
       if (anonKey) {
         console.warn(
           "[SUPABASE] ⚠️ SUPABASE_SERVICE_ROLE_KEY tidak diset. " +
-            "Fall back ke NEXT_PUBLIC_SUPABASE_ANON_KEY. " +
+            "Fall back ke SUPABASE_ANON_KEY. " +
             "Operasi yang butuh bypass RLS (insert/select audit_logs, admin-only queries) " +
             "mungkin diblokir policy. Silakan set SUPABASE_SERVICE_ROLE_KEY asli di .env.local."
         )
         finalKey = anonKey
       } else {
         console.error(
-          "[SUPABASE] SUPABASE_SERVICE_ROLE_KEY dan NEXT_PUBLIC_SUPABASE_ANON_KEY sama-sama belum diset."
+          "[SUPABASE] SUPABASE_SERVICE_ROLE_KEY dan SUPABASE_ANON_KEY sama-sama belum diset."
         )
-        throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured")
+        throw new Error("SUPABASE_ANON_KEY is not configured")
       }
     }
 

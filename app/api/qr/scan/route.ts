@@ -14,6 +14,13 @@ import { createServiceClient } from "@/lib/supabaseServer"
 
 export const dynamic = "force-dynamic"
 
+function toLocalDateString(d: Date): string {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
 function isValidDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false
@@ -254,7 +261,7 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
     }
 
     const targetDate =
-      isAdminUpdate && tanggal ? tanggal : now.toISOString().split("T")[0]
+      isAdminUpdate && tanggal ? tanggal : toLocalDateString(now)
 
     const waktu = [
       now.getHours().toString().padStart(2, "0"),

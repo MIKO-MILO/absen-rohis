@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
@@ -23,6 +22,9 @@ import { ModeButton } from "@/components/mode-button"
 import { getActiveConfig, isOutsideAbsensiTime } from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
 import { fetchSession, clearAllLocalStorageSessions } from "@/lib/auth-client"
+import { useSiswaSessionGuard } from "@/lib/use-siswa-session-guard"
+import { SessionInvalidatedModal } from "@/components/SessionInvalidatedModal"
+import { LogoutConfirmModal } from "@/components/LogoutConfirmModal"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "hadir" | "tidak_hadir" | "haid"
@@ -103,24 +105,31 @@ function getSummary(data: RiwayatItem[]) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function UserHomePage() {
   const router = useRouter()
+
+  // Guard: auto-logout jika data siswa diubah oleh admin
+  const { showModal: showSessionModal, handleLogout: handleSessionLogout } =
+    useSiswaSessionGuard()
   const [config, setConfig] = useState(getActiveConfig())
   const [data, setData] = useState<RiwayatItem[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<UserSession | null>(null)
   const [sudahAbsen, setSudahAbsen] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
-  const [mounted, setMounted] = useState(false)
   const [isImpersonating, setIsImpersonating] = useState(false)
   const isFetchingConfigRef = useRef(false)
 
   const fetchConfig = useCallback(async () => {
     if (isFetchingConfigRef.current) return
+
     isFetchingConfigRef.current = true
+
     try {
       const res = await fetch("/api/config")
+
       if (res.ok) {
         const dbConfig = await res.json()
         setConfig(dbConfig)
+
         try {
           localStorage.setItem(
             "test_config_superadmin",
@@ -138,10 +147,10 @@ export default function UserHomePage() {
   }, [])
 
   useEffect(() => {
-    setMounted(true)
-    setNow(new Date())
-
-    void fetchConfig()
+    const frameId = window.requestAnimationFrame(() => {
+      setNow(new Date())
+      void fetchConfig()
+    })
 
     const timeInterval = setInterval(() => {
       setNow(new Date())
@@ -152,13 +161,17 @@ export default function UserHomePage() {
     }, 60000)
 
     return () => {
+      window.cancelAnimationFrame(frameId)
       clearInterval(timeInterval)
       clearInterval(configInterval)
     }
   }, [fetchConfig])
 
+  const mounted = now !== null
+
   const isTimeAllowed =
     mounted && now ? !isOutsideAbsensiTime(now, config) : true
+
   const isRestrictionEnabled = config.ENABLE_TIME_RESTRICTION
 
   const shouldDisableButton =
@@ -310,6 +323,8 @@ export default function UserHomePage() {
     }
   }, [router, fetchData])
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+
   async function handleLogout() {
     if (isImpersonating) {
       // Jika dalam mode impersonasi, jangan logout
@@ -333,6 +348,18 @@ export default function UserHomePage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background">
+      <SessionInvalidatedModal
+        open={showSessionModal}
+        onLogout={handleSessionLogout}
+      />
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        onConfirm={() => {
+          setShowLogoutConfirm(false)
+          handleLogout()
+        }}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
       <ImpersonationBanner />
       {/* ── Header Banner ── */}
       <div
@@ -400,7 +427,7 @@ export default function UserHomePage() {
                 <DropdownMenuSeparator className="bg-border/50" />
                 <ModeButton />
                 <DropdownMenuItem
-                  onClick={handleLogout}
+                  onClick={() => setShowLogoutConfirm(true)}
                   disabled={isImpersonating}
                   className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium ${
                     isImpersonating

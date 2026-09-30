@@ -1,10 +1,23 @@
 "use client"
 
-import { useEffect, useMemo, useState, useCallback, useTransition, Suspense } from "react"
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useTransition,
+  Suspense,
+} from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AdminShell } from "@/app/admin/_components/AdminShell"
 import { MonitoringSubNav } from "../_components/MonitoringSubNav"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -111,7 +124,19 @@ function SystemMonitoringRequestsContent() {
   }, [search])
 
   const buildQueryStr = useCallback(
-    (overrides: Partial<{ range: Range; method: string; search: string; page: number; limit: number; sort: SortKey; dir: SortDir; from: string; to: string }> = {}) => {
+    (
+      overrides: Partial<{
+        range: Range
+        method: string
+        search: string
+        page: number
+        limit: number
+        sort: SortKey
+        dir: SortDir
+        from: string
+        to: string
+      }> = {}
+    ) => {
       const r = overrides.range ?? range
       const m = overrides.method ?? method
       const s = overrides.search ?? debouncedSearch
@@ -135,7 +160,7 @@ function SystemMonitoringRequestsContent() {
       }
       return sp.toString()
     },
-    [range, method, debouncedSearch, page, limit, sort, dir, from, to],
+    [range, method, debouncedSearch, page, limit, sort, dir, from, to]
   )
 
   const fetchData = useCallback(async () => {
@@ -143,7 +168,9 @@ function SystemMonitoringRequestsContent() {
       setLoading(true)
       setError(null)
       const qs = buildQueryStr()
-      const res = await fetch(`/api/admin/system-monitoring/requests?${qs}`, { cache: "no-store" })
+      const res = await fetch(`/api/admin/system-monitoring/requests?${qs}`, {
+        cache: "no-store",
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body?.error || `HTTP ${res.status}`)
@@ -159,7 +186,7 @@ function SystemMonitoringRequestsContent() {
   }, [buildQueryStr])
 
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       await fetchData()
     })()
   }, [fetchData])
@@ -169,13 +196,19 @@ function SystemMonitoringRequestsContent() {
     const qs = buildQueryStr()
     startTransition(() => {
       // shallow-like update via replace for copyable URL
-      router.replace(`/admin/system-monitoring/requests?${qs}`, { scroll: false })
+      router.replace(`/admin/system-monitoring/requests?${qs}`, {
+        scroll: false,
+      })
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, method, debouncedSearch, page, limit, sort, dir, from, to])
+  }, [range, method, debouncedSearch, page, limit, sort, dir, from, to, buildQueryStr, router])
 
-  const rows = useMemo(() => resp?.data ?? [], [resp]);
-  const pagination = resp?.pagination ?? { page: 1, limit: 20, total: 0, totalPages: 1 }
+  const rows = useMemo(() => resp?.data ?? [], [resp])
+  const pagination = resp?.pagination ?? {
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  }
 
   const totals = useMemo(() => {
     let req = 0
@@ -216,10 +249,10 @@ function SystemMonitoringRequestsContent() {
 
   return (
     <AdminShell requireSuperadmin>
-      <div className="flex flex-col gap-6 py-5 px-4 md:px-6">
+      <div className="flex flex-col gap-6 px-4 py-5 md:px-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl dark:text-white">
               Request Monitor
             </h1>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
@@ -233,7 +266,10 @@ function SystemMonitoringRequestsContent() {
             disabled={loading}
             className="gap-2"
           >
-            <span aria-hidden className={cn("inline-block", loading && "animate-spin")}>
+            <span
+              aria-hidden
+              className={cn("inline-block", loading && "animate-spin")}
+            >
               ↻
             </span>
             Refresh
@@ -243,35 +279,47 @@ function SystemMonitoringRequestsContent() {
         <MonitoringSubNav />
 
         {/* ── Summary stats ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-white dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Filtered Requests</p>
-            <p className="text-2xl font-bold tabular-nums">{loading ? "…" : fmtId(totals.req)}</p>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/60">
+            <p className="text-xs tracking-wide text-slate-500 uppercase dark:text-slate-400">
+              Filtered Requests
+            </p>
+            <p className="text-2xl font-bold tabular-nums">
+              {loading ? "…" : fmtId(totals.req)}
+            </p>
           </div>
-          <div className="bg-white dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Success</p>
-            <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/60">
+            <p className="text-xs tracking-wide text-slate-500 uppercase dark:text-slate-400">
+              Success
+            </p>
+            <p className="text-2xl font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
               {loading ? "…" : fmtId(totals.suc)}
             </p>
           </div>
-          <div className="bg-white dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Errors</p>
-            <p className="text-2xl font-bold tabular-nums text-rose-600 dark:text-rose-400">
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/60">
+            <p className="text-xs tracking-wide text-slate-500 uppercase dark:text-slate-400">
+              Errors
+            </p>
+            <p className="text-2xl font-bold text-rose-600 tabular-nums dark:text-rose-400">
               {loading ? "…" : fmtId(totals.err)}
             </p>
           </div>
-          <div className="bg-white dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Avg RT (filtered)</p>
-            <p className="text-2xl font-bold tabular-nums">{loading ? "…" : `${totals.avgRt} ms`}</p>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/60">
+            <p className="text-xs tracking-wide text-slate-500 uppercase dark:text-slate-400">
+              Avg RT (filtered)
+            </p>
+            <p className="text-2xl font-bold tabular-nums">
+              {loading ? "…" : `${totals.avgRt} ms`}
+            </p>
           </div>
         </div>
 
         {/* ── Filter bar ── */}
         <Card className="border-slate-200 dark:border-slate-700">
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
               <div className="md:col-span-3">
-                <label className="block text-xs font-medium mb-1 text-slate-600 dark:text-slate-300">
+                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
                   Range
                 </label>
                 <select
@@ -280,7 +328,7 @@ function SystemMonitoringRequestsContent() {
                     setRange(e.target.value as Range)
                     setPage(1)
                   }}
-                  className="w-full h-9 px-3 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm"
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
                 >
                   {RANGES.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -292,7 +340,7 @@ function SystemMonitoringRequestsContent() {
               {range === "custom" && (
                 <>
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-medium mb-1 text-slate-600 dark:text-slate-300">
+                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
                       From
                     </label>
                     <Input
@@ -305,7 +353,7 @@ function SystemMonitoringRequestsContent() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-medium mb-1 text-slate-600 dark:text-slate-300">
+                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
                       To
                     </label>
                     <Input
@@ -320,7 +368,7 @@ function SystemMonitoringRequestsContent() {
                 </>
               )}
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium mb-1 text-slate-600 dark:text-slate-300">
+                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
                   Method
                 </label>
                 <select
@@ -329,7 +377,7 @@ function SystemMonitoringRequestsContent() {
                     setMethod(e.target.value)
                     setPage(1)
                   }}
-                  className="w-full h-9 px-3 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm"
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
                 >
                   {METHODS.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -339,7 +387,7 @@ function SystemMonitoringRequestsContent() {
                 </select>
               </div>
               <div className="md:col-span-3">
-                <label className="block text-xs font-medium mb-1 text-slate-600 dark:text-slate-300">
+                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
                   Search endpoint
                 </label>
                 <Input
@@ -353,7 +401,7 @@ function SystemMonitoringRequestsContent() {
         </Card>
 
         {error && (
-          <div className="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700/60 text-rose-700 dark:text-rose-200 p-3 rounded-md text-sm">
+          <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-700/60 dark:bg-rose-900/20 dark:text-rose-200">
             ⚠ {error}
           </div>
         )}
@@ -361,47 +409,94 @@ function SystemMonitoringRequestsContent() {
         {/* ── Table ── */}
         <Card className="border-slate-200 dark:border-slate-700">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Endpoint Statistics</CardTitle>
+            <CardTitle className="text-lg font-semibold">
+              Endpoint Statistics
+            </CardTitle>
             <CardDescription>
-              Total {loading ? "…" : `${fmtId(pagination.total)} endpoint × method combination${pagination.total === 1 ? "" : "s"}.`}
+              Total{" "}
+              {loading
+                ? "…"
+                : `${fmtId(pagination.total)} endpoint × method combination${pagination.total === 1 ? "" : "s"}.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wide border-b border-slate-200 dark:border-slate-700">
-                    <th className="text-left px-5 py-3 font-semibold cursor-pointer select-none" onClick={() => onSort("endpoint")}>
-                      Endpoint <span className="ml-1 opacity-60">{sortIcon("endpoint")}</span>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-xs tracking-wide text-slate-600 uppercase dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                    <th
+                      className="cursor-pointer px-5 py-3 text-left font-semibold select-none"
+                      onClick={() => onSort("endpoint")}
+                    >
+                      Endpoint{" "}
+                      <span className="ml-1 opacity-60">
+                        {sortIcon("endpoint")}
+                      </span>
                     </th>
-                    <th className="px-3 py-3 w-20 font-semibold">Method</th>
-                    <th className="text-right px-3 py-3 font-semibold cursor-pointer select-none" onClick={() => onSort("total_requests")}>
-                      Requests <span className="ml-1 opacity-60">{sortIcon("total_requests")}</span>
+                    <th className="w-20 px-3 py-3 font-semibold">Method</th>
+                    <th
+                      className="cursor-pointer px-3 py-3 text-right font-semibold select-none"
+                      onClick={() => onSort("total_requests")}
+                    >
+                      Requests{" "}
+                      <span className="ml-1 opacity-60">
+                        {sortIcon("total_requests")}
+                      </span>
                     </th>
-                    <th className="text-right px-3 py-3 font-semibold cursor-pointer select-none" onClick={() => onSort("success_count")}>
-                      Success <span className="ml-1 opacity-60">{sortIcon("success_count")}</span>
+                    <th
+                      className="cursor-pointer px-3 py-3 text-right font-semibold select-none"
+                      onClick={() => onSort("success_count")}
+                    >
+                      Success{" "}
+                      <span className="ml-1 opacity-60">
+                        {sortIcon("success_count")}
+                      </span>
                     </th>
-                    <th className="text-right px-3 py-3 font-semibold cursor-pointer select-none" onClick={() => onSort("error_count")}>
-                      Errors <span className="ml-1 opacity-60">{sortIcon("error_count")}</span>
+                    <th
+                      className="cursor-pointer px-3 py-3 text-right font-semibold select-none"
+                      onClick={() => onSort("error_count")}
+                    >
+                      Errors{" "}
+                      <span className="ml-1 opacity-60">
+                        {sortIcon("error_count")}
+                      </span>
                     </th>
-                    <th className="text-right px-3 py-3 font-semibold cursor-pointer select-none" onClick={() => onSort("error_rate")}>
-                      Error % <span className="ml-1 opacity-60">{sortIcon("error_rate")}</span>
+                    <th
+                      className="cursor-pointer px-3 py-3 text-right font-semibold select-none"
+                      onClick={() => onSort("error_rate")}
+                    >
+                      Error %{" "}
+                      <span className="ml-1 opacity-60">
+                        {sortIcon("error_rate")}
+                      </span>
                     </th>
-                    <th className="text-right px-5 py-3 font-semibold cursor-pointer select-none" onClick={() => onSort("avg_response_time")}>
-                      Avg RT <span className="ml-1 opacity-60">{sortIcon("avg_response_time")}</span>
+                    <th
+                      className="cursor-pointer px-5 py-3 text-right font-semibold select-none"
+                      onClick={() => onSort("avg_response_time")}
+                    >
+                      Avg RT{" "}
+                      <span className="ml-1 opacity-60">
+                        {sortIcon("avg_response_time")}
+                      </span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-16 text-center text-slate-400">
+                      <td
+                        colSpan={7}
+                        className="px-5 py-16 text-center text-slate-400"
+                      >
                         Loading…
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-16 text-center text-slate-400">
+                      <td
+                        colSpan={7}
+                        className="px-5 py-16 text-center text-slate-400"
+                      >
                         Tidak ada data untuk filter ini.
                       </td>
                     </tr>
@@ -409,33 +504,39 @@ function SystemMonitoringRequestsContent() {
                     rows.map((r, i) => (
                       <tr
                         key={`${r.endpoint}${r.method}${i}`}
-                        className="border-b border-slate-100 dark:border-slate-700/70 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                        className="border-b border-slate-100 last:border-0 hover:bg-slate-50 dark:border-slate-700/70 dark:hover:bg-slate-800/40"
                       >
-                        <td className="px-5 py-3 font-mono text-xs text-slate-700 dark:text-slate-200 truncate max-w-90">
+                        <td className="max-w-90 truncate px-5 py-3 font-mono text-xs text-slate-700 dark:text-slate-200">
                           {r.endpoint}
                         </td>
                         <td className="px-3 py-3">
                           <Badge
                             variant="outline"
                             className={cn(
-                              "font-mono text-[10px] uppercase border",
+                              "border font-mono text-[10px] uppercase",
                               r.method === "GET"
-                                ? "text-sky-700 border-sky-200 bg-sky-50 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700"
+                                ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
                                 : r.method === "POST"
-                                  ? "text-emerald-700 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700"
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                                   : r.method === "PUT" || r.method === "PATCH"
-                                    ? "text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700"
+                                    ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                                     : r.method === "DELETE"
-                                      ? "text-rose-700 border-rose-200 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-700"
-                                      : "text-slate-700 border-slate-200 bg-white dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600",
+                                      ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
+                                      : "border-slate-200 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                             )}
                           >
                             {r.method}
                           </Badge>
                         </td>
-                        <td className="px-3 py-3 text-right tabular-nums font-semibold">{fmtId(r.totalRequests)}</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{fmtId(r.successCount)}</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-rose-600 dark:text-rose-400 font-semibold">{fmtId(r.errorCount)}</td>
+                        <td className="px-3 py-3 text-right font-semibold tabular-nums">
+                          {fmtId(r.totalRequests)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-emerald-600 tabular-nums dark:text-emerald-400">
+                          {fmtId(r.successCount)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-semibold text-rose-600 tabular-nums dark:text-rose-400">
+                          {fmtId(r.errorCount)}
+                        </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           <span
                             className={cn(
@@ -444,20 +545,20 @@ function SystemMonitoringRequestsContent() {
                                 ? "text-rose-600 dark:text-rose-400"
                                 : r.errorRate >= 5
                                   ? "text-amber-600 dark:text-amber-400"
-                                  : "text-slate-500 dark:text-slate-400",
+                                  : "text-slate-500 dark:text-slate-400"
                             )}
                           >
                             {r.errorRate.toFixed(2)}%
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                        <td className="px-5 py-3 text-right text-slate-600 tabular-nums dark:text-slate-300">
                           <span
                             className={cn(
                               r.averageResponseTime > 800
-                                ? "text-rose-600 dark:text-rose-400 font-semibold"
+                                ? "font-semibold text-rose-600 dark:text-rose-400"
                                 : r.averageResponseTime > 300
-                                  ? "text-amber-600 dark:text-amber-400 font-medium"
-                                  : "",
+                                  ? "font-medium text-amber-600 dark:text-amber-400"
+                                  : ""
                             )}
                           >
                             {r.averageResponseTime} ms
@@ -471,7 +572,7 @@ function SystemMonitoringRequestsContent() {
             </div>
 
             {/* ── Pagination ── */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-5 py-3 border-t border-slate-200 dark:border-slate-700 text-sm">
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-700">
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 dark:text-slate-400">Show</span>
                 <select
@@ -480,7 +581,7 @@ function SystemMonitoringRequestsContent() {
                     setLimit(parseInt(e.target.value, 10) || 20)
                     setPage(1)
                   }}
-                  className="h-8 px-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="h-8 rounded-md border border-slate-200 bg-white px-2 dark:border-slate-700 dark:bg-slate-800"
                 >
                   {LIMITS.map((l) => (
                     <option key={l} value={l}>
@@ -489,7 +590,8 @@ function SystemMonitoringRequestsContent() {
                   ))}
                 </select>
                 <span className="text-slate-500 dark:text-slate-400">
-                  · Page {safePage} / {pagination.totalPages} of {fmtId(pagination.total)}
+                  · Page {safePage} / {pagination.totalPages} of{" "}
+                  {fmtId(pagination.total)}
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -536,13 +638,15 @@ function SystemMonitoringRequestsContent() {
 
 export default function SystemMonitoringRequestsPage() {
   return (
-    <Suspense fallback={
-      <AdminShell requireSuperadmin>
-        <div className="flex flex-col gap-6 py-5 px-4 md:px-6">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      </AdminShell>
-    }>
+    <Suspense
+      fallback={
+        <AdminShell requireSuperadmin>
+          <div className="flex flex-col gap-6 px-4 py-5 md:px-6">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        </AdminShell>
+      }
+    >
       <SystemMonitoringRequestsContent />
     </Suspense>
   )

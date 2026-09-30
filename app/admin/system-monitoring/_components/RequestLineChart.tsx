@@ -75,7 +75,7 @@ export function RequestLineChart({
         ref={containerRef}
         className={
           "flex w-full items-center justify-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-400 dark:border-slate-600 " +
-          (className ?? "aspect-[16/7] min-h-[180px] max-h-[400px]")
+          (className ?? "aspect-16/7 min-h-45 max-h-100")
         }
       >
         Belum ada data request untuk periode ini.
@@ -123,7 +123,7 @@ export function RequestLineChart({
       ref={containerRef}
       className={
         "w-full " +
-        (className ?? "aspect-[16/7] min-h-[180px] max-h-[400px]")
+        (className ?? "aspect-16/7 min-h-45 max-h-100")
       }
     >
       <svg
