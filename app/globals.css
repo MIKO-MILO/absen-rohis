@@ -148,20 +148,7 @@
   100% { top: 100%; opacity: 0; }
 }
 
-/* Titik targeting muncul dari skala 0 */
-@keyframes qr-dot-pop {
-  0%   { transform: scale(0); opacity: 0; }
-  60%  { transform: scale(1.4); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-/* Corner bracket slide masuk */
-@keyframes qr-corner-in {
-  0%   { transform: scale(0.4); opacity: 0; }
-  70%  { transform: scale(1.1); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
+/* Corner bracket slide masuk — dihapus */
 /* Checkmark circle pop */
 @keyframes qr-check-pop {
   0%   { transform: scale(0); opacity: 0; }

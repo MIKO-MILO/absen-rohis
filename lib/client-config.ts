@@ -55,18 +55,16 @@ export function isWithinTimeRestriction(
   if (!config.ENABLE_TIME_RESTRICTION) return true
 
   const checkTime = now || new Date()
-  const day = checkTime.getDay()
+  const day  = checkTime.getDay()
   const hour = checkTime.getHours()
 
   // Jika ALLOW_ANY_TIME aktif, jam tidak dicek
   const isTimeOk = config.ALLOW_ANY_TIME || (hour >= 12 && hour < 14)
 
-  // Jika ALLOW_ANY_DAY aktif, hari tidak dicek
-  if (config.ALLOW_ANY_DAY) {
-    return isTimeOk
-  }
+  // Jika ALLOW_ANY_DAY aktif, hari tidak dicek — cukup cek jam saja
+  if (config.ALLOW_ANY_DAY) return isTimeOk
 
-  // Jika ALLOW_ANY_DAY tidak aktif, cek hari Jumat DAN jam
+  // Default: harus hari Jumat DAN jam 12-14
   return day === 5 && isTimeOk
 }
 

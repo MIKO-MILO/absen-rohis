@@ -602,6 +602,7 @@ function ScanQRContent() {
         )}
 
         {/* ── SCAN SUCCESS ANIMATION ── */}
+        {/* ── SCAN SUCCESS ANIMATION ── */}
         {scanState === "scanned" && (
           <>
             {/* ── Scan sweep line ── */}
@@ -609,7 +610,7 @@ function ScanQRContent() {
               className="pointer-events-none absolute inset-x-0 h-0.5 bg-teal-400/80"
               style={{
                 boxShadow: "0 0 12px 4px rgba(20,184,166,0.6)",
-                animation: "qr-sweep 0.5s ease-in-out forwards",
+                animation: "qr-sweep 0.6s ease-in-out forwards",
               }}
             />
 
