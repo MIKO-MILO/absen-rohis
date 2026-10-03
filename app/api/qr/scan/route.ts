@@ -242,8 +242,10 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
 
     const now = new Date()
     if (!isAdminUpdate && !isWithinTimeRestriction(now, config)) {
-      const day = now.getDay()
+      const day  = now.getDay()
       const hour = now.getHours()
+      const start = config.ABSENSI_START_HOUR ?? 12
+      const end   = config.ABSENSI_END_HOUR   ?? 14
 
       if (!config.ALLOW_ANY_DAY && day !== 5) {
         return Response.json(
@@ -252,9 +254,9 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
         )
       }
 
-      if (!config.ALLOW_ANY_TIME && (hour < 12 || hour >= 14)) {
+      if (!config.ALLOW_ANY_TIME && (hour < start || hour >= end)) {
         return Response.json(
-          { error: "Absensi hanya tersedia pukul 12:00 - 14:00 WIB" },
+          { error: `Absensi hanya tersedia pukul ${String(start).padStart(2,"0")}:00 - ${String(end).padStart(2,"0")}:00 WIB` },
           { status: 403 }
         )
       }

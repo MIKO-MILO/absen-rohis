@@ -54,7 +54,8 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       description: `${session.nama} generated QR token (${token.slice(0, 20)}...)`,
     })
 
-    const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL}/scan?token=${token}`
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://absen-rohis.vercel.app"
+    const qrUrl = `${baseUrl}/user/scan?token=${token}`
     const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
       width: 512,
       margin: 2,

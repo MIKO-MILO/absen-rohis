@@ -385,6 +385,86 @@ export default function SuperadminConfigPage() {
           })}
         </div>
 
+        {/* Jam Absensi */}
+        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="border-b border-border/50 px-5 py-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Rentang Jam Absensi
+            </p>
+          </div>
+          <div className="px-5 py-4">
+            {/* Row 1: icon + label + deskripsi */}
+            <div className="flex items-start gap-4">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400">
+                <Clock className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Jam Mulai &amp; Selesai
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  Rentang jam ketika absensi diizinkan. Berlaku jika{" "}
+                  <span className="font-medium text-foreground">Batasan Waktu</span> aktif dan{" "}
+                  <span className="font-medium text-foreground">Absensi Setiap Jam</span> tidak aktif.
+                </p>
+              </div>
+            </div>
+
+            {/* Row 2: dropdown jam */}
+            <div className="mt-4 flex items-center gap-3 pl-12">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-bold text-muted-foreground">Mulai</span>
+                <select
+                  value={config.ABSENSI_START_HOUR ?? 12}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      ABSENSI_START_HOUR: Number(e.target.value),
+                    }))
+                  }
+                  className="h-10 w-28 appearance-none rounded-xl border border-border bg-muted/50 px-3 text-sm font-bold text-foreground outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {String(i).padStart(2, "0")}:00
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="mt-5 text-base font-bold text-muted-foreground">—</span>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-bold text-muted-foreground">Selesai</span>
+                <select
+                  value={config.ABSENSI_END_HOUR ?? 14}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      ABSENSI_END_HOUR: Number(e.target.value),
+                    }))
+                  }
+                  className="h-10 w-28 appearance-none rounded-xl border border-border bg-muted/50 px-3 text-sm font-bold text-foreground outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {String(i).padStart(2, "0")}:00
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-5 rounded-lg bg-teal-50 px-3 py-2 dark:bg-teal-900/20">
+                <p className="text-xs font-bold text-teal-600 dark:text-teal-400">
+                  {String(config.ABSENSI_START_HOUR ?? 12).padStart(2, "0")}:00
+                  {" – "}
+                  {String(config.ABSENSI_END_HOUR ?? 14).padStart(2, "0")}:00 WIB
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Actions */}
         <div className="mt-8 flex items-center gap-4">
           <Button
