@@ -325,7 +325,7 @@ export default function SuperadminConfigPage() {
         {/* Config Cards */}
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           {CONFIG_ITEMS.map((item, index) => {
-            const isOn = config[item.key]
+            const isOn = config[item.key] as boolean
             const showWarning =
               item.warning &&
               (isOn || item.key === "MAINTENANCE_MODE" ? isOn : !isOn)
