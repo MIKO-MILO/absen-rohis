@@ -76,7 +76,8 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
       (acc, k) => {
         const key = k as keyof TestConfig
         if (rawBody[key] !== undefined) {
-          acc[key] = rawBody[key] as TestConfig[typeof key]
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(acc as any)[key] = rawBody[key]
         }
         return acc
       },
