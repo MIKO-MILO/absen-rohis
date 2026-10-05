@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeButton } from "@/components/mode-button"
-import { getActiveConfig, isOutsideAbsensiTime } from "@/lib/client-config"
+import { getActiveConfig, isOutsideAbsensiTime, DEFAULT_CONFIG } from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
 import { fetchSession, clearAllLocalStorageSessions } from "@/lib/auth-client"
 import { useSiswaSessionGuard } from "@/lib/use-siswa-session-guard"
@@ -128,12 +128,14 @@ export default function UserHomePage() {
 
       if (res.ok) {
         const dbConfig = await res.json()
-        setConfig(dbConfig)
+        // Merge dengan DEFAULT_CONFIG supaya field baru selalu ada
+        const merged = { ...DEFAULT_CONFIG, ...dbConfig }
+        setConfig(merged)
 
         try {
           localStorage.setItem(
             "test_config_superadmin",
-            JSON.stringify(dbConfig)
+            JSON.stringify(merged)
           )
         } catch {
           /* ignore quota errors */

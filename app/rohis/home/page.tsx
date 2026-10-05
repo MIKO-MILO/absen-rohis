@@ -22,6 +22,7 @@ import { ModeButton } from "@/components/mode-button"
 import {
   getActiveConfig,
   isOutsideAbsensiTime,
+  DEFAULT_CONFIG,
   type TestConfig,
 } from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
@@ -137,11 +138,13 @@ export default function AbsenSholatPage() {
       const res = await fetch("/api/config")
       if (res.ok) {
         const dbConfig = await res.json()
-        setConfig(dbConfig)
+        // Merge dengan DEFAULT_CONFIG supaya field baru (ABSENSI_START_HOUR, dll) selalu ada
+        const merged = { ...DEFAULT_CONFIG, ...dbConfig }
+        setConfig(merged)
         try {
           localStorage.setItem(
             "test_config_superadmin",
-            JSON.stringify(dbConfig)
+            JSON.stringify(merged)
           )
         } catch {
           /* ignore quota errors */
