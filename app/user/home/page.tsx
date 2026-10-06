@@ -1,5 +1,7 @@
 "use client"
 
+import "@/lib/secure-time"
+
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -8,7 +10,22 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import ClockWIB from "@/components/mycomponent/clock"
-import { CheckCircle2, QrCode, Clock, AlignLeft, LogOut } from "lucide-react"
+import {
+  CheckCircle2,
+  QrCode,
+  Clock,
+  AlignLeft,
+  LogOut,
+  AlertTriangle,
+} from "lucide-react"
+import {
+  syncWithServerTime,
+  getSyncedNow,
+  getStoredSyncStats,
+  formatSkew,
+  TIME_WARN_THRESHOLD_MS,
+  type TimeSyncResult,
+} from "@/lib/secure-time"
 
 import {
   DropdownMenu,
@@ -19,7 +36,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeButton } from "@/components/mode-button"
-import { getActiveConfig, isOutsideAbsensiTime, DEFAULT_CONFIG } from "@/lib/client-config"
+import {
+  getActiveConfig,
+  isOutsideAbsensiTime,
+  DEFAULT_CONFIG,
+} from "@/lib/client-config"
 import { ImpersonationBanner } from "@/components/ImpersonationBanner"
 import { fetchSession, clearAllLocalStorageSessions } from "@/lib/auth-client"
 import { useSiswaSessionGuard } from "@/lib/use-siswa-session-guard"
@@ -117,6 +138,37 @@ export default function UserHomePage() {
   const [now, setNow] = useState<Date | null>(null)
   const [isImpersonating, setIsImpersonating] = useState(false)
   const isFetchingConfigRef = useRef(false)
+  const isSyncingTimeRef = useRef(false)
+
+  const [timeSync, setTimeSync] = useState<TimeSyncResult | null>(() => {
+    const s = getStoredSyncStats()
+
+    if (s.ageMs < 24 * 60 * 60_000) {
+      const nowMs = Date.now()
+
+      return {
+        offsetMs: s.offsetMs,
+        absSkewMs: s.absSkewMs,
+        deviceTimeMs: nowMs,
+        serverTimeMs: nowMs + s.offsetMs,
+        isSkewed: s.isSkewed,
+        isFresh: s.isFresh,
+      }
+    }
+
+    return null
+  })
+
+  const runTimeSync = useCallback(async (force = false) => {
+    if (isSyncingTimeRef.current) return
+    isSyncingTimeRef.current = true
+    try {
+      const r = await syncWithServerTime(force)
+      setTimeSync(r)
+    } finally {
+      isSyncingTimeRef.current = false
+    }
+  }, [])
 
   const fetchConfig = useCallback(async () => {
     if (isFetchingConfigRef.current) return
@@ -133,10 +185,7 @@ export default function UserHomePage() {
         setConfig(merged)
 
         try {
-          localStorage.setItem(
-            "test_config_superadmin",
-            JSON.stringify(merged)
-          )
+          localStorage.setItem("test_config_superadmin", JSON.stringify(merged))
         } catch {
           /* ignore quota errors */
         }
@@ -150,24 +199,30 @@ export default function UserHomePage() {
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
-      setNow(new Date())
+      setNow(getSyncedNow())
       void fetchConfig()
+      void runTimeSync(false)
     })
 
     const timeInterval = setInterval(() => {
-      setNow(new Date())
+      setNow(getSyncedNow())
     }, 1000)
 
     const configInterval = setInterval(() => {
       void fetchConfig()
     }, 60000)
 
+    const timeSyncInterval = setInterval(() => {
+      void runTimeSync(false)
+    }, 5 * 60_000)
+
     return () => {
       window.cancelAnimationFrame(frameId)
       clearInterval(timeInterval)
       clearInterval(configInterval)
+      clearInterval(timeSyncInterval)
     }
-  }, [fetchConfig])
+  }, [fetchConfig, runTimeSync])
 
   const mounted = now !== null
 
@@ -178,7 +233,8 @@ export default function UserHomePage() {
 
   const shouldDisableButton =
     (sudahAbsen && config.ENABLE_ONE_TIME_SCAN) ||
-    (mounted && isRestrictionEnabled && !isTimeAllowed)
+    (mounted && isRestrictionEnabled && !isTimeAllowed) ||
+    timeSync?.isSkewed === true
 
   const summary = getSummary(data)
 
@@ -541,6 +597,40 @@ export default function UserHomePage() {
 
         {/* ── Tombol Scan QR ── */}
         <div className="flex flex-col gap-2">
+          {timeSync?.isSkewed && (
+            <div className="flex flex-col gap-2 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                    Waktu perangkat tidak sinkron dengan server
+                  </p>
+                  <p className="text-[11px] leading-tight text-amber-700/90 dark:text-amber-300/90">
+                    Jam di HP Anda {formatSkew(timeSync.offsetMs)} dibanding
+                    waktu server (WIB). Atur tanggal &amp; jam HP Anda ke mode{" "}
+                    <span className="font-semibold">
+                      Otomatis / Update dari Jaringan
+                    </span>
+                    , lalu tutup dan buka kembali halaman ini.
+                  </p>
+                  <p className="text-[10px] leading-tight text-amber-700/80 dark:text-amber-300/80">
+                    Batas toleransi selisih:{" "}
+                    {Math.round(TIME_WARN_THRESHOLD_MS / 1000)} detik. Tombol
+                    absensi akan dinonaktifkan sementara.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void runTimeSync(true)}
+                className="w-full self-start rounded-xl border-amber-500/40 text-[11px] text-amber-700 hover:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+              >
+                Sinkronkan Ulang Waktu
+              </Button>
+            </div>
+          )}
           <Button
             onClick={() => router.push("/user/scan")}
             disabled={mounted ? shouldDisableButton : false}
@@ -555,6 +645,10 @@ export default function UserHomePage() {
             />
             {!mounted ? (
               <span className="font-semibold">Scan QR untuk Absen</span>
+            ) : timeSync?.isSkewed ? (
+              <span className="text-xs font-semibold">
+                Sinkronisasi Waktu Dibutuhkan
+              </span>
             ) : isRestrictionEnabled && !isTimeAllowed ? (
               <span className="text-xs font-semibold">
                 {config.ALLOW_ANY_DAY && !config.ALLOW_ANY_TIME
@@ -573,6 +667,11 @@ export default function UserHomePage() {
           {!mounted ? (
             <p className="text-center text-xs text-muted-foreground">
               Arahkan kamera ke QR Code yang tersedia di masjid
+            </p>
+          ) : timeSync?.isSkewed ? (
+            <p className="text-center text-xs font-semibold text-amber-600 dark:text-amber-400">
+              Atur jam HP ke Otomatis lalu tekan &quot;Sinkronkan Ulang
+              Waktu&quot;
             </p>
           ) : isRestrictionEnabled && !isTimeAllowed ? (
             <p className="text-center text-xs font-semibold text-destructive">

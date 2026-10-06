@@ -346,7 +346,9 @@ export default function SuperadminConfigPage() {
                       {item.label}
                     </p>
                     <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                      {item.description}
+                      {item.key === "ENABLE_TIME_RESTRICTION"
+                        ? `Jika aktif, absensi hanya bisa dilakukan pada hari Jumat pukul ${String(config.ABSENSI_START_HOUR ?? 12).padStart(2, "0")}:00 - ${String(config.ABSENSI_END_HOUR ?? 14).padStart(2, "0")}:00 WIB.`
+                        : item.description}
                     </p>
                     {showWarning && (
                       <div className="mt-1.5 flex items-center gap-1.5">

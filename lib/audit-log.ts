@@ -106,7 +106,6 @@ export async function createAuditLog(
       target_user_id: targetId ?? null,
       target_type: targetType ?? null,
       description: finalDescription,
-      created_at: new Date().toISOString(),
     }
     const { error } = await supabase.from("audit_logs").insert(payload)
 

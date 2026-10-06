@@ -72,13 +72,42 @@ export const POST = withRequestMetrics(async function POST(req: NextRequest) {
 
     const supabase = await createServiceClient()
 
+    const BOOL_KEYS: readonly (keyof TestConfig)[] = [
+      "ENABLE_SIMULATION",
+      "ENABLE_ONE_TIME_SCAN",
+      "ENABLE_TIME_RESTRICTION",
+      "ENABLE_FORGOT_SIGN_IN",
+      "EXPORT_ALL_DATES",
+      "ALLOW_ANY_DAY",
+      "ALLOW_ANY_TIME",
+      "MAINTENANCE_MODE",
+    ] as const
+
+    const NUMERIC_KEYS: readonly (keyof TestConfig)[] = [
+      "ABSENSI_START_HOUR",
+      "ABSENSI_END_HOUR",
+    ] as const
+
     const body: Partial<TestConfig> = Object.keys(DEFAULT_CONFIG).reduce(
       (acc, k) => {
         const key = k as keyof TestConfig
-        if (rawBody[key] !== undefined) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(acc as any)[key] = rawBody[key]
+        const raw = rawBody[key]
+        if (raw === undefined) return acc
+
+        if ((BOOL_KEYS as readonly string[]).includes(key)) {
+          ;(acc as Record<string, unknown>)[key] =
+            typeof raw === "string" ? raw === "true" : Boolean(raw)
+          return acc
         }
+
+        if ((NUMERIC_KEYS as readonly string[]).includes(key)) {
+          const parsed = Number(raw)
+          const clamped = Number.isFinite(parsed) ? Math.max(0, Math.min(23, Math.trunc(parsed))) : 12
+          ;(acc as Record<string, unknown>)[key] = clamped
+          return acc
+        }
+
+        ;(acc as Record<string, unknown>)[key] = raw
         return acc
       },
       {} as Partial<TestConfig>

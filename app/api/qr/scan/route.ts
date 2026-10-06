@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient"
 import { getGlobalConfig } from "@/lib/server-config"
-import { isWithinTimeRestriction } from "@/lib/client-config"
+import { getTimeRestrictionError } from "@/lib/client-config"
 import {
   requireAdminSession,
   requireAuthenticatedSession,
@@ -13,12 +13,39 @@ import { createAuditLog } from "@/lib/audit-log"
 import { createServiceClient } from "@/lib/supabaseServer"
 
 export const dynamic = "force-dynamic"
+const MAX_ALLOWED_CLIENT_SKEW_MS = 5 * 60_000
 
 function toLocalDateString(d: Date): string {
   const yyyy = d.getFullYear()
   const mm = String(d.getMonth() + 1).padStart(2, "0")
   const dd = String(d.getDate()).padStart(2, "0")
   return `${yyyy}-${mm}-${dd}`
+}
+
+function toWIBLocalDateString(d: Date): string {
+  const wibMs = d.getTime() + 7 * 60 * 60 * 1000
+  const wib = new Date(wibMs)
+  const yyyy = wib.getUTCFullYear()
+  const mm = String(wib.getUTCMonth() + 1).padStart(2, "0")
+  const dd = String(wib.getUTCDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function toWIBTimeString(d: Date): string {
+  const wibMs = d.getTime() + 7 * 60 * 60 * 1000
+  const wib = new Date(wibMs)
+  return [
+    String(wib.getUTCHours()).padStart(2, "0"),
+    String(wib.getUTCMinutes()).padStart(2, "0"),
+    String(wib.getUTCSeconds()).padStart(2, "0"),
+  ].join(":")
+}
+
+function readIntHeader(headers: Headers, key: string): number | null {
+  const raw = headers.get(key)
+  if (raw == null) return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? Math.trunc(n) : null
 }
 
 function isValidDate(value: unknown): value is string {
@@ -61,6 +88,8 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
   const rl = await checkRateLimitPreset({ req, scope: "qr-scan" })
   if (!rl.allowed) return rateLimitErrorResponse(rl.resetAt)
 
+  const serverReceivedAt = new Date()
+
   try {
     const body = await req.json()
     const { token, status, user_id, qr_token, tanggal } = body
@@ -74,6 +103,29 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
 
     if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
       return Response.json({ error: "User ID tidak valid" }, { status: 400 })
+    }
+
+    if (!isAdminUpdate) {
+      const clientEpoch = readIntHeader(req.headers, "X-Client-Epoch")
+      const reportedSkew = readIntHeader(req.headers, "X-Client-AbsSkew-Ms")
+      if (clientEpoch != null) {
+        const serverSkew = Math.abs(serverReceivedAt.getTime() - clientEpoch)
+        const effectiveSkew =
+          reportedSkew != null && reportedSkew > serverSkew
+            ? reportedSkew
+            : serverSkew
+        if (effectiveSkew > MAX_ALLOWED_CLIENT_SKEW_MS) {
+          const mins = Math.round(effectiveSkew / 60_000)
+          return Response.json(
+            {
+              error: `Jam perangkat tidak sinkron (selisih ~${mins} menit). Atur tanggal & jam perangkat Anda ke mode Otomatis / Update dari Jaringan, lalu coba lagi.`,
+              skewMs: effectiveSkew,
+              maxAllowedMs: MAX_ALLOWED_CLIENT_SKEW_MS,
+            },
+            { status: 403 }
+          )
+        }
+      }
     }
 
     let isAdminTestingScan = false
@@ -240,36 +292,18 @@ export const POST = withRequestMetrics(async function POST(req: Request) {
       }
     }
 
-    const now = new Date()
-    if (!isAdminUpdate && !isWithinTimeRestriction(now, config)) {
-      const day  = now.getDay()
-      const hour = now.getHours()
-      const start = config.ABSENSI_START_HOUR ?? 12
-      const end   = config.ABSENSI_END_HOUR   ?? 14
-
-      if (!config.ALLOW_ANY_DAY && day !== 5) {
-        return Response.json(
-          { error: "Absensi hanya tersedia di hari Jumat" },
-          { status: 403 }
-        )
-      }
-
-      if (!config.ALLOW_ANY_TIME && (hour < start || hour >= end)) {
-        return Response.json(
-          { error: `Absensi hanya tersedia pukul ${String(start).padStart(2,"0")}:00 - ${String(end).padStart(2,"0")}:00 WIB` },
-          { status: 403 }
-        )
+    const now = serverReceivedAt
+    if (!isAdminUpdate) {
+      const restrictionError = getTimeRestrictionError(now, config)
+      if (restrictionError) {
+        return Response.json({ error: restrictionError }, { status: 403 })
       }
     }
 
     const targetDate =
-      isAdminUpdate && tanggal ? tanggal : toLocalDateString(now)
+      isAdminUpdate && tanggal ? tanggal : toWIBLocalDateString(now)
 
-    const waktu = [
-      now.getHours().toString().padStart(2, "0"),
-      now.getMinutes().toString().padStart(2, "0"),
-      now.getSeconds().toString().padStart(2, "0"),
-    ].join(":")
+    const waktu = toWIBTimeString(now)
 
     const mappedStatus =
       status === "berhalangan"

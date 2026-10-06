@@ -1,5 +1,7 @@
 "use client"
 
+import "@/lib/secure-time"
+
 import { useEffect, useRef, useState, useCallback, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,12 +13,21 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  AlertTriangle,
 } from "lucide-react"
 import { BrowserQRCodeReader } from "@zxing/library"
 import { getActiveConfig } from "@/lib/client-config"
 import { getEffectiveUserAsync } from "@/lib/auth-client"
 import { useSiswaSessionGuard } from "@/lib/use-siswa-session-guard"
 import { SessionInvalidatedModal } from "@/components/SessionInvalidatedModal"
+import {
+  syncWithServerTime,
+  getStoredSyncStats,
+  formatSkew,
+  TIME_WARN_THRESHOLD_MS,
+  getSyncedNow,
+  type TimeSyncResult,
+} from "@/lib/secure-time"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type ScanState = "idle" | "scanning" | "scanned" | "pilih" | "success" | "error"
@@ -108,6 +119,38 @@ function ScanQRContent() {
   const [absenNama, setAbsenNama] = useState<string>("")
   const [successRedirect, setSuccessRedirect] = useState<string>("/user/home")
   const [retryKey, setRetryKey] = useState(0)
+
+  const [timeSync, setTimeSync] = useState<TimeSyncResult | null>(() => {
+    const s = getStoredSyncStats()
+
+    if (s.ageMs < 24 * 60 * 60_000) {
+      const nowMs = Date.now()
+
+      return {
+        offsetMs: s.offsetMs,
+        absSkewMs: s.absSkewMs,
+        deviceTimeMs: nowMs,
+        serverTimeMs: nowMs + s.offsetMs,
+        isSkewed: s.isSkewed,
+        isFresh: s.isFresh,
+      }
+    }
+
+    return null
+  })
+
+  const isSyncingTimeRef = useRef(false)
+
+  const runTimeSync = useCallback(async (force = false) => {
+    if (isSyncingTimeRef.current) return
+    isSyncingTimeRef.current = true
+    try {
+      const r = await syncWithServerTime(force)
+      setTimeSync(r)
+    } finally {
+      isSyncingTimeRef.current = false
+    }
+  }, [])
 
   const stopScanning = useCallback(() => {
     if (codeReaderRef.current) {
@@ -335,6 +378,7 @@ function ScanQRContent() {
     const controller = new AbortController()
 
     const frameId = window.requestAnimationFrame(() => {
+      void runTimeSync(false)
       if (token) {
         handleScanSuccess()
       } else {
@@ -342,8 +386,13 @@ function ScanQRContent() {
       }
     })
 
+    const timeSyncInterval = setInterval(() => {
+      void runTimeSync(false)
+    }, 5 * 60_000)
+
     return () => {
       window.cancelAnimationFrame(frameId)
+      clearInterval(timeSyncInterval)
       controller.abort()
       stopScanning()
     }
@@ -353,27 +402,43 @@ function ScanQRContent() {
     retryKey,
     handleScanSuccess,
     startScanning,
+    runTimeSync,
     stopScanning,
   ])
 
   // ─── Konfirmasi pilihan ───────────────────────────────────────────────────────
   const handleKonfirmasi = async () => {
     if (!pilihan || !token) return
+    if (timeSync?.isSkewed) return
 
     try {
       const session = await getEffectiveUserAsync()
       if (!session)
         throw new Error("Sesi tidak ditemukan. Silakan login kembali.")
 
+      const syncStats =
+        timeSync ??
+        (() => {
+          const s = getStoredSyncStats()
+          return {
+            offsetMs: s.offsetMs,
+            absSkewMs: s.absSkewMs,
+            isSkewed: s.isSkewed,
+          }
+        })()
+
       const res = await fetch("/api/qr/scan", {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
+          "X-Client-Epoch": String(Date.now()),
+          "X-Client-Skew-Ms": String(syncStats.offsetMs),
+          "X-Client-AbsSkew-Ms": String(syncStats.absSkewMs),
         },
         body: JSON.stringify({
           token,
-          status: pilihan, // hadir / berhalangan
+          status: pilihan,
           user_id: session.id,
         }),
       })
@@ -656,6 +721,35 @@ function ScanQRContent() {
         {/* ── PILIH STATUS ── */}
         {scanState === "pilih" && (
           <div className="flex w-full flex-col gap-5">
+            {/* Warning skew waktu */}
+            {timeSync?.isSkewed && (
+              <div className="flex flex-col gap-2 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-bold text-amber-300">
+                      Waktu perangkat tidak sinkron
+                    </p>
+                    <p className="text-[11px] leading-tight text-amber-200/80">
+                      Jam HP Anda {formatSkew(timeSync.offsetMs)} dibanding
+                      server. Atur ke Otomatis / Update dari Jaringan. Batas
+                      toleransi: {Math.round(TIME_WARN_THRESHOLD_MS / 1000)}{" "}
+                      detik.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void runTimeSync(true)}
+                  className="w-full self-start rounded-xl border-amber-400/40 bg-transparent text-[11px] text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
+                >
+                  Sinkronkan Ulang Waktu
+                </Button>
+              </div>
+            )}
+
             {/* Header */}
             <div className="text-center">
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border-2 border-teal-500/50 bg-teal-500/20">
@@ -679,8 +773,12 @@ function ScanQRContent() {
                   <button
                     key={key}
                     onClick={() => setPilihan(key)}
-                    className={`flex w-full items-center gap-4 rounded-2xl border-2 p-4 text-left transition-all active:scale-[0.98] ${
-                      isSelected ? c.active : c.inactive
+                    disabled={timeSync?.isSkewed === true}
+                    className={`flex w-full items-center gap-4 rounded-2xl border-2 p-4 text-left transition-all ${
+                      timeSync?.isSkewed
+                        ? "cursor-not-allowed border-white/5 bg-white/5 opacity-50"
+                        : "active:scale-[0.98] " +
+                          (isSelected ? c.active : c.inactive)
                     }`}
                   >
                     <div
@@ -715,7 +813,7 @@ function ScanQRContent() {
 
             {/* Waktu */}
             <p className="text-center text-xs text-white/30">
-              {new Date().toLocaleTimeString("id-ID", {
+              {getSyncedNow().toLocaleTimeString("id-ID", {
                 hour: "2-digit",
                 minute: "2-digit",
               })}{" "}
@@ -732,7 +830,7 @@ function ScanQRContent() {
               </button>
               <button
                 onClick={handleKonfirmasi}
-                disabled={!pilihan}
+                disabled={!pilihan || timeSync?.isSkewed === true}
                 className={`h-12 flex-2 grow-2 rounded-2xl text-sm font-bold text-white shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30 ${
                   pilihan ? PILIHAN_CONFIG[pilihan].btnClass : "bg-white/20"
                 }`}
