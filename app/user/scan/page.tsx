@@ -218,11 +218,35 @@ function ScanQRContent() {
       }
 
       try {
+        // iOS-friendly constraints dengan exact untuk mode environment agar lebih reliable
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream
+        
         const constraints: MediaStreamConstraints = {
-          video: { facingMode: { ideal: mode } },
+          video: isIOS && mode === "environment" 
+            ? {
+                facingMode: { exact: "environment" }, // iOS butuh exact
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              }
+            : {
+                facingMode: { ideal: mode },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              },
           audio: false,
         }
-        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        
+        let stream: MediaStream
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints)
+        } catch (constraintErr) {
+          // Fallback: jika exact facingMode gagal (misalnya perangkat satu kamera), coba tanpa exact
+          console.warn("Exact facingMode failed, falling back to ideal:", constraintErr)
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: mode } },
+            audio: false,
+          })
+        }
 
         if (signal.aborted) {
           stream.getTracks().forEach((t) => t.stop())
@@ -238,14 +262,16 @@ function ScanQRContent() {
           throw new Error("Video element tidak tersedia")
         }
 
-        // Pastikan atribut autoplay & muted sebelum assign srcObject
+        // iOS membutuhkan atribut ini SEBELUM srcObject diset
         videoEl.setAttribute("playsinline", "true")
         videoEl.setAttribute("webkit-playsinline", "true")
+        videoEl.setAttribute("x-webkit-airplay", "deny")
         videoEl.muted = true
         videoEl.playsInline = true
+        videoEl.autoplay = true
         videoEl.srcObject = stream
 
-        // Tunggu metadata video siap sebelum mencoba play()
+        // Tunggu metadata video siap dengan timeout lebih panjang untuk iOS
         await new Promise<void>((resolve) => {
           const v = videoEl
           let settled = false
@@ -254,24 +280,27 @@ function ScanQRContent() {
             if (settled) return
             settled = true
             v.removeEventListener("loadedmetadata", onLoaded)
+            v.removeEventListener("canplay", onCanPlay)
             v.removeEventListener("error", onErr)
             signal.removeEventListener("abort", onAbort)
             resolve()
           }
 
           const onLoaded = () => finish()
+          const onCanPlay = () => finish()
           const onErr = () => finish()
           const onAbort = () => finish()
 
           v.addEventListener("loadedmetadata", onLoaded, { once: true })
+          v.addEventListener("canplay", onCanPlay, { once: true })
           v.addEventListener("error", onErr, { once: true })
           signal.addEventListener("abort", onAbort, { once: true })
 
-          // Fallback jika event tidak pernah fire (sudah siap / timeout)
+          // Fallback jika event tidak pernah fire (sudah siap / timeout lebih panjang untuk iOS)
           if (v.readyState >= 1) {
             finish()
           } else {
-            setTimeout(finish, 2000)
+            setTimeout(finish, 3000) // 3 detik untuk iOS
           }
         })
 
@@ -280,15 +309,20 @@ function ScanQRContent() {
           return
         }
 
-        // Play video — ignore "interrupted" errors karna bukan critical failure
+        // Play video dengan error handling yang lebih baik untuk iOS
         try {
           const playPromise = videoEl.play()
           if (playPromise && typeof playPromise.catch === "function") {
-            playPromise.catch(() => {})
+            await playPromise.catch((err) => {
+              // iOS sering throw NotAllowedError di sini, tapi sebenarnya video tetap jalan
+              console.warn("Play promise rejected (might be OK on iOS):", err)
+            })
           }
-        } catch {}
+        } catch (err) {
+          console.warn("Play error (might be OK on iOS):", err)
+        }
 
-        // Tunggu event playing sebagai konfirmasi visual sudah berjalan
+        // Tunggu event playing atau canplay sebagai konfirmasi
         await new Promise<void>((resolve) => {
           const v = videoEl
           let settled = false
@@ -297,23 +331,27 @@ function ScanQRContent() {
             if (settled) return
             settled = true
             v.removeEventListener("playing", onPlaying)
+            v.removeEventListener("canplay", onCanPlay)
             v.removeEventListener("error", onErr)
             signal.removeEventListener("abort", onAbort)
             resolve()
           }
 
           const onPlaying = () => finish()
+          const onCanPlay = () => finish()
           const onErr = () => finish()
           const onAbort = () => finish()
 
           v.addEventListener("playing", onPlaying, { once: true })
+          v.addEventListener("canplay", onCanPlay, { once: true })
           v.addEventListener("error", onErr, { once: true })
           signal.addEventListener("abort", onAbort, { once: true })
 
-          if (v.readyState >= 4 && !v.paused && v.currentTime > 0) {
+          // Check jika sudah ready
+          if ((v.readyState >= 3 && !v.paused) || v.currentTime > 0) {
             finish()
           } else {
-            setTimeout(finish, 1500)
+            setTimeout(finish, 2000) // Timeout lebih panjang untuk iOS
           }
         })
 
@@ -352,7 +390,7 @@ function ScanQRContent() {
         if (!signal.aborted) setCameraReady(true)
       } catch (err: unknown) {
         if (signal.aborted) return
-        console.error(err)
+        console.error("Camera error:", err)
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((t) => t.stop())
           streamRef.current = null
@@ -364,10 +402,22 @@ function ScanQRContent() {
           videoRef.current.srcObject = null
         }
         setScanState("error")
-        const msg =
-          err instanceof Error
-            ? err.message
-            : "Gagal mengakses kamera. Pastikan izin sudah diberikan."
+        
+        // Error message lebih informatif untuk iOS
+        let msg = "Gagal mengakses kamera."
+        if (err instanceof Error) {
+          if (err.name === "NotAllowedError") {
+            msg = "Izin kamera ditolak. Buka Pengaturan Safari → izinkan akses kamera untuk situs ini."
+          } else if (err.name === "NotFoundError") {
+            msg = "Kamera tidak ditemukan. Pastikan perangkat memiliki kamera belakang."
+          } else if (err.name === "NotReadableError") {
+            msg = "Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain dan coba lagi."
+          } else if (err.name === "OverconstrainedError") {
+            msg = "Kamera tidak mendukung mode yang diminta. Coba ganti kamera."
+          } else {
+            msg = err.message || "Terjadi kesalahan saat mengakses kamera."
+          }
+        }
         setErrorMsg(msg)
       }
     },
@@ -507,6 +557,8 @@ function ScanQRContent() {
   }, [torch])
 
   const switchCamera = useCallback(() => {
+    // iOS: jika sedang environment, switch ke user (front camera)
+    // front camera tidak perlu exact facingMode
     const next = facingMode === "environment" ? "user" : "environment"
     setFacingMode(next)
   }, [facingMode])
@@ -531,12 +583,16 @@ function ScanQRContent() {
         open={showSessionModal}
         onLogout={handleSessionLogout}
       />
-      {/* Camera feed */}
+      {/* Camera feed — atribut lengkap agar iOS Safari mau autoplay */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
         ref={videoRef}
         className="absolute inset-0 h-full w-full object-cover"
         playsInline
         muted
+        autoPlay
+        webkit-playsinline="true"
+        x-webkit-airplay="deny"
       />
 
       {/* Freeze frame canvas — tampil hanya saat state scanned */}

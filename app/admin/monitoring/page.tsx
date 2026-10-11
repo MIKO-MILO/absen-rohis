@@ -537,7 +537,7 @@ export default function MonitoringPage() {
                 <div className="flex w-full items-center gap-3 md:w-auto">
                   <button
                     onClick={() => setShowFilterModal(true)}
-                    className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-md md:w-32 md:flex-none"
+                    className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:shadow-md md:w-32 md:flex-none"
                     style={{
                       borderColor:
                         activeFilterCount > 0
@@ -646,13 +646,10 @@ export default function MonitoringPage() {
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-44 rounded-xl"
-                        >
+                        <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuLabel>Action</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
+                          <DropdownMenuLabel className="px-3 py-1.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                             Ubah Status
                           </DropdownMenuLabel>
                           {Object.entries(STATUS_META).map(([key, meta]) => (
@@ -661,10 +658,10 @@ export default function MonitoringPage() {
                               onClick={() =>
                                 handleStatusChange(item.id, key as AbsenStatus)
                               }
-                              className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
+                              className="cursor-pointer"
                             >
                               <div
-                                className={`h-2 w-2 rounded-full ${meta.dot}`}
+                                className={`h-2.5 w-2.5 rounded-full ${meta.dot}`}
                               />
                               {meta.label}
                             </DropdownMenuItem>
@@ -816,13 +813,10 @@ export default function MonitoringPage() {
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-44 rounded-xl"
-                          >
+                          <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuLabel>Action</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
+                            <DropdownMenuLabel className="px-3 py-1.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                               Ubah Status
                             </DropdownMenuLabel>
                             {Object.entries(STATUS_META).map(([key, meta]) => (
@@ -834,10 +828,10 @@ export default function MonitoringPage() {
                                     key as AbsenStatus
                                   )
                                 }
-                                className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
+                                className="cursor-pointer"
                               >
                                 <div
-                                  className={`h-2 w-2 rounded-full ${meta.dot}`}
+                                  className={`h-2.5 w-2.5 rounded-full ${meta.dot}`}
                                 />
                                 {meta.label}
                               </DropdownMenuItem>

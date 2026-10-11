@@ -441,7 +441,7 @@ export default function DataSiswaPage() {
               <div className="flex w-full items-center gap-3 md:w-auto">
                 <button
                   onClick={() => setShowFilterModal(true)}
-                  className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-md md:w-32 md:flex-none"
+                  className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:shadow-md md:w-32 md:flex-none"
                 >
                   <Filter className="h-4 w-4 transition-colors duration-200 group-hover:text-[#0d9488]" />
                   Filter
@@ -518,7 +518,7 @@ export default function DataSiswaPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="w-44 rounded-xl"
+                          className="w-48"
                         >
                           <DropdownMenuLabel>Action</DropdownMenuLabel>
                           <DropdownMenuSeparator />
@@ -526,26 +526,28 @@ export default function DataSiswaPage() {
                             onClick={() =>
                               router.push(`/admin/editpanitia?id=${s.id}`)
                             }
-                            className="cursor-pointer gap-2 rounded-lg text-xs"
+                            className="cursor-pointer"
                           >
-                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Pencil className="h-4 w-4 text-primary" />
                             Edit Panitia
                           </DropdownMenuItem>
                           {isSuperadmin && (
                             <DropdownMenuItem
                               onClick={() => handleImpersonate(s.id)}
-                              className="cursor-pointer gap-2 rounded-lg text-xs"
+                              className="cursor-pointer"
                             >
-                              <LogIn className="h-3.5 w-3.5 text-blue-600" />
+                              <LogIn className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                               Login Sebagai
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => openDeleteModal(s.id)}
-                            className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                            variant="destructive"
+                            className="cursor-pointer"
                           >
-                            <Trash2 className="h-3.5 w-3.5" /> Hapus Panitia
+                            <Trash2 className="h-4 w-4" />
+                            Hapus Panitia
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -700,7 +702,7 @@ export default function DataSiswaPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              className="w-40 rounded-xl"
+                              className="w-48"
                             >
                               <DropdownMenuLabel>Action</DropdownMenuLabel>
                               <DropdownMenuSeparator />
@@ -708,25 +710,27 @@ export default function DataSiswaPage() {
                                 onClick={() =>
                                   router.push(`/admin/editpanitia?id=${s.id}`)
                                 }
-                                className="cursor-pointer gap-2 rounded-lg text-xs"
+                                className="cursor-pointer"
                               >
-                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                <Pencil className="h-4 w-4 text-primary" />
                                 Edit Panitia
                               </DropdownMenuItem>
                               {isSuperadmin && (
                                 <DropdownMenuItem
                                   onClick={() => handleImpersonate(s.id)}
-                                  className="cursor-pointer gap-2 rounded-lg text-xs"
+                                  className="cursor-pointer"
                                 >
-                                  <LogIn className="h-3.5 w-3.5 text-blue-600" />
+                                  <LogIn className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                   Login Sebagai
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() => openDeleteModal(s.id)}
-                                className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                variant="destructive"
+                                className="cursor-pointer"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="h-4 w-4" />
                                 Hapus Panitia
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -839,49 +843,74 @@ export default function DataSiswaPage() {
           if (!open) setDeletingId(null)
         }}
       >
-        <DialogContent className="max-w-[320px] rounded-3xl p-6">
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
-              <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-3xl p-0">
+          {/* Header gradient */}
+          <div className="relative flex flex-col items-center bg-gradient-to-b from-red-50 to-background px-6 pt-8 pb-5 text-center dark:from-red-950/30">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-md ring-1 ring-red-100 dark:bg-red-950/60 dark:ring-red-900/40">
+              <Trash2 className="h-7 w-7 text-red-500 dark:text-red-400" />
             </div>
-            <DialogHeader className="space-y-2">
-              <DialogTitle className="text-xl font-bold">
-                Hapus Data {deletingId ? "Panitia" : "Terpilih"}?
+            <DialogHeader className="space-y-1.5">
+              <DialogTitle className="text-lg font-bold tracking-tight">
+                {deletingId ? "Hapus Data Panitia?" : `Hapus ${selected.size} Panitia?`}
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                {deletingId ? (
-                  <>
-                    Apakah Anda yakin ingin menghapus data panitia{" "}
-                    <span className="font-bold text-foreground">
-                      {data.find((s) => s.id === deletingId)?.nama}
-                    </span>
-                    ? Tindakan ini tidak dapat dibatalkan.
-                  </>
-                ) : (
-                  <>
-                    Anda akan menghapus{" "}
-                    <span className="font-bold text-foreground">
-                      {selected.size}
-                    </span>{" "}
-                    data panitia secara permanen. Tindakan ini tidak dapat
-                    dibatalkan.
-                  </>
-                )}
+                Tindakan ini permanen dan tidak dapat dibatalkan.
               </DialogDescription>
             </DialogHeader>
-            <div className="mt-6 flex w-full gap-3">
+          </div>
+
+          {/* Body */}
+          <div className="px-6 pb-6">
+            {deletingId ? (
+              (() => {
+                const target = data.find((s) => s.id === deletingId)
+                return target ? (
+                  <div className="mb-5 flex items-center gap-3 rounded-2xl border border-border bg-muted/40 p-3">
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+                        {target.nama.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {target.nama}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {target.divisi} · {target.email}
+                      </p>
+                    </div>
+                  </div>
+                ) : null
+              })()
+            ) : (
+              <div className="mb-5 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50/60 p-3 dark:border-red-900/40 dark:bg-red-950/20">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/30">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                    {selected.size} panitia akan dihapus
+                  </p>
+                  <p className="text-xs text-red-500/80 dark:text-red-500/60">
+                    Semua data terkait akan ikut terhapus
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
               <Button
                 variant="outline"
                 onClick={() => setShowDeleteModal(false)}
-                className="rounded-2x flex-1 border-border py-6 font-semibold"
+                className="flex-1 rounded-xl border-border py-5 font-semibold"
               >
                 Batal
               </Button>
               <Button
-                variant="destructive"
                 onClick={confirmDelete}
-                className="rounded-2x flex-1 bg-red-600 py-6 font-semibold text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                className="flex-1 gap-2 rounded-xl bg-red-600 py-5 font-semibold text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
               >
+                <Trash2 className="h-4 w-4" />
                 Hapus
               </Button>
             </div>

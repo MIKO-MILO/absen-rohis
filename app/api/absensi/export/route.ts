@@ -43,6 +43,10 @@ function toLocalDateString(d: Date): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
+// Logo di-resize ke tinggi maksimum agar tidak menggembungkan ukuran file Excel.
+// 1288×1600 → ~97×120px (rasio tetap). Kalau tetap pakai ukuran asli, per sheet +2–4 MB.
+const LOGO_MAX_HEIGHT = 120 // px — cukup tajam untuk print, tapi ~98% lebih kecil dari aslinya
+
 async function getCachedLogo(
   key: "left" | "right",
   cwd: string
@@ -55,12 +59,21 @@ async function getCachedLogo(
     const logoPath = path.join(cwd, "public", "images", fileName)
     if (!fs.existsSync(logoPath)) return undefined
     const buf = fs.readFileSync(logoPath)
-    const base64 = buf.toString("base64")
-    const meta = await sharp(buf).metadata()
-    const width: number | undefined = meta.width
-    const height: number | undefined = meta.height
-    // Only call sharp once per logo (cache width/height)
-    const result = { base64, width, height }
+
+    // Resize logo agar tidak membengkakkan ukuran XLSX
+    // sharp.resize({ height }) mempertahankan aspect ratio secara otomatis
+    const resized = await sharp(buf)
+      .resize({ height: LOGO_MAX_HEIGHT, withoutEnlargement: true })
+      .png({ compressionLevel: 9, quality: 90 })
+      .toBuffer()
+
+    const meta = await sharp(resized).metadata()
+    const base64 = resized.toString("base64")
+    const result = {
+      base64,
+      width: meta.width,
+      height: meta.height,
+    }
     LOGO_CACHE.set(cacheKey, result)
     return result
   } catch {
@@ -163,7 +176,7 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
       telepon:
         "Telepon (0341) 353798, Faksimile (0341) 363099, Laman www.smkn4malang.sch.id, Pos-el mail@smkn4malang.sch.id",
       tahunPelajaran: tahun,
-      waliKelas: "Oktavia Eko Susanti, S.Pd.",
+      waliKelas: "Sulaimah, S.Pd.I., Gr.",
       nipWaliKelas: "19781005 201001 2 014",
       kota: "Malang",
       leftLogoBase64: leftLogo?.base64,
@@ -240,7 +253,7 @@ export const GET = withRequestMetrics(async function GET(req: NextRequest) {
       throw err
     }
 
-    // Safety cap response buffer size: >10MB suggests something wrong
+    // Safety cap response buffer size: setelah repack kompresi level 9 ukuran jauh lebih kecil
     if (buffer.length > 50 * 1024 * 1024) {
       return exportTooLargeResponse(
         `File hasil export terlalu besar (${Math.round(buffer.length / (1024 * 1024))}MB). Persempit filter tanggal atau pecah per kelas.`

@@ -533,7 +533,7 @@ export default function DataAbsenPage() {
               <div className="flex w-full items-center gap-3 md:w-auto">
                 <button
                   onClick={() => setShowFilterModal(true)}
-                  className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-md md:w-32 md:flex-none"
+                  className="group relative flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-xs font-bold text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:shadow-md md:w-32 md:flex-none"
                 >
                   <Filter className="h-4 w-4 transition-colors duration-200 group-hover:text-[#0d9488]" />
                   Filter
@@ -617,11 +617,11 @@ export default function DataAbsenPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="end"
-                        className="w-44 rounded-xl"
+                        className="w-48"
                       >
                         <DropdownMenuLabel>Action</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
+                        <DropdownMenuLabel className="px-3 py-1.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                           Ubah Status
                         </DropdownMenuLabel>
                         {Object.entries(STATUS_META).map(([key, meta]) => (
@@ -630,10 +630,10 @@ export default function DataAbsenPage() {
                             onClick={() =>
                               handleStatusChange(s.id, key as AbsenStatus)
                             }
-                            className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
+                            className="cursor-pointer"
                           >
                             <div
-                              className={`h-2 w-2 rounded-full ${meta.dot}`}
+                              className={`h-2.5 w-2.5 rounded-full ${meta.dot}`}
                             />
                             {meta.label}
                           </DropdownMenuItem>
@@ -641,9 +641,11 @@ export default function DataAbsenPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => openDeleteModal(s.id)}
-                          className="flex cursor-pointer items-center gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                          variant="destructive"
+                          className="cursor-pointer"
                         >
-                          <Trash2 className="h-3.5 w-3.5" /> Hapus Record
+                          <Trash2 className="h-4 w-4" />
+                          Hapus Record
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -779,11 +781,11 @@ export default function DataAbsenPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-44 rounded-xl"
+                            className="w-48"
                           >
                             <DropdownMenuLabel>Action</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase">
+                            <DropdownMenuLabel className="px-3 py-1.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                               Ubah Status
                             </DropdownMenuLabel>
                             {Object.entries(STATUS_META).map(([key, meta]) => (
@@ -792,10 +794,10 @@ export default function DataAbsenPage() {
                                 onClick={() =>
                                   handleStatusChange(s.id, key as AbsenStatus)
                                 }
-                                className="flex cursor-pointer items-center gap-2 rounded-lg text-xs"
+                                className="cursor-pointer"
                               >
                                 <div
-                                  className={`h-2 w-2 rounded-full ${meta.dot}`}
+                                  className={`h-2.5 w-2.5 rounded-full ${meta.dot}`}
                                 />
                                 {meta.label}
                               </DropdownMenuItem>
@@ -803,9 +805,11 @@ export default function DataAbsenPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => openDeleteModal(s.id)}
-                              className="flex cursor-pointer items-center gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                              variant="destructive"
+                              className="cursor-pointer"
                             >
-                              <Trash2 className="h-3.5 w-3.5" /> Hapus Record
+                              <Trash2 className="h-4 w-4" />
+                              Hapus Record
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
